@@ -1,0 +1,154 @@
+[Proveedor] 1 --- N [Producto] 
+     │                  │
+     └--- N [OrdenCompra] --- 1 [Departamento]
+                │
+                └--- M [OrdenProducto] --- N [Producto]
+                 (Detalles de productos en la orden)
+
+[OrdenCompra] 1 --- N [Empleado] (Emisor y Aprobador)
+     │
+     └--- N [CamaradeIndustriales] (Datos de la Cámara de Industriales)
+
+[Empleado] 1 --- N [Cargo]
+     │
+     └--- M [EmpleadoCargoHistorial] --- N [Cargo]
+     (Historial de cargos del empleado)
+
+[Empleado] 1 --- 1 [Usuario] (Relación de usuario a empleado)
+
+Relaciones entre las tablas
+Proveedor ↔ Producto:
+Un proveedor puede proporcionar muchos productos. Relación 1:N entre Proveedor y Producto.
+
+OrdenCompra ↔ Proveedor:
+Una orden de compra se realiza a un proveedor. Relación 1:N entre Proveedor y OrdenCompra.
+
+OrdenCompra ↔ Departamento:
+Un departamento puede generar muchas órdenes de compra. Relación 1:N entre Departamento y OrdenCompra.
+
+OrdenCompra ↔ Producto (a través de OrdenProducto):
+Un producto puede estar en una o más órdenes de compra. Relación M:N entre OrdenCompra y Producto mediante la tabla intermedia OrdenProducto.
+
+Departamento ↔ Empleado:
+Un departamento puede tener muchos empleados. Relación 1:N entre Departamento y Empleado.
+
+Empleado ↔ Cargo:
+Un empleado puede tener varios cargos a lo largo del tiempo. Relación M:N entre Empleado y Cargo mediante la tabla intermedia EmpleadoCargoHistorial.
+
+Empleado ↔ Usuario:
+Un usuario está asociado a un empleado. Relación 1:1 entre Empleado y Usuario.
+
+---
+
+### **Entidades y Relaciones Finales**
+
+1. **Proveedor**  
+   - **Campos**: 
+     - `id` (PK)
+     - `nombre`
+     - `direccion`
+     - `rif`
+     - `telefono`
+     - `correo`
+     - `pagina_web`
+   - **Relaciones**: 
+     - Un proveedor puede estar relacionado con varios productos.  
+     - Un proveedor puede estar relacionado con muchas órdenes de compra.
+
+2. **Producto**  
+   - **Campos**:  
+     - `id` (PK)  
+     - `descripcion`  
+     - `precio_unitario`  
+     - `unidad` (Bs o USD)  
+     - `proveedor_id` (FK a Proveedor)
+   - **Relaciones**:  
+     - Un producto puede estar en una o más órdenes de compra (relación muchos a muchos con **OrdenCompra** a través de la tabla intermedia **OrdenProducto**).
+
+3. **OrdenCompra**  
+   - **Campos**:  
+     - `id` (PK)  
+     - `fecha_orden`  
+     - `numero_orden`  
+     - `estado` (Pendiente, Aprobada, Anulada, etc.)  
+     - `observaciones`  
+     - `factura` (archivo o enlace)  
+     - `proveedor_id` (FK a Proveedor)  
+     - `fecha_creacion`  
+     - `fecha_modificacion`  
+     - `fecha_eliminacion`  
+     - `status` (Activo/Eliminado)
+     - `changed_by` (FK a **Usuario**, que indica quién realizó el cambio)  
+   - **Relaciones**:  
+     - Un proveedor puede tener muchas órdenes de compra.  
+     - Un departamento puede emitir varias órdenes de compra.  
+     - Un producto puede estar en una o más órdenes de compra (relación muchos a muchos con **Producto**).
+
+4. **OrdenProducto** (Tabla intermedia para la relación M:N entre **OrdenCompra** y **Producto**)  
+   - **Campos**:  
+     - `id` (PK)  
+     - `orden_compra_id` (FK a **OrdenCompra**)  
+     - `producto_id` (FK a **Producto**)  
+     - `cantidad`
+   - **Relaciones**:  
+     - Relaciona productos con órdenes de compra.
+
+5. **Departamento**  
+   - **Campos**:  
+     - `id` (PK)  
+     - `nombre`  
+   - **Relaciones**:  
+     - Un departamento puede tener muchos empleados y muchas órdenes de compra.
+
+6. **Empleado** (La tabla **Persona** es renombrada a **Empleado**)  
+   - **Campos**:  
+     - `id` (PK)  
+     - `cedula`  
+     - `nombre`  
+     - `apellido`  
+     - `cargo_actual_id` (FK a **Cargo**)  
+     - `firma`  
+     - `departamento_id` (FK a **Departamento**)  
+   - **Relaciones**:  
+     - Un empleado pertenece a un solo departamento.  
+     - Un empleado puede tener muchos cargos a lo largo del tiempo, lo que se guarda en una tabla intermedia.
+
+7. **Cargo**  
+   - **Campos**:  
+     - `id` (PK)  
+     - `nombre`  
+     - `departamento_id` (FK a **Departamento**)
+   - **Relaciones**:  
+     - Un departamento puede tener muchos cargos.  
+     - Un cargo puede estar asociado a muchos empleados (relación 1:N entre **Cargo** y **Empleado**).
+
+8. **EmpleadoCargoHistorial** (Tabla intermedia para guardar el historial de cargos de los empleados)  
+   - **Campos**:  
+     - `id` (PK)  
+     - `empleado_id` (FK a **Empleado**)  
+     - `cargo_id` (FK a **Cargo**)  
+     - `fecha_inicio`  
+     - `fecha_fin` (si aplica)
+   - **Relaciones**:  
+     - Guarda el historial de cargos de un empleado a lo largo del tiempo (relación M:N entre **Empleado** y **Cargo**).
+
+9. **Usuario**  
+   - **Campos**:  
+     - `id` (PK)  
+     - `username`  
+     - `password`  
+     - `rol` (admin, usuario normal)
+   - **Relaciones**:  
+     - Un usuario puede estar relacionado con un solo **Empleado**.
+
+10. **CamaradeIndustriales**  
+    - **Campos**:  
+      - `id` (PK)  
+      - `nombre`  
+      - `direccion`  
+      - `web`  
+      - `correo`  
+      - `telefonos`  
+      - `rif`
+
+---

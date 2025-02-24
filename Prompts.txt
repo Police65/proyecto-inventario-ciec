@@ -1,0 +1,42 @@
+Hola, en estos momentos necesito desarrollar otra base de datos, para otra tesis, otro proyecto, en el cual
+estare trabajando a partir de ahora, la base de datos sera para la Camara de Industriales 
+del estado carabobo (CIEC), esta base de datos sera para desarrollar un sistema web (funcionara localmente)
+y en esta web se van a emitir las solicitudes de compra por los usuarios de los 
+diferentes departamentos, para todas las cosas que necesiten y hagan falta en el inventario 
+de sus departamentos correspondientes, una vez aprovadas las solicitudes por la gerencia
+se va a emitir una orden de compra, la cual va a ser impresa, y se hara utilizando el sistema web
+
+Por ahora lo unico que necesito es que me ayudes a hacer el modelo entidad relacion de esta base de datos
+para eso te dare varias entidades, te dare varios departamentos, te dare informacion
+por ahora no hagas nada hasta que te de la informacion, OJO quizas las cosas cambien a futuro
+y quizas haya nuevas entidades asi que ten en cuenta que podria cambiar un poco la base de datos
+esto sera una demo por ahora 
+
+A continuacion te proporciono la informacion: 
+
+Existe solicitud de compra y tambien existe orden de compra (que se genera cuando se logra la solicitud)
+Existe el area solicitante que seria el departamento que esta solicitando el producto
+tambien puede no solo solicitar un producto, sino un requerimiento por ejemplo "Solicitud para sonido Maraton industrial" 
+Debe haber nombre y apellido, firma, y cargo, de la persona que esta realizando la peticion en esa area
+Tambien estatudos de aprobado o no aprobado (la solicitud)
+Debe tener tambien nombre, firma, apellido y cargo de quien aprueba la solicitud, siempre sera la gerencia general
+Por su puesto todo debe llevar su fecha
+cada producto o requerimiento tiene una cantidad asi que debe haber cantidad, tambien debe haber 
+descripcion de la mercancia
+
+En la Orden de compra como tal, esta es la orden que se va a emitir para proporcionarla al proveedor
+
+aca cantidad de producto, descripcion de la mercancia, precio unitario (Debe especificarse si en Bs o en USD) y monto total (tambien debe especificarse si en Bs o USD)
+Debe haber observaciones 
+Nombre y firma de quien emite la orden y nombre y firma de quien la aprueba 
+Ademas debe estar la factura 
+Se debe especificar quien es el proveedor, cual es su direccion, rif, numero telefonico, la fecha 
+Cual es el numero de orden de compra, y a la hora de imprimir siempre estara la direccion, web, correo, telefax y rif de la Camara de industriales de carabobo 
+
+Zona Industrial Municipal norte- Av. Emesto L. Branger-Edif. Câmara de Industriales-Valencia-Venezuela Web:
+
+www.clec.org.ve- E-mail: logistica@ciec.org.ve- Telefax: (0241) 8341920-6170285-6170269
+
+Apartado 388 R.I.F. J-07510911-2 Ν.Ι.Τ. 0071436217
+
+Si requiero de algo mas te lo dire, la informacion la saque de una solicitud de compra y de una orde de compra real que me dieron como ejemplo 
