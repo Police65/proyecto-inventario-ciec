@@ -22,7 +22,6 @@
     </style>
 </head>
 <body class="bg-gray-100 font-family-karla flex">
-
     <!-- Sidebar -->
     <aside class="relative bg-sidebar h-screen w-64 hidden sm:block shadow-xl">
         <div class="p-6">
@@ -63,115 +62,9 @@
             </div>
         </header>
 
-        <!-- Formulario oculto por defecto -->
-        <div id="newRequestForm" class="leading-loose hidden flex items-center justify-center h-screen">
-            <form class="max-w-xl m-4 p-10 bg-white rounded shadow-xl w-full sm:w-96" style="max-height: 90vh; overflow-y: auto;">
-                <p class="text-gray-800 font-medium">Información de la solicitud</p>
-                
-                <!-- Contenedor para múltiples productos -->
-                <div id="productosContainer">
-                    <!-- Producto 1 -->
-                    <div class="producto">
-                        <div class="mt-2">
-                            <label class="block text-sm text-gray-600" for="product_name_1">Nombre del producto</label>
-                            <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="product_name_1" name="product_name_1" type="text" required placeholder="Nombre del producto">
-                        </div>
-                        <div class="mt-2">
-                            <label class="block text-sm text-gray-600" for="quantity_1">Cantidad</label>
-                            <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="quantity_1" name="quantity_1" type="number" required placeholder="Cantidad">
-                        </div>
-                        <div class="mt-2">
-                            <label class="block text-sm text-gray-600" for="supplier_1">Proveedor</label>
-                            <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="supplier_1" name="supplier_1" type="text" required placeholder="Nombre del proveedor">
-                        </div>
-                        <div class="mt-2">
-                            <label class="block text-sm text-gray-600" for="delivery_date_1">Fecha de entrega</label>
-                            <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="delivery_date_1" name="delivery_date_1" type="date" required>
-                        </div>
-                        <div class="mt-2">
-                            <label class="block text-sm text-gray-600" for="remarks_1">Observaciones</label>
-                            <textarea class="w-full px-5 py-2 text-gray-700 bg-gray-200 rounded" id="remarks_1" name="remarks_1" rows="3" placeholder="Detalles adicionales"></textarea>
-                        </div>
-                        <!-- Botón para eliminar producto -->
-                        <div class="mt-2">
-                            <button type="button" class="removeProductBtn px-4 py-2 text-white bg-red-500 rounded">Eliminar producto</button>
-                        </div>
-                        <hr class="my-4">
-                    </div>
-                </div>
-
-                <!-- Botón para agregar más productos -->
-                <div class="mt-4">
-                    <button type="button" id="addProductBtn" class="px-4 py-2 text-white bg-blue-500 rounded">Agregar otro producto</button>
-                </div>
-
-                <!-- Enviar -->
-                <div class="mt-4">
-                    <button class="px-4 py-2 text-white bg-gray-900 rounded" type="submit">Enviar solicitud</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Resto del contenido -->
-        <div class="w-full overflow-x-hidden border-t flex flex-col">
-            <main class="w-full flex-grow p-6">
-                <h1 class="text-3xl text-black pb-6">Panel Principal</h1>
-    
-                <div class="flex flex-wrap mt-6">
-                    <!-- Ordenes por Aprobación -->
-                    <div class="w-full lg:w-1/2 pr-0 lg:pr-2">
-                        <p class="text-xl pb-3 flex items-center">
-                            <i class="fas fa-check mr-3"></i> Ordenes Pendientes de Aprobación
-                        </p>
-                        <div class="p-6 bg-white">
-                            <!-- Aquí puedes agregar una representación gráfica o tabla -->
-                        </div>
-                    </div>
-                    <!-- Solicitudes de Compra -->
-                    <div class="w-full lg:w-1/2 pl-0 lg:pl-2 mt-12 lg:mt-0">
-                        <p class="text-xl pb-3 flex items-center">
-                            <i class="fas fa-list mr-3"></i> Solicitudes de Compra Recientes
-                        </p>
-                        <div class="p-6 bg-white">
-                            <!-- Aquí se agregan las solicitudes de compra recientes -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Lista de Solicitudes de Compra -->
-                <div class="w-full mt-12">
-                    <p class="text-xl pb-3 flex items-center">
-                        <i class="fas fa-box mr-3"></i> Solicitudes de Compra
-                    </p>
-                    <div class="bg-white overflow-auto">
-                        <table class="min-w-full bg-white">
-                            <thead class="bg-gray-800 text-white">
-                                <tr>
-                                    <th class="w-1/3 text-left py-3 px-4 uppercase font-semibold text-sm">Código</th>
-                                    <th class="w-1/3 text-left py-3 px-4 uppercase font-semibold text-sm">Descripción</th>
-                                    <th class="text-left py-3 px-4 uppercase font-semibold text-sm">Cantidad</th>
-                                    <th class="text-left py-3 px-4 uppercase font-semibold text-sm">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-gray-700">
-                                <!-- Aquí se mostrarían las filas con datos reales -->
-                                <tr>
-                                    <td class="w-1/3 text-left py-3 px-4">12345</td>
-                                    <td class="w-1/3 text-left py-3 px-4">Laptop HP</td>
-                                    <td class="text-left py-3 px-4">3</td>
-                                    <td class="text-left py-3 px-4">Pendiente</td>
-                                </tr>
-                                <tr class="bg-gray-200">
-                                    <td class="w-1/3 text-left py-3 px-4">12346</td>
-                                    <td class="w-1/3 text-left py-3 px-4">Monitor LG</td>
-                                    <td class="text-left py-3 px-4">2</td>
-                                    <td class="text-left py-3 px-4">Aprobada</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </main>
+        <!-- Contenedor para React -->
+        <div id="root" class="w-full overflow-x-hidden border-t flex flex-col">
+            <!-- React renderizará aquí -->
         </div>
     </div>
 
@@ -179,52 +72,8 @@
     <script>
         document.getElementById('newRequestBtn').addEventListener('click', function() {
             const form = document.getElementById('newRequestForm');
-            form.classList.toggle('hidden');
-        });
-
-        // Lógica para agregar más productos
-        let productCounter = 1;
-        document.getElementById('addProductBtn').addEventListener('click', function() {
-            productCounter++;
-            const newProduct = document.createElement('div');
-            newProduct.classList.add('producto');
-            newProduct.innerHTML = `
-                <div class="mt-2">
-                    <label class="block text-sm text-gray-600" for="product_name_${productCounter}">Nombre del producto</label>
-                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="product_name_${productCounter}" name="product_name_${productCounter}" type="text" required placeholder="Nombre del producto">
-                </div>
-                <div class="mt-2">
-                    <label class="block text-sm text-gray-600" for="quantity_${productCounter}">Cantidad</label>
-                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="quantity_${productCounter}" name="quantity_${productCounter}" type="number" required placeholder="Cantidad">
-                </div>
-                <div class="mt-2">
-                    <label class="block text-sm text-gray-600" for="supplier_${productCounter}">Proveedor</label>
-                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="supplier_${productCounter}" name="supplier_${productCounter}" type="text" required placeholder="Nombre del proveedor">
-                </div>
-                <div class="mt-2">
-                    <label class="block text-sm text-gray-600" for="delivery_date_${productCounter}">Fecha de entrega</label>
-                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="delivery_date_${productCounter}" name="delivery_date_${productCounter}" type="date" required>
-                </div>
-                <div class="mt-2">
-                    <label class="block text-sm text-gray-600" for="remarks_${productCounter}">Observaciones</label>
-                    <textarea class="w-full px-5 py-2 text-gray-700 bg-gray-200 rounded" id="remarks_${productCounter}" name="remarks_${productCounter}" rows="3" placeholder="Detalles adicionales"></textarea>
-                </div>
-                <!-- Botón para eliminar producto -->
-                <div class="mt-2">
-                    <button type="button" class="removeProductBtn px-4 py-2 text-white bg-red-500 rounded">Eliminar producto</button>
-                </div>
-                <hr class="my-4">
-            `;
-            document.getElementById('productosContainer').appendChild(newProduct);
-        });
-
-        // Lógica para eliminar productos
-        document.addEventListener('click', function(event) {
-            if (event.target.classList.contains('removeProductBtn')) {
-                const producto = event.target.closest('.producto');
-                if (producto) {
-                    producto.remove();
-                }
+            if (form) {
+                form.classList.toggle('hidden');
             }
         });
     </script>
