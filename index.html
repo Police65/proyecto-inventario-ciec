@@ -7,7 +7,7 @@
     <meta name="author" content="CIEC">
     <meta name="description" content="Sistema de gestión de solicitudes de compra para la Cámara de Industriales del Estado Carabobo">
 
-    <!-- Tailwind -->
+    <!-- Tailwind CSS via CDN -->
     <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
     <style>
         @import url('https://fonts.googleapis.com/css?family=Karla:400,700&display=swap');
@@ -24,7 +24,7 @@
 <body class="bg-gray-100 font-family-karla flex">
     <!-- Sidebar -->
     <aside class="relative bg-sidebar h-screen w-64 hidden sm:block shadow-xl">
-        <div class="p-6">
+        <div id="root" class="p-6">
             <a href="index.html" class="text-white text-3xl font-semibold uppercase hover:text-gray-300">Cámara de Industriales</a>
             <button id="newRequestBtn" class="w-full bg-white cta-btn font-semibold py-2 mt-5 rounded-br-lg rounded-bl-lg rounded-tr-lg shadow-lg hover:shadow-xl hover:bg-gray-300 flex items-center justify-center">
                 <i class="fas fa-plus mr-3"></i> Nueva solicitud
@@ -67,16 +67,7 @@
             <!-- React renderizará aquí -->
         </div>
     </div>
-
-    <!-- Scripts de la página -->
-    <script>
-        document.getElementById('newRequestBtn').addEventListener('click', function() {
-            const form = document.getElementById('newRequestForm');
-            if (form) {
-                form.classList.toggle('hidden');
-            }
-        });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0-beta.1/dist/umd/index.js"></script>
+ <!-- Scripts de la página -->
+ <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0-beta.1/dist/umd/index.js"></script>
 </body>
 </html>
