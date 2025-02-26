@@ -67,37 +67,48 @@
         <div id="newRequestForm" class="leading-loose hidden flex items-center justify-center h-screen">
             <form class="max-w-xl m-4 p-10 bg-white rounded shadow-xl w-full sm:w-96">
                 <p class="text-gray-800 font-medium">Información de la solicitud</p>
-                <!-- Nombre del producto -->
-                <div class="">
-                    <label class="block text-sm text-gray-600" for="product_name">Nombre del producto</label>
-                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="product_name" name="product_name" type="text" required placeholder="Nombre del producto">
+                
+                <!-- Contenedor para múltiples productos -->
+                <div id="productosContainer">
+                    <!-- Producto 1 -->
+                    <div class="producto">
+                        <div class="mt-2">
+                            <label class="block text-sm text-gray-600" for="product_name_1">Nombre del producto</label>
+                            <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="product_name_1" name="product_name_1" type="text" required placeholder="Nombre del producto">
+                        </div>
+                        <div class="mt-2">
+                            <label class="block text-sm text-gray-600" for="quantity_1">Cantidad</label>
+                            <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="quantity_1" name="quantity_1" type="number" required placeholder="Cantidad">
+                        </div>
+                        <div class="mt-2">
+                            <label class="block text-sm text-gray-600" for="supplier_1">Proveedor</label>
+                            <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="supplier_1" name="supplier_1" type="text" required placeholder="Nombre del proveedor">
+                        </div>
+                        <div class="mt-2">
+                            <label class="block text-sm text-gray-600" for="delivery_date_1">Fecha de entrega</label>
+                            <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="delivery_date_1" name="delivery_date_1" type="date" required>
+                        </div>
+                        <div class="mt-2">
+                            <label class="block text-sm text-gray-600" for="remarks_1">Observaciones</label>
+                            <textarea class="w-full px-5 py-2 text-gray-700 bg-gray-200 rounded" id="remarks_1" name="remarks_1" rows="3" placeholder="Detalles adicionales"></textarea>
+                        </div>
+                        <hr class="my-4">
+                    </div>
                 </div>
-                <!-- Cantidad -->
-                <div class="mt-2">
-                    <label class="block text-sm text-gray-600" for="quantity">Cantidad</label>
-                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="quantity" name="quantity" type="number" required placeholder="Cantidad">
+
+                <!-- Botón para agregar más productos -->
+                <div class="mt-4">
+                    <button type="button" id="addProductBtn" class="px-4 py-2 text-white bg-blue-500 rounded">Agregar otro producto</button>
                 </div>
-                <!-- Proveedor -->
-                <div class="mt-2">
-                    <label class="block text-sm text-gray-600" for="supplier">Proveedor</label>
-                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="supplier" name="supplier" type="text" required placeholder="Nombre del proveedor">
-                </div>
-                <!-- Fecha de entrega -->
-                <div class="mt-2">
-                    <label class="block text-sm text-gray-600" for="delivery_date">Fecha de entrega</label>
-                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="delivery_date" name="delivery_date" type="date" required>
-                </div>
-                <!-- Observaciones -->
-                <div class="mt-2">
-                    <label class="block text-sm text-gray-600" for="remarks">Observaciones</label>
-                    <textarea class="w-full px-5 py-2 text-gray-700 bg-gray-200 rounded" id="remarks" name="remarks" rows="3" placeholder="Detalles adicionales"></textarea>
-                </div>
+
                 <!-- Enviar -->
                 <div class="mt-4">
                     <button class="px-4 py-2 text-white bg-gray-900 rounded" type="submit">Enviar solicitud</button>
                 </div>
             </form>
         </div>
+
+        <!-- Resto del contenido -->
         <div class="w-full overflow-x-hidden border-t flex flex-col">
             <main class="w-full flex-grow p-6">
                 <h1 class="text-3xl text-black pb-6">Panel Principal</h1>
@@ -166,7 +177,39 @@
             const form = document.getElementById('newRequestForm');
             form.classList.toggle('hidden');
         });
+
+        // Lógica para agregar más productos
+        let productCounter = 1;
+        document.getElementById('addProductBtn').addEventListener('click', function() {
+            productCounter++;
+            const newProduct = document.createElement('div');
+            newProduct.classList.add('producto');
+            newProduct.innerHTML = `
+                <div class="mt-2">
+                    <label class="block text-sm text-gray-600" for="product_name_${productCounter}">Nombre del producto</label>
+                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="product_name_${productCounter}" name="product_name_${productCounter}" type="text" required placeholder="Nombre del producto">
+                </div>
+                <div class="mt-2">
+                    <label class="block text-sm text-gray-600" for="quantity_${productCounter}">Cantidad</label>
+                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="quantity_${productCounter}" name="quantity_${productCounter}" type="number" required placeholder="Cantidad">
+                </div>
+                <div class="mt-2">
+                    <label class="block text-sm text-gray-600" for="supplier_${productCounter}">Proveedor</label>
+                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="supplier_${productCounter}" name="supplier_${productCounter}" type="text" required placeholder="Nombre del proveedor">
+                </div>
+                <div class="mt-2">
+                    <label class="block text-sm text-gray-600" for="delivery_date_${productCounter}">Fecha de entrega</label>
+                    <input class="w-full px-5 py-1 text-gray-700 bg-gray-200 rounded" id="delivery_date_${productCounter}" name="delivery_date_${productCounter}" type="date" required>
+                </div>
+                <div class="mt-2">
+                    <label class="block text-sm text-gray-600" for="remarks_${productCounter}">Observaciones</label>
+                    <textarea class="w-full px-5 py-2 text-gray-700 bg-gray-200 rounded" id="remarks_${productCounter}" name="remarks_${productCounter}" rows="3" placeholder="Detalles adicionales"></textarea>
+                </div>
+                <hr class="my-4">
+            `;
+            document.getElementById('productosContainer').appendChild(newProduct);
+        });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0-beta.1/dist/umd/index.js"></script>
 </body>
-</html>
+</html> 
