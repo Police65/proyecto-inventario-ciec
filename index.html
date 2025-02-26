@@ -92,6 +92,10 @@
                             <label class="block text-sm text-gray-600" for="remarks_1">Observaciones</label>
                             <textarea class="w-full px-5 py-2 text-gray-700 bg-gray-200 rounded" id="remarks_1" name="remarks_1" rows="3" placeholder="Detalles adicionales"></textarea>
                         </div>
+                        <!-- Botón para eliminar producto -->
+                        <div class="mt-2">
+                            <button type="button" class="removeProductBtn px-4 py-2 text-white bg-red-500 rounded">Eliminar producto</button>
+                        </div>
                         <hr class="my-4">
                     </div>
                 </div>
@@ -205,9 +209,23 @@
                     <label class="block text-sm text-gray-600" for="remarks_${productCounter}">Observaciones</label>
                     <textarea class="w-full px-5 py-2 text-gray-700 bg-gray-200 rounded" id="remarks_${productCounter}" name="remarks_${productCounter}" rows="3" placeholder="Detalles adicionales"></textarea>
                 </div>
+                <!-- Botón para eliminar producto -->
+                <div class="mt-2">
+                    <button type="button" class="removeProductBtn px-4 py-2 text-white bg-red-500 rounded">Eliminar producto</button>
+                </div>
                 <hr class="my-4">
             `;
             document.getElementById('productosContainer').appendChild(newProduct);
+        });
+
+        // Lógica para eliminar productos
+        document.addEventListener('click', function(event) {
+            if (event.target.classList.contains('removeProductBtn')) {
+                const producto = event.target.closest('.producto');
+                if (producto) {
+                    producto.remove();
+                }
+            }
         });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0-beta.1/dist/umd/index.js"></script>
