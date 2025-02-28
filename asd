@@ -267,7 +267,8 @@ Y este es mi package.json
 Tailwind lo incluyo via cdn, pero eso lo veras si ves el archivo que te enviare, index.html 
 te enviare los archivos importantes de la carpeta raiz y de la carpeta src 
 ojo, el archivo "NewRquestForm.js" es uno que esta dentro de la carpeta components adentro de la carpeta src 
-El error que tengo en concreto es al ejecutar "npm start" me sale este error en la consola 
+
+El error que tengo en concreto es al ejecutar "npm start" me sale este error en la consola:
 PS C:\Users\Fermin\Documents\GitHub\proyecto-inventario-ciec> npm start
 
 > proyecto-inventario-ciec@0.1.0 start
@@ -330,3 +331,15 @@ Learn more: https://github.com/jsx-eslint/eslint-plugin-jsx-a11y/blob/HEAD/docs/
 
 webpack compiled with 1 warning
 
+Ademas de eso otro error que tengo pero ya al ver la app en la pestaña del navegador (utilizo operagx, no se si tenga algo que ver) http://localhost:3000 es este 
+
+Uncaught runtime errors:
+×
+ERROR
+react_dom__WEBPACK_IMPORTED_MODULE_1__.render is not a function
+TypeError: react_dom__WEBPACK_IMPORTED_MODULE_1__.render is not a function
+    at ./src/index.js (http://localhost:3000/static/js/bundle.js:22371:40)
+    at options.factory (http://localhost:3000/static/js/bundle.js:23093:31)
+    at __webpack_require__ (http://localhost:3000/static/js/bundle.js:22493:32)
+    at http://localhost:3000/static/js/bundle.js:23736:37
+    at http://localhost:3000/static/js/bundle.js:23738:12
