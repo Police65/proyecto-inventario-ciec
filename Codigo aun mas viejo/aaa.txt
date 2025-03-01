@@ -1,0 +1,25 @@
+proyecto-inventario-ciec/
+├── public/
+│   └── vite.svg
+├── src/
+│   ├── components/
+│   │   ├── Sidebar.jsx
+│   │   ├── Header.jsx
+│   │   ├── MainContent.jsx
+│   │   ├── NewRequestForm.jsx
+│   │   ├── OrderList.jsx
+│   │   └── OrderItem.jsx
+│   ├── App.jsx
+│   ├── main.jsx
+│   ├── index.css
+│   ├── supabaseClient.js
+│   └── utils/
+│       └── api.js
+├── .env
+├── .gitignore
+├── index.html
+├── package.json
+├── package-lock.json
+├── tailwind.config.js
+├── postcss.config.js
+└── README.md
