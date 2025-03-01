@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Offcanvas, Form, Row, Col, Table } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-import { supabase } from './supabaseClient'; // Asegúrate de que este archivo esté correctamente configurado
+import { supabase } from './supabaseClient';
 
 function App() {
   const [showSidebar, setShowSidebar] = useState(false);
@@ -14,6 +14,35 @@ function App() {
     proveedor: '',
     fecha: new Date().toISOString().split('T')[0]
   });
+  const [proveedorId, setProveedorId] = useState(null);
+  const [departamentoId, setDepartamentoId] = useState(null);
+  const [empleadoId, setEmpleadoId] = useState(null);
+
+  useEffect(() => {
+    // Obtener el primer proveedor, departamento y empleado
+    const fetchIds = async () => {
+      const { data: proveedor } = await supabase
+        .from('Proveedor')
+        .select('id')
+        .limit(1);
+
+      const { data: departamento } = await supabase
+        .from('Departamento')
+        .select('id')
+        .limit(1);
+
+      const { data: empleado } = await supabase
+        .from('Empleado')
+        .select('id')
+        .limit(1);
+
+      if (proveedor && proveedor.length > 0) setProveedorId(proveedor[0].id);
+      if (departamento && departamento.length > 0) setDepartamentoId(departamento[0].id);
+      if (empleado && empleado.length > 0) setEmpleadoId(empleado[0].id);
+    };
+
+    fetchIds();
+  }, []);
 
   const handleAddProduct = () => {
     setProducts([...products, currentProduct]);
@@ -32,35 +61,66 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { data, error } = await supabase
+    if (!proveedorId || !departamentoId || !empleadoId) {
+      alert('Falta configurar proveedor, departamento o empleado');
+      return;
+    }
+
+    const { data: orden, error: ordenError } = await supabase
       .from('OrdenCompra')
       .insert([{
         fecha_orden: new Date().toISOString(),
         estado: 'Pendiente',
         observaciones: 'Nueva solicitud de compra',
-        proveedor_id: 1, // Aquí deberías seleccionar el proveedor
-        departamento_id: 1, // Aquí deberías seleccionar el departamento
-        empleado_id: 1 // Aquí deberías seleccionar el empleado
+        proveedor_id: proveedorId,
+        departamento_id: departamentoId,
+        empleado_id: empleadoId
       }])
       .select();
 
-    if (error) {
-      console.error('Error al crear la orden:', error);
-    } else {
-      const ordenId = data[0].id;
-      for (const product of products) {
-        await supabase
-          .from('OrdenProducto')
-          .insert([{
-            orden_compra_id: ordenId,
-            producto_id: 1, // Aquí deberías seleccionar el producto
-            cantidad: product.cantidad
-          }]);
-      }
-      setProducts([]);
-      setShowForm(false);
-      alert('Solicitud de compra enviada con éxito');
+    if (ordenError) {
+      console.error('Error al crear la orden:', ordenError);
+      return;
     }
+
+    const ordenId = orden[0].id;
+
+    for (const product of products) {
+      // Insertar el producto si no existe
+      const { data: producto, error: productoError } = await supabase
+        .from('Producto')
+        .insert([{
+          descripcion: product.descripcion,
+          precio_unitario: 0, // Aquí deberías definir un precio
+          unidad: 'Bs', // Aquí deberías definir la unidad
+          proveedor_id: proveedorId
+        }])
+        .select();
+
+      if (productoError) {
+        console.error('Error al crear el producto:', productoError);
+        continue;
+      }
+
+      const productoId = producto[0].id;
+
+      // Insertar en OrdenProducto
+      const { error: ordenProductoError } = await supabase
+        .from('OrdenProducto')
+        .insert([{
+          orden_compra_id: ordenId,
+          producto_id: productoId,
+          cantidad: product.cantidad
+        }]);
+
+      if (ordenProductoError) {
+        console.error('Error al agregar el producto a la orden:', ordenProductoError);
+      }
+    }
+
+    setProducts([]);
+    setShowForm(false);
+    alert('Solicitud de compra enviada con éxito');
   };
 
   return (

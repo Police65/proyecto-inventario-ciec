@@ -10,12 +10,14 @@
     "build": "vite build",
     "preview": "vite preview",
     "update": "npm-check-updates -u",
-    "deploy": "vite build && gh-pages -d dist"
+    "deploy": "vite build && gh-pages -d dist",
+    "test-conexion": "node testConexion.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.11.3",
+    "dotenv": "^16.4.7",
     "gh-pages": "^6.3.0",
     "react": "^19.0.0",
     "react-bootstrap": "^2.10.9",
