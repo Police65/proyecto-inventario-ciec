@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Offcanvas, Form, Row, Col, Table, Modal } from 'react-bootstrap';
+import { Button, Offcanvas, Form, Row, Col, Table } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import { supabase } from './supabaseClient';
+import Login from './Login';
 
 function App() {
   const [showSidebar, setShowSidebar] = useState(false);
@@ -15,6 +16,7 @@ function App() {
     cantidad: 1,
     fecha: new Date().toISOString().split('T')[0]
   });
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     fetchProducts();
@@ -46,6 +48,11 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!userProfile) {
+      alert('Debe iniciar sesión para enviar una solicitud');
+      return;
+    }
+
     for (const product of products) {
       const { data, error } = await supabase
         .from('solicitudcompra')
@@ -54,8 +61,8 @@ function App() {
           producto_id: product.producto_id,
           cantidad: product.cantidad,
           estado: 'Pendiente',
-          empleado_id: 1, // Aquí deberías seleccionar el empleado
-          departamento_id: 1 // Aquí deberías seleccionar el departamento
+          empleado_id: userProfile.empleado_id,
+          departamento_id: userProfile.departamento_id
         }])
         .select();
 
@@ -72,6 +79,7 @@ function App() {
 
   return (
     <div className="App container-fluid">
+      {!userProfile && <Login onLogin={setUserProfile} />}
       <Button variant="primary" onClick={() => setShowSidebar(true)}>
         Abrir Sidebar
       </Button>
