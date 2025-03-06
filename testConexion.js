@@ -1,11 +1,8 @@
-import { supabase } from './src/supabaseClientTest.js'; // Asegúrate de que la ruta sea correcta
-
-
+import { supabase } from './src/supabaseClientTest.js'; 
 async function verificarConexion() {
   try {
     console.log('Verificando conexión con la base de datos...');
 
-    // Realiza una consulta simple a la tabla "Proveedor"
     const { data, error } = await supabase
       .from('proveedor')
       .select('*')
@@ -21,5 +18,4 @@ async function verificarConexion() {
   }
 }
 
-// Ejecuta la función para verificar la conexión
 verificarConexion();
