@@ -18,7 +18,7 @@ const RequestForm = ({ show, onHide, onSubmit }) => {
   };
 
   return (
-    <Modal show={show} onHide={onHide}>
+    <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
         <Modal.Title>Nueva Solicitud</Modal.Title>
       </Modal.Header>
@@ -26,7 +26,7 @@ const RequestForm = ({ show, onHide, onSubmit }) => {
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
             <Form.Label>Producto:</Form.Label>
-            <Form.Select value={productId} onChange={(e) => setProductId(e.target.value)}>
+            <Form.Select value={productId} onChange={(e) => setProductId(e.target.value)} disabled={customRequest}>
               <option value="">Seleccionar producto</option>
               <option value="1">Producto A</option>
               <option value="2">Producto B</option>
@@ -39,6 +39,7 @@ const RequestForm = ({ show, onHide, onSubmit }) => {
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               min="1"
+              disabled={customRequest}
             />
           </Form.Group>
           <Form.Group className="mb-3">

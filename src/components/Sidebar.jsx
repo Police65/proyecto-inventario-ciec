@@ -1,9 +1,9 @@
 import React from 'react';
 import { Button } from 'react-bootstrap';
 
-const Sidebar = ({ onNewRequest }) => {
+const Sidebar = ({ isVisible, onNewRequest }) => {
   return (
-    <aside className="bg-primary text-white min-vh-100 p-4" style={{ width: '250px' }}>
+    <aside className={`bg-primary text-white min-vh-100 p-4 ${isVisible ? 'visible' : 'hidden'}`} style={{ width: '250px', position: 'fixed', top: '56px', left: 0, transition: 'left 0.3s' }}>
       <h1 className="text-2xl font-bold">Cámara de Industriales</h1>
       <nav className="mt-5">
         <ul className="list-unstyled">
