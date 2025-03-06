@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Form, Button } from 'react-bootstrap';
+import { supabase } from './supabaseClient';
 
 const RequestForm = ({ show, onHide, onSubmit }) => {
   const [productId, setProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [customRequest, setCustomRequest] = useState(false);
   const [description, setDescription] = useState('');
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    const { data, error } = await supabase.from('producto').select('*');
+    if (!error) setProducts(data);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -28,8 +39,11 @@ const RequestForm = ({ show, onHide, onSubmit }) => {
             <Form.Label>Producto:</Form.Label>
             <Form.Select value={productId} onChange={(e) => setProductId(e.target.value)} disabled={customRequest}>
               <option value="">Seleccionar producto</option>
-              <option value="1">Producto A</option>
-              <option value="2">Producto B</option>
+              {products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.descripcion}
+                </option>
+              ))}
             </Form.Select>
           </Form.Group>
           <Form.Group className="mb-3">
