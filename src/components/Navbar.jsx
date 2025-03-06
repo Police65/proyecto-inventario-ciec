@@ -15,9 +15,9 @@ const CustomNavbar = ({ onToggleSidebar }) => {
         <Navbar.Toggle aria-controls="navbarSupportedContent" />
         <Navbar.Collapse id="navbarSupportedContent">
           <Nav className="me-auto mb-2 mb-lg-0">
-            <Nav.Link href="#">Dashboard</Nav.Link>
-            <Nav.Link href="#">Team</Nav.Link>
-            <Nav.Link href="#">Projects</Nav.Link>
+            <Nav.Link href="#">Home</Nav.Link>
+            <Nav.Link href="#">Solicitudes</Nav.Link>
+            <Nav.Link href="#">Reportes</Nav.Link>
           </Nav>
           <Nav className="d-flex align-items-center">
             <Nav.Link href="#" className="me-3">

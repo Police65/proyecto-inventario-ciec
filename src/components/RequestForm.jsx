@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Button } from 'react-bootstrap';
-import { supabase } from './supabaseClient';
+import { supabase } from '../supabaseClient.js';
 
 const RequestForm = ({ show, onHide, onSubmit }) => {
   const [productId, setProductId] = useState('');

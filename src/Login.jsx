@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button, Form, Modal } from 'react-bootstrap';
-import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient.js';
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState('');
