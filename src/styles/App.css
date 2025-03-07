@@ -12,18 +12,6 @@ code {
     monospace;
 }
 
-.hidden {
-  left: -250px !important;
-}
-
-.visible {
-  left: 0 !important;
-}
-
-.mask {
-  background-color: rgba(0, 0, 0, 0.6);
-}
-
 .table-responsive {
   overflow-x: auto;
 }
@@ -68,14 +56,4 @@ code {
 
 .w-100 {
   width: 100%;
-}
-
-/* Ajustes adicionales para el contenedor de la tabla */
-.table-container {
-  margin-left: 250px;
-  margin-top: 56px;
-  padding: 20px;
-  width: calc(100% - 250px);
-  height: calc(100vh - 56px);
-  overflow: auto;
 }

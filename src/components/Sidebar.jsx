@@ -3,7 +3,8 @@ import { Button } from 'react-bootstrap';
 
 const Sidebar = ({ isVisible, onNewRequest, onSelectTab }) => {
   return (
-    <aside className={`bg-primary text-white min-vh-100 p-4 ${isVisible ? 'visible' : 'hidden'}`} style={{ width: '250px', position: 'fixed', top: '56px', left: 0, transition: 'left 0.3s' }}>
+    <aside className={`bg-primary text-white min-vh-100 p-4 ${isVisible ? 'visible' : 'hidden'}`} 
+           style={{ width: '250px', position: 'fixed', top: '56px', left: 0, transition: 'left 0.3s', zIndex: 1000 }}>
       <h1 className="text-2xl font-bold">Cámara de Industriales</h1>
       <nav className="mt-5">
         <ul className="list-unstyled">

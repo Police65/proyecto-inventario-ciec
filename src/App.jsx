@@ -55,7 +55,14 @@ function App() {
         <>
           <CustomNavbar onToggleSidebar={toggleSidebar} />
           <Sidebar isVisible={isSidebarVisible} onNewRequest={() => setShowForm(true)} onSelectTab={handleSelectTab} />
-          <div style={{ marginLeft: isSidebarVisible ? '250px' : '0', marginTop: '56px', transition: 'margin-left 0.3s', padding: '20px' }}>
+          <div style={{ 
+            marginLeft: isSidebarVisible ? '250px' : '0', 
+            marginTop: '56px', 
+            transition: 'margin-left 0.3s', 
+            padding: '20px', 
+            width: isSidebarVisible ? 'calc(100% - 250px)' : '100%',
+            maxWidth: isSidebarVisible ? 'calc(100% - 250px)' : '100%',
+          }}>
             <Container fluid>
               {activeTab === 'solicitudes' && (
                 <Row>
