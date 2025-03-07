@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import CustomNavbar from './components/Navbar';
 import RequestForm from './components/RequestForm';
 import RequestTable from './components/RequestTable';
+import AdminDashboard from './components/AdminDashboard';
 import Login from './Login';
 import { supabase } from './supabaseClient';
 
@@ -54,26 +55,41 @@ function App() {
       {userProfile && (
         <>
           <CustomNavbar onToggleSidebar={toggleSidebar} />
-          <Sidebar isVisible={isSidebarVisible} onNewRequest={() => setShowForm(true)} onSelectTab={handleSelectTab} />
-          <div style={{ 
-            marginLeft: isSidebarVisible ? '250px' : '0', 
-            marginTop: '56px', 
-            transition: 'margin-left 0.3s', 
-            padding: '20px', 
-            width: isSidebarVisible ? 'calc(100% - 250px)' : '100%',
-            maxWidth: isSidebarVisible ? 'calc(100% - 250px)' : '100%',
-          }}>
+          <Sidebar
+            isVisible={isSidebarVisible}
+            onNewRequest={() => setShowForm(true)}
+            onSelectTab={handleSelectTab}
+            userProfile={userProfile}
+          />
+          <div
+            style={{
+              marginLeft: isSidebarVisible ? '250px' : '0',
+              marginTop: '56px',
+              transition: 'margin-left 0.3s',
+              padding: '20px',
+              width: isSidebarVisible ? 'calc(100% - 250px)' : '100%',
+              maxWidth: isSidebarVisible ? 'calc(100% - 250px)' : '100%',
+            }}
+          >
             <Container fluid>
-              {activeTab === 'solicitudes' && (
-                <Row>
-                  <Col>
-                    <RequestTable requests={requests} />
-                  </Col>
-                </Row>
+              {userProfile.rol === 'admin' ? (
+                <AdminDashboard requests={requests} isSidebarVisible={isSidebarVisible} />
+              ) : (
+                <>
+                  {activeTab === 'solicitudes' && (
+                    <Row>
+                      <Col>
+                        <RequestTable requests={requests} />
+                      </Col>
+                    </Row>
+                  )}
+                </>
               )}
             </Container>
           </div>
-          <RequestForm show={showForm} onHide={() => setShowForm(false)} onSubmit={handleSubmitRequest} />
+          {userProfile.rol === 'usuario' && (
+            <RequestForm show={showForm} onHide={() => setShowForm(false)} onSubmit={handleSubmitRequest} />
+          )}
         </>
       )}
     </div>

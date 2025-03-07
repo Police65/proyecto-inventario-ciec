@@ -32,3 +32,11 @@ code {
 .table-responsive {
   overflow-x: auto;
 }
+
+.hidden {
+  left: -250px !important; 
+}
+
+.visible {
+  left: 0 !important; 
+}

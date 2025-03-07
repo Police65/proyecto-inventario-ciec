@@ -24,7 +24,7 @@ function Login({ onLogin }) {
         .single();
 
       if (profile) {
-        onLogin(profile);
+        onLogin(profile); // Pasamos el perfil completo, incluyendo el rol
         setShow(false);
       } else {
         alert('Perfil de usuario no encontrado');
