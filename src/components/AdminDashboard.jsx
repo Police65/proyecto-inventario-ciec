@@ -1,20 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Table, Button } from 'react-bootstrap';
+import OrderForm from './OrderForm'; // Importar el nuevo componente
 
 const AdminDashboard = ({ requests, isSidebarVisible }) => {
-  const handleCreateOrder = (requestId) => {
-    // Lógica para crear una orden de compra basada en la solicitud
-    console.log('Crear orden de compra para la solicitud:', requestId);
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+
+  const handleCreateOrder = (request) => {
+    setSelectedRequest(request); // Guardar la solicitud seleccionada
+    setShowOrderForm(true); // Mostrar el formulario
   };
 
   return (
     <div style={{ 
-      marginLeft: isSidebarVisible ? '80px' : '0', // Margen izquierdo para la sidebar
-      marginTop: '56px',   // Margen superior para la navbar
-      padding: '20px',     // Espaciado interno
-      width: isSidebarVisible ? 'calc(100% - 250px)' : '100%', // Ancho total menos el ancho de la sidebar
-      maxWidth: isSidebarVisible ? 'calc(100% - 250px)' : '100%', // Máximo ancho posible
-      overflowX: 'auto',   // Scroll horizontal si es necesario
+      marginLeft: isSidebarVisible ? '250px' : '0',
+      marginTop: '56px',
+      padding: '20px',
+      width: isSidebarVisible ? 'calc(100% - 250px)' : '100%',
+      maxWidth: isSidebarVisible ? 'calc(100% - 250px)' : '100%',
+      overflowX: 'auto',
     }}>
       <h2>Panel de Administración</h2>
       <div className="table-responsive">
@@ -42,7 +46,7 @@ const AdminDashboard = ({ requests, isSidebarVisible }) => {
                 <td>{request.empleado_id}</td>
                 <td>{request.departamento_id}</td>
                 <td>
-                  <Button variant="primary" onClick={() => handleCreateOrder(request.id)}>
+                  <Button variant="primary" onClick={() => handleCreateOrder(request)}>
                     Crear Orden
                   </Button>
                 </td>
@@ -51,6 +55,15 @@ const AdminDashboard = ({ requests, isSidebarVisible }) => {
           </tbody>
         </Table>
       </div>
+
+      {/* Mostrar el formulario de creación de órdenes */}
+      {selectedRequest && (
+        <OrderForm
+          show={showOrderForm}
+          onHide={() => setShowOrderForm(false)}
+          request={selectedRequest}
+        />
+      )}
     </div>
   );
 };
