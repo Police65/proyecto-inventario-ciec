@@ -44,13 +44,17 @@ function App() {
     setIsSidebarVisible(!isSidebarVisible);
   };
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
+
   return (
     <div>
       {!userProfile && <Login onLogin={setUserProfile} />}
       {userProfile && (
         <>
           <CustomNavbar onToggleSidebar={toggleSidebar} />
-          <Sidebar isVisible={isSidebarVisible} onNewRequest={() => setShowForm(true)} />
+          <Sidebar isVisible={isSidebarVisible} onNewRequest={() => setShowForm(true)} onTabChange={handleTabChange} />
           <div style={{ marginLeft: isSidebarVisible ? '250px' : '0', marginTop: '56px', transition: 'margin-left 0.3s' }}>
             <Container fluid>
               {activeTab === 'solicitudes' && (
