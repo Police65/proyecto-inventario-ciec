@@ -44,7 +44,7 @@ function App() {
     setIsSidebarVisible(!isSidebarVisible);
   };
 
-  const handleTabChange = (tab) => {
+  const handleSelectTab = (tab) => {
     setActiveTab(tab);
   };
 
@@ -54,8 +54,8 @@ function App() {
       {userProfile && (
         <>
           <CustomNavbar onToggleSidebar={toggleSidebar} />
-          <Sidebar isVisible={isSidebarVisible} onNewRequest={() => setShowForm(true)} onTabChange={handleTabChange} />
-          <div style={{ marginLeft: isSidebarVisible ? '250px' : '0', marginTop: '56px', transition: 'margin-left 0.3s' }}>
+          <Sidebar isVisible={isSidebarVisible} onNewRequest={() => setShowForm(true)} onSelectTab={handleSelectTab} />
+          <div style={{ marginLeft: isSidebarVisible ? '250px' : '0', marginTop: '56px', transition: 'margin-left 0.3s', padding: '20px' }}>
             <Container fluid>
               {activeTab === 'solicitudes' && (
                 <Row>
