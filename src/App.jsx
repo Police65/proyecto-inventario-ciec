@@ -63,7 +63,7 @@ function App() {
           />
           <div
             style={{
-              marginLeft: isSidebarVisible ? '250px' : '0',
+              marginLeft: isSidebarVisible ? '50px' : '0',
               marginTop: '56px',
               transition: 'margin-left 0.3s',
               padding: '20px',
