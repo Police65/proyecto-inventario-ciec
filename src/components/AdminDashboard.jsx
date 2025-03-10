@@ -1,14 +1,30 @@
 import React, { useState } from 'react';
 import { Table, Button } from 'react-bootstrap';
-import OrderForm from './OrderForm'; // Importar el nuevo componente
+import OrderForm from './OrderForm';
+import OrderPDF from './OrderPDF';
 
 const AdminDashboard = ({ requests, isSidebarVisible }) => {
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   const handleCreateOrder = (request) => {
-    setSelectedRequest(request); // Guardar la solicitud seleccionada
-    setShowOrderForm(true); // Mostrar el formulario
+    setSelectedRequest(request);
+    setShowOrderForm(true);
+  };
+
+  const handleRejectRequest = async (requestId) => {
+    const { error } = await supabase
+      .from('SolicitudCompra')
+      .update({ estado: 'Rechazada' })
+      .eq('id', requestId);
+
+    if (error) {
+      alert('Error al rechazar la solicitud: ' + error.message);
+    } else {
+      alert('Solicitud rechazada exitosamente');
+      // Actualizar la lista de solicitudes (puedes recargar las solicitudes o actualizar el estado local)
+    }
   };
 
   return (
@@ -47,7 +63,10 @@ const AdminDashboard = ({ requests, isSidebarVisible }) => {
                 <td>{request.departamento_id}</td>
                 <td>
                   <Button variant="primary" onClick={() => handleCreateOrder(request)}>
-                    Crear Orden
+                    Aprobar
+                  </Button>
+                  <Button variant="danger" onClick={() => handleRejectRequest(request.id)}>
+                    Rechazar
                   </Button>
                 </td>
               </tr>
@@ -63,6 +82,11 @@ const AdminDashboard = ({ requests, isSidebarVisible }) => {
           onHide={() => setShowOrderForm(false)}
           request={selectedRequest}
         />
+      )}
+
+      {/* Mostrar el PDF de la orden */}
+      {selectedOrder && (
+        <OrderPDF order={selectedOrder} />
       )}
     </div>
   );

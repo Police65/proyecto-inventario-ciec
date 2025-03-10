@@ -38,30 +38,43 @@ const OrderForm = ({ show, onHide, request }) => {
     e.preventDefault();
   
     try {
-      const { data, error } = await supabase.from('ordencompra').insert([{
+      // Crear la orden de compra
+      const { data: ordenData, error: ordenError } = await supabase.from('OrdenCompra').insert([{
         solicitud_compra_id: request.id,
         proveedor_id: proveedorId,
-        fecha_orden: new Date().toISOString(),
         estado: 'Pendiente',
         precio_unitario: precioUnitario,
         sub_total: subTotal,
-        iva: iva,
-        ret_iva: retIva,
+        IVA: iva,
+        ret_iva: retIva || 0,
         neto_a_pagar: netoAPagar,
         unidad: unidad,
-        observaciones: observaciones,
+        observaciones: observaciones || null,
         empleado_id: request.empleado_id,
       }]);
   
-      if (error) {
-        console.error('Error detallado:', error); // Imprime el error en la consola
-        alert('Error al crear la orden de compra: ' + error.message);
-      } else {
-        alert('Orden de compra creada exitosamente');
-        onHide(); // Cerrar el modal después de crear la orden
+      if (ordenError) {
+        console.error('Error al crear la orden de compra:', ordenError);
+        alert('Error al crear la orden de compra: ' + ordenError.message);
+        return;
       }
+  
+      // Marcar la solicitud de compra como "Aprobada"
+      const { error: solicitudError } = await supabase
+        .from('SolicitudCompra')
+        .update({ estado: 'Aprobada' })
+        .eq('id', request.id);
+  
+      if (solicitudError) {
+        console.error('Error al actualizar la solicitud de compra:', solicitudError);
+        alert('Error al actualizar la solicitud de compra: ' + solicitudError.message);
+        return;
+      }
+  
+      alert('Orden de compra creada y solicitud aprobada exitosamente');
+      onHide(); // Cerrar el modal después de crear la orden
     } catch (err) {
-      console.error('Error inesperado:', err); // Captura errores inesperados
+      console.error('Error inesperado:', err);
       alert('Error inesperado al crear la orden de compra');
     }
   };
