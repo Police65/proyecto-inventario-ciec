@@ -13,18 +13,11 @@ const AdminDashboard = ({ requests, isSidebarVisible }) => {
     setShowOrderForm(true);
   };
 
-  const handleRejectRequest = async (requestId) => {
-    const { error } = await supabase
-      .from('SolicitudCompra')
-      .update({ estado: 'Rechazada' })
-      .eq('id', requestId);
-
-    if (error) {
-      alert('Error al rechazar la solicitud: ' + error.message);
-    } else {
-      alert('Solicitud rechazada exitosamente');
-      // Actualizar la lista de solicitudes (puedes recargar las solicitudes o actualizar el estado local)
+  const handleOrderCreated = (order) => {
+    if (order) {
+      setSelectedOrder(order); // Guardar la orden generada
     }
+    setShowOrderForm(false); // Cerrar el formulario
   };
 
   return (
@@ -63,10 +56,7 @@ const AdminDashboard = ({ requests, isSidebarVisible }) => {
                 <td>{request.departamento_id}</td>
                 <td>
                   <Button variant="primary" onClick={() => handleCreateOrder(request)}>
-                    Aprobar
-                  </Button>
-                  <Button variant="danger" onClick={() => handleRejectRequest(request.id)}>
-                    Rechazar
+                    Crear Orden
                   </Button>
                 </td>
               </tr>
@@ -79,7 +69,7 @@ const AdminDashboard = ({ requests, isSidebarVisible }) => {
       {selectedRequest && (
         <OrderForm
           show={showOrderForm}
-          onHide={() => setShowOrderForm(false)}
+          onHide={handleOrderCreated}
           request={selectedRequest}
         />
       )}

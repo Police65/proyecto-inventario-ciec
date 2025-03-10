@@ -3,16 +3,17 @@ import { Modal, Form, Button } from 'react-bootstrap';
 import { supabase } from '../supabaseClient';
 
 const OrderForm = ({ show, onHide, request }) => {
-  const [proveedores, setProveedores] = useState([]); // Lista de proveedores
+  const [proveedores, setProveedores] = useState([]);
   const [proveedorId, setProveedorId] = useState('');
   const [precioUnitario, setPrecioUnitario] = useState(0);
-  const [cantidad, setCantidad] = useState(request.cantidad); // Cantidad de la solicitud
+  const [cantidad, setCantidad] = useState(request.cantidad);
   const [subTotal, setSubTotal] = useState(0);
   const [iva, setIva] = useState(0);
   const [retIva, setRetIva] = useState(0);
   const [netoAPagar, setNetoAPagar] = useState(0);
   const [unidad, setUnidad] = useState('Bs');
   const [observaciones, setObservaciones] = useState('');
+  const [productos, setProductos] = useState([]);
 
   // Obtener la lista de proveedores al cargar el formulario
   useEffect(() => {
@@ -36,51 +37,74 @@ const OrderForm = ({ show, onHide, request }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
-    try {
-      // Crear la orden de compra
-      const { data: ordenData, error: ordenError } = await supabase.from('OrdenCompra').insert([{
-        solicitud_compra_id: request.id,
-        proveedor_id: proveedorId,
-        estado: 'Pendiente',
-        precio_unitario: precioUnitario,
-        sub_total: subTotal,
-        IVA: iva,
-        ret_iva: retIva || 0,
-        neto_a_pagar: netoAPagar,
-        unidad: unidad,
-        observaciones: observaciones || null,
-        empleado_id: request.empleado_id,
-      }]);
-  
-      if (ordenError) {
-        console.error('Error al crear la orden de compra:', ordenError);
-        alert('Error al crear la orden de compra: ' + ordenError.message);
-        return;
-      }
-  
-      // Marcar la solicitud de compra como "Aprobada"
-      const { error: solicitudError } = await supabase
-        .from('SolicitudCompra')
-        .update({ estado: 'Aprobada' })
-        .eq('id', request.id);
-  
-      if (solicitudError) {
-        console.error('Error al actualizar la solicitud de compra:', solicitudError);
-        alert('Error al actualizar la solicitud de compra: ' + solicitudError.message);
-        return;
-      }
-  
-      alert('Orden de compra creada y solicitud aprobada exitosamente');
-      onHide(); // Cerrar el modal después de crear la orden
-    } catch (err) {
-      console.error('Error inesperado:', err);
-      alert('Error inesperado al crear la orden de compra');
+
+    // Crear la orden de compra
+    const { data: ordenData, error: ordenError } = await supabase.from('OrdenCompra').insert([{
+      solicitud_compra_id: request.id,
+      proveedor_id: proveedorId,
+      fecha_orden: new Date().toISOString(),
+      estado: 'Pendiente',
+      precio_unitario: precioUnitario,
+      sub_total: subTotal,
+      IVA: iva,
+      ret_iva: retIva,
+      neto_a_pagar: netoAPagar,
+      unidad: unidad,
+      observaciones: observaciones,
+      empleado_id: request.empleado_id,
+    }]);
+
+    if (ordenError) {
+      alert('Error al crear la orden de compra: ' + ordenError.message);
+      return;
     }
+
+    // Marcar la solicitud de compra como "Aprobada"
+    const { error: solicitudError } = await supabase
+      .from('SolicitudCompra')
+      .update({ estado: 'Aprobada' })
+      .eq('id', request.id);
+
+    if (solicitudError) {
+      alert('Error al actualizar la solicitud de compra: ' + solicitudError.message);
+      return;
+    }
+
+    // Crear la estructura de la orden para el PDF
+    const proveedorSeleccionado = proveedores.find(p => p.id === proveedorId);
+    const order = {
+      id: ordenData[0].id,
+      fecha_orden: new Date().toISOString(),
+      proveedor: {
+        nombre: proveedorSeleccionado.nombre,
+        rif: proveedorSeleccionado.rif,
+        telefono: proveedorSeleccionado.telefono,
+        direccion: proveedorSeleccionado.direccion,
+      },
+      productos: [
+        {
+          ref: request.producto_id || 'N/A',
+          cantidad: cantidad,
+          descripcion: request.descripcion,
+          precio_unitario: precioUnitario,
+          monto_total: subTotal,
+        },
+      ],
+      sub_total: subTotal,
+      iva: iva,
+      total: subTotal + iva,
+      ret_iva: retIva,
+      neto_a_pagar: netoAPagar,
+      elaborado_por: 'Luis González', // Puedes obtener este dato del perfil del usuario
+      aprobado_por: 'Jackeline Rodríguez', // Puedes obtener este dato del perfil del usuario
+    };
+
+    // Pasar la orden al componente OrderPDF
+    onHide(order);
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg">
+    <Modal show={show} onHide={() => onHide(null)} centered size="lg">
       <Modal.Header closeButton>
         <Modal.Title>Crear Orden de Compra</Modal.Title>
       </Modal.Header>
@@ -127,26 +151,6 @@ const OrderForm = ({ show, onHide, request }) => {
             />
           </Form.Group>
 
-          {/* Campo para el subtotal (calculado automáticamente) */}
-          <Form.Group className="mb-3">
-            <Form.Label>Subtotal:</Form.Label>
-            <Form.Control
-              type="text"
-              value={subTotal.toFixed(2)}
-              readOnly
-            />
-          </Form.Group>
-
-          {/* Campo para el IVA (calculado automáticamente) */}
-          <Form.Group className="mb-3">
-            <Form.Label>IVA (16%):</Form.Label>
-            <Form.Control
-              type="text"
-              value={iva.toFixed(2)}
-              readOnly
-            />
-          </Form.Group>
-
           {/* Campo para la retención de IVA */}
           <Form.Group className="mb-3">
             <Form.Label>Retención de IVA:</Form.Label>
@@ -156,30 +160,6 @@ const OrderForm = ({ show, onHide, request }) => {
               value={retIva}
               onChange={(e) => setRetIva(parseFloat(e.target.value))}
             />
-          </Form.Group>
-
-          {/* Campo para el neto a pagar (calculado automáticamente) */}
-          <Form.Group className="mb-3">
-            <Form.Label>Neto a Pagar:</Form.Label>
-            <Form.Control
-              type="text"
-              value={netoAPagar.toFixed(2)}
-              readOnly
-            />
-          </Form.Group>
-
-          {/* Campo para la unidad (Bs o USD) */}
-          <Form.Group className="mb-3">
-            <Form.Label>Unidad:</Form.Label>
-            <Form.Control
-              as="select"
-              value={unidad}
-              onChange={(e) => setUnidad(e.target.value)}
-              required
-            >
-              <option value="Bs">Bolívares (Bs)</option>
-              <option value="USD">Dólares (USD)</option>
-            </Form.Control>
           </Form.Group>
 
           {/* Campo para observaciones */}
@@ -195,7 +175,7 @@ const OrderForm = ({ show, onHide, request }) => {
 
           {/* Botones para cancelar o crear la orden */}
           <div className="d-flex justify-content-between">
-            <Button variant="secondary" onClick={onHide}>
+            <Button variant="secondary" onClick={() => onHide(null)}>
               Cancelar
             </Button>
             <Button variant="primary" type="submit">
