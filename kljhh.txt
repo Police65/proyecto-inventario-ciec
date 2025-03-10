@@ -1,3 +1,0 @@
-ESTA MUY BIEN, es muy cercano a lo que deseo, aprendes bien, por ahora me sirve y quizas modifique cosas yo mismo mas adelante. 
-
-Por ahora tus instrucciones son que quiero que este conectado a la base de datos, como sabes el supabase ya esta configurado en el supabaseClient.js que esta la carpeta src, quiero que se pueda iniciar sesion antes de hacer cualquier cosa y quiero que el formulario emergente tambien este conectado con la base de datos, que en el apartado de seleccionar producto esten los productos disponibles en la base de datos y que se guarden las solicitudes de compra, que como recordaras no son lo mismo que las ordenes de compra y las solicitudes de compra se guardan en la tabla solicitudcompra
