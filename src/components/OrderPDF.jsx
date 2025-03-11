@@ -21,60 +21,43 @@ const OrderPDF = ({ order }) => {
   return (
     <div>
       <Button variant="primary" onClick={handleGeneratePDF}>
-        Descargar PDF
+        Generar PDF
       </Button>
 
-      {/* Contenido del PDF (oculto en la interfaz) */}
       <div id="order-pdf-content" style={{ display: 'none' }}>
         <h1>Orden de Compra</h1>
         <p>Nro: {order.id}</p>
-        <p>Fecha: {new Date(order.fecha_orden).toLocaleDateString()}</p>
-
-        {/* Información del proveedor */}
-        <h2>PROVEEDOR:</h2>
-        <p>{order.proveedor.nombre}</p>
+        <p>Proveedor: {order.proveedor.nombre}</p>
         <p>RIF: {order.proveedor.rif}</p>
         <p>Teléfonos: {order.proveedor.telefono}</p>
         <p>Dirección: {order.proveedor.direccion}</p>
 
-        {/* Tabla de productos */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+        <table>
           <thead>
             <tr>
-              <th style={{ border: '1px solid black', padding: '8px' }}>REF</th>
-              <th style={{ border: '1px solid black', padding: '8px' }}>CANTIDAD</th>
-              <th style={{ border: '1px solid black', padding: '8px' }}>DESCRIPCIÓN DE LA MERCANCÍA</th>
-              <th style={{ border: '1px solid black', padding: '8px' }}>PRECIO UNITARIO (Bs)</th>
-              <th style={{ border: '1px solid black', padding: '8px' }}>MONTO TOTAL (Bs)</th>
+              <th>REF</th>
+              <th>CANTIDAD</th>
+              <th>DESCRIPCIÓN</th>
+              <th>PRECIO UNITARIO (USD)</th>
+              <th>MONTO TOTAL (USD)</th>
             </tr>
           </thead>
           <tbody>
             {order.productos.map((producto, index) => (
               <tr key={index}>
-                <td style={{ border: '1px solid black', padding: '8px' }}>{producto.ref}</td>
-                <td style={{ border: '1px solid black', padding: '8px' }}>{producto.cantidad}</td>
-                <td style={{ border: '1px solid black', padding: '8px' }}>{producto.descripcion}</td>
-                <td style={{ border: '1px solid black', padding: '8px' }}>{producto.precio_unitario}</td>
-                <td style={{ border: '1px solid black', padding: '8px' }}>{producto.monto_total}</td>
+                <td>{producto.ref}</td>
+                <td>{producto.cantidad}</td>
+                <td>{producto.descripcion}</td>
+                <td>{producto.precio_unitario}</td>
+                <td>{producto.monto_total}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* Totales */}
-        <div style={{ marginTop: '20px' }}>
-          <p>SUB-TOTAL: {order.sub_total}</p>
-          <p>IVA (16%): {order.iva}</p>
-          <p>TOTAL: {order.total}</p>
-          <p>Ret. IVA (75%): {order.ret_iva}</p>
-          <p>Neto a Pagar: {order.neto_a_pagar}</p>
-        </div>
-
-        {/* Firmas */}
-        <div style={{ marginTop: '20px' }}>
-          <p>Elaborado por: {order.elaborado_por}</p>
-          <p>Aprobado por: {order.aprobado_por}</p>
-        </div>
+        <p>Observaciones: {order.observaciones}</p>
+        <p>Elaborado por: {order.empleado.nombre}</p>
+        <p>Neto a Pagar: {order.neto_a_pagar}</p>
       </div>
     </div>
   );
