@@ -39,13 +39,13 @@ const OrderForm = ({ show, onHide, request }) => {
   
     try {
       // Crear la orden de compra
-      const { data: ordenData, error: ordenError } = await supabase.from('OrdenCompra').insert([{
+      const { data: ordenData, error: ordenError } = await supabase.from('ordencompra').insert([{
         solicitud_compra_id: request.id,
         proveedor_id: proveedorId,
         estado: 'Pendiente',
         precio_unitario: precioUnitario,
         sub_total: subTotal,
-        IVA: iva,
+        iva: iva,
         ret_iva: retIva || 0,
         neto_a_pagar: netoAPagar,
         unidad: unidad,
@@ -61,7 +61,7 @@ const OrderForm = ({ show, onHide, request }) => {
   
       // Marcar la solicitud de compra como "Aprobada"
       const { error: solicitudError } = await supabase
-        .from('SolicitudCompra')
+        .from('solicitudcompra')
         .update({ estado: 'Aprobada' })
         .eq('id', request.id);
   
