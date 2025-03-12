@@ -9,47 +9,52 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile }) => {
         width: '250px',
         position: 'fixed',
         top: '56px',
-        left: isVisible ? '0' : '-250px', // Mueve la sidebar fuera de la pantalla cuando no esté visible
+        left: isVisible ? '0' : '-250px',
         transition: 'left 0.3s',
         zIndex: 1000,
       }}
     >
-      <h1 className="text-2xl font-bold">Cámara de Industriales</h1>
-      <nav className="mt-5">
+      <h1 className="h4 mb-4">Cámara de Industriales</h1>
+      <nav>
         <ul className="list-unstyled">
-          <li className="mb-3">
-            <a
-              href="#"
-              className="text-white d-block p-2 hover:bg-blue-500"
-              onClick={() => onSelectTab('home')}
-            >
-              Home
-            </a>
-          </li>
-          <li className="mb-3">
-            <a
-              href="#"
-              className="text-white d-block p-2 hover:bg-blue-500"
+          <li className="mb-2">
+            <button
+              className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
               onClick={() => onSelectTab('solicitudes')}
             >
+              <i className="bi bi-list-task me-2"></i>
               Solicitudes
-            </a>
+            </button>
           </li>
-          {userProfile.rol === 'admin' && (
-            <li className="mb-3">
-              <a
-                href="#"
-                className="text-white d-block p-2 hover:bg-blue-500"
+          <li className="mb-2">
+            <button
+              className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
+              onClick={() => onSelectTab('historial')}
+            >
+              <i className="bi bi-clock-history me-2"></i>
+              Historial
+            </button>
+          </li>
+          {userProfile?.rol === 'admin' && (
+            <li className="mb-2">
+              <button
+                className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
                 onClick={() => onSelectTab('ordenes')}
               >
+                <i className="bi bi-file-earmark-text me-2"></i>
                 Órdenes
-              </a>
+              </button>
             </li>
           )}
         </ul>
       </nav>
-      {userProfile.rol === 'usuario' && (
-        <Button variant="light" className="w-100 mt-5" onClick={onNewRequest}>
+      {userProfile?.rol === 'usuario' && (
+        <Button 
+          variant="light" 
+          className="w-100 mt-4"
+          onClick={onNewRequest}
+        >
+          <i className="bi bi-plus-circle me-2"></i>
           Nueva Solicitud
         </Button>
       )}

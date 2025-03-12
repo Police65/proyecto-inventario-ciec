@@ -40,3 +40,21 @@ code {
 .visible {
   left: 0 !important; 
 }
+.badge {
+  padding: 0.5em 0.75em;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+.bg-warning {
+  background-color: #ffc107 !important;
+  color: #000;
+}
+
+.bg-success {
+  background-color: #198754 !important;
+}
+
+.bg-danger {
+  background-color: #dc3545 !important;
+}

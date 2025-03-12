@@ -1,31 +1,62 @@
 import React from 'react';
-import { Table } from 'react-bootstrap';
+import { Table, Button } from 'react-bootstrap';
 
-const RequestTable = ({ requests }) => {
+const RequestTable = ({ requests, withActions, onApprove, onReject }) => {
+  const getStatusBadge = (estado) => {
+    const variants = {
+      Pendiente: 'warning',
+      Aprobada: 'success',
+      Rechazada: 'danger'
+    };
+    
+    return (
+      <span className={`badge bg-${variants[estado]}`}>
+        {estado}
+      </span>
+    );
+  };
+
   return (
     <div className="table-responsive">
-      <Table striped bordered hover className="table-dark w-100">
-        <thead>
+      <Table striped hover className="align-middle">
+        <thead className="table-dark">
           <tr>
-            <th scope="col">ID</th>
-            <th scope="col">Descripción</th>
-            <th scope="col">Producto ID</th>
-            <th scope="col">Cantidad</th>
-            <th scope="col">Estado</th>
-            <th scope="col">Empleado ID</th>
-            <th scope="col">Departamento ID</th>
+            <th>ID</th>
+            <th>Descripción</th>
+            <th>Producto</th>
+            <th>Cantidad</th>
+            <th>Estado</th>
+            {withActions && <th>Acciones</th>}
           </tr>
         </thead>
         <tbody>
-          {requests.map((request) => (
+          {requests?.map(request => (
             <tr key={request.id}>
-              <th scope="row">{request.id}</th>
-              <td>{request.descripcion}</td>
-              <td>{request.producto_id}</td>
+              <td>{request.id}</td>
+              <td>{request.descripcion || 'N/A'}</td>
+              <td>{request.producto_id || 'N/A'}</td>
               <td>{request.cantidad}</td>
-              <td>{request.estado}</td>
-              <td>{request.empleado_id}</td>
-              <td>{request.departamento_id}</td>
+              <td>{getStatusBadge(request.estado)}</td>
+              
+              {withActions && (
+                <td>
+                  <Button 
+                    variant="success" 
+                    size="sm" 
+                    className="me-2"
+                    onClick={() => onApprove(request)}
+                  >
+                    Aprobar
+                  </Button>
+                  <Button 
+                    variant="danger" 
+                    size="sm"
+                    onClick={() => onReject(request.id)}
+                  >
+                    Rechazar
+                  </Button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
