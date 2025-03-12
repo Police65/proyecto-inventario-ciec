@@ -29,16 +29,40 @@ function App() {
       alert('Debe iniciar sesión para enviar una solicitud');
       return;
     }
-
-    const { data, error } = await supabase.from('solicitudcompra').insert([{
-      descripcion: request.description,
-      producto_id: request.productId || null,
-      cantidad: request.quantity,
-      estado: 'Pendiente',
-      empleado_id: userProfile.empleado_id,
-      departamento_id: userProfile.departamento_id
-    }]);
-    if (!error) setRequests([...requests, data[0]]);
+  
+    try {
+      if (request.description) {
+        // Insertar requisición especial
+        const { data, error } = await supabase.from('solicitudcompra').insert([{
+          descripcion: request.description,
+          producto_id: null,
+          cantidad: 1,
+          estado: 'Pendiente',
+          empleado_id: userProfile.empleado_id,
+          departamento_id: userProfile.departamento_id
+        }]);
+        
+        if (!error) setRequests([...requests, data[0]]);
+      } else {
+        // Insertar múltiples productos
+        const inserts = request.products.map(product => 
+          supabase.from('solicitudcompra').insert([{
+            descripcion: null,
+            producto_id: product.productId,
+            cantidad: product.quantity,
+            estado: 'Pendiente',
+            empleado_id: userProfile.empleado_id,
+            departamento_id: userProfile.departamento_id
+          }])
+        );
+  
+        const results = await Promise.all(inserts);
+        const newRequests = results.flatMap(res => res.data);
+        setRequests([...requests, ...newRequests]);
+      }
+    } catch (error) {
+      alert('Error al enviar la solicitud: ' + error.message);
+    }
   };
 
   const toggleSidebar = () => {
