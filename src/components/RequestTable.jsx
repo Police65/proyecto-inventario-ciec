@@ -23,8 +23,7 @@ const RequestTable = ({ requests, withActions, onApprove, onReject }) => {
           <tr>
             <th>ID</th>
             <th>Descripción</th>
-            <th>Producto</th>
-            <th>Cantidad</th>
+            <th>Productos</th>
             <th>Estado</th>
             {withActions && <th>Acciones</th>}
           </tr>
@@ -34,8 +33,18 @@ const RequestTable = ({ requests, withActions, onApprove, onReject }) => {
             <tr key={request.id}>
               <td>{request.id}</td>
               <td>{request.descripcion || 'N/A'}</td>
-              <td>{request.producto_id || 'N/A'}</td>
-              <td>{request.cantidad}</td>
+              <td>
+                {request.detalles?.map((detalle, i) => (
+                  <div key={i} className="mb-1">
+                    {detalle.producto_id ? (
+                      <>
+                        <strong>Producto ID:</strong> {detalle.producto_id} 
+                        <span className="ms-2">(Cantidad: {detalle.cantidad})</span>
+                      </>
+                    ) : 'Producto no especificado'}
+                  </div>
+                )) || 'N/A'}
+              </td>
               <td>{getStatusBadge(request.estado)}</td>
               
               {withActions && (

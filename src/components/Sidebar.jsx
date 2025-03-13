@@ -1,7 +1,6 @@
 import React from 'react';
 import { Button } from 'react-bootstrap';
-
-const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile }) => {
+const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingRequests = [] }) => {
   return (
     <aside
       className={`bg-primary text-white min-vh-100 p-4 ${isVisible ? 'visible' : 'hidden'}`}
@@ -18,12 +17,32 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile }) => {
       <nav>
         <ul className="list-unstyled">
           <li className="mb-2">
+            {/* Ponemos white-space: nowrap en el botón para evitar el salto de línea */}
             <button
               className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
+              style={{ whiteSpace: 'nowrap' }}
               onClick={() => onSelectTab('solicitudes')}
             >
               <i className="bi bi-list-task me-2"></i>
-              Solicitudes
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                Solicitudes
+                <span
+                  className="bg-danger d-flex justify-content-center align-items-center"
+                  style={{
+                    display: 'inline-flex',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    marginLeft: '8px',
+                    fontSize: '12px',
+                    color: 'white',
+                    verticalAlign: 'middle',
+                    marginTop: '-10%',
+                  }}
+                >
+                 {pendingRequests.length}
+                </span>
+              </span>
             </button>
           </li>
           <li className="mb-2">
@@ -49,11 +68,7 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile }) => {
         </ul>
       </nav>
       {userProfile?.rol === 'usuario' && (
-        <Button 
-          variant="light" 
-          className="w-100 mt-4"
-          onClick={onNewRequest}
-        >
+        <Button variant="light" className="w-100 mt-4" onClick={onNewRequest}>
           <i className="bi bi-plus-circle me-2"></i>
           Nueva Solicitud
         </Button>
@@ -61,5 +76,4 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile }) => {
     </aside>
   );
 };
-
 export default Sidebar;

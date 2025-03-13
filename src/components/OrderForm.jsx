@@ -4,59 +4,72 @@ import { supabase } from '../supabaseClient';
 
 const OrderForm = ({ show, onHide, request, onSuccess }) => {
   const [proveedores, setProveedores] = useState([]);
+  const [productos, setProductos] = useState([]);
+  const [items, setItems] = useState([{ producto_id: '', cantidad: 1, precio_unitario: 0 }]);
   const [formData, setFormData] = useState({
     proveedor_id: '',
-    precio_unitario: 0,
-    cantidad: request?.cantidad || 1,
-    unidad: 'Bs',
+    unidad: 'Bs', // Valor por defecto
     observaciones: ''
   });
 
-  // Cargar proveedores
+
+  // Cargar proveedores y productos
   useEffect(() => {
-    const fetchProveedores = async () => {
-      const { data } = await supabase.from('proveedor').select('*');
-      setProveedores(data || []);
+    const fetchData = async () => {
+      const { data: provData } = await supabase.from('proveedor').select('*');
+      const { data: prodData } = await supabase.from('producto').select('*');
+      setProveedores(provData || []);
+      setProductos(prodData || []);
     };
-    fetchProveedores();
+    fetchData();
   }, []);
 
-  // Calcular totales
-  useEffect(() => {
-    const subtotal = formData.precio_unitario * formData.cantidad;
+  // Calcular montos
+  const calcularTotales = () => {
+    const subtotal = items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
     const iva = subtotal * 0.16;
-    const neto = subtotal + iva;
-    
-    setFormData(prev => ({
-      ...prev,
-      subtotal: subtotal.toFixed(2),
-      iva: iva.toFixed(2),
-      neto_a_pagar: neto.toFixed(2)
-    }));
-  }, [formData.precio_unitario, formData.cantidad]);
+    const ret_iva = iva * 0.75; // Retención del 75% del IVA
+    const neto = subtotal + iva - ret_iva;
 
-  // Enviar orden
+    return { subtotal, iva, ret_iva, neto };
+  };
+
+  // Manejar envío
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    const { error } = await supabase.from('ordencompra').insert([{
+    const { subtotal, iva, ret_iva, neto } = calcularTotales();
+
+    // Insertar orden principal
+    const { data: orden, error } = await supabase.from('ordencompra').insert([{
       solicitud_compra_id: request.id,
-      ...formData,
+      proveedor_id: formData.proveedor_id,
+      subtotal,
+      iva,
+      ret_iva,
+      neto_a_pagar: neto,
       estado: 'Pendiente',
-      empleado_id: request.empleado_id
-    }]);
+      empleado_id: request.empleado_id,
+      unidad: formData.unidad
+    }]).select('id');
 
     if (!error) {
-      await supabase
-        .from('solicitudcompra')
-        .update({ estado: 'Aprobada' })
-        .eq('id', request.id);
+      // Insertar detalles
+      await supabase.from('ordencompra_detalle').insert(
+        items.map(item => ({
+          orden_compra_id: orden[0].id,
+          producto_id: item.producto_id,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario
+        }))
+      );
 
+      await supabase.from('solicitudcompra').update({ estado: 'Aprobada' }).eq('id', request.id);
       onSuccess();
       onHide();
     }
   };
 
+  // UI dinámica para productos
   return (
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton>
@@ -64,7 +77,7 @@ const OrderForm = ({ show, onHide, request, onSuccess }) => {
       </Modal.Header>
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
-          {/* Campos del formulario (proveedor, precios, etc.) */}
+          {/* Campo para proveedor */}
           <Form.Group className="mb-3">
             <Form.Label>Proveedor</Form.Label>
             <Form.Select
@@ -79,9 +92,87 @@ const OrderForm = ({ show, onHide, request, onSuccess }) => {
             </Form.Select>
           </Form.Group>
 
-          {/* Resto de campos y cálculos */}
-          {/* ... (mantener la lógica de cálculos anterior) ... */}
+          {/* Lista de productos */}
+          {items.map((item, index) => (
+            <div key={index} className="border p-3 mb-3">
+              <Form.Group className="mb-3">
+                <Form.Label>Producto</Form.Label>
+                <Form.Select
+                  value={item.producto_id}
+                  onChange={(e) => {
+                    const newItems = [...items];
+                    newItems[index].producto_id = e.target.value;
+                    setItems(newItems);
+                  }}
+                  required
+                >
+                  <option value="">Seleccionar producto</option>
+                  {productos.map(p => (
+                    <option key={p.id} value={p.id}>{p.descripcion}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
 
+              <Form.Group className="mb-3">
+                <Form.Label>Cantidad</Form.Label>
+                <Form.Control
+                  type="number"
+                  value={item.cantidad}
+                  onChange={(e) => {
+                    const newItems = [...items];
+                    newItems[index].cantidad = e.target.value;
+                    setItems(newItems);
+                  }}
+                  min="1"
+                />
+              </Form.Group>
+              <Form.Group className="mb-3">
+    <Form.Label>Moneda</Form.Label>
+    <Form.Select
+      value={formData.unidad}
+      onChange={e => setFormData({...formData, unidad: e.target.value})}
+      required
+    >
+      <option value="Bs">Bolívares (Bs)</option>
+      <option value="USD">Dólares (USD)</option>
+    </Form.Select>
+  </Form.Group>
+
+
+              <Form.Group className="mb-3">
+                <Form.Label>Precio Unitario (USD)</Form.Label>
+                <Form.Control
+                  type="number"
+                  step="0.01"
+                  value={item.precio_unitario}
+                  onChange={(e) => {
+                    const newItems = [...items];
+                    newItems[index].precio_unitario = parseFloat(e.target.value);
+                    setItems(newItems);
+                  }}
+                />
+              </Form.Group>
+
+              {items.length > 1 && (
+                <Button variant="danger" onClick={() => setItems(items.filter((_, i) => i !== index))}>
+                  Eliminar
+                </Button>
+              )}
+            </div>
+          ))}
+
+          <Button variant="outline-primary" onClick={() => setItems([...items, { producto_id: '', cantidad: 1, precio_unitario: 0 }])}>
+            Añadir Producto
+          </Button>
+
+          {/* Resumen financiero */}
+          <div className="mt-4 p-3 bg-light">
+  <h5>Resumen ({formData.unidad})</h5>
+  <p>Subtotal: {formData.unidad} {calcularTotales().subtotal.toFixed(2)}</p>
+  <p>IVA (16%): {formData.unidad} {calcularTotales().iva.toFixed(2)}</p>
+  <p>Ret. IVA (75%): {formData.unidad} {calcularTotales().ret_iva.toFixed(2)}</p>
+  <p>Neto a Pagar: {formData.unidad} {calcularTotales().neto.toFixed(2)}</p>
+</div>
           <div className="d-flex justify-content-end gap-2 mt-4">
             <Button variant="secondary" onClick={onHide}>Cancelar</Button>
             <Button variant="primary" type="submit">Crear Orden</Button>

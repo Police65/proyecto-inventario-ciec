@@ -1,24 +1,37 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react';
 
 const ModoOscuro = () => {
     const [modo, setModo] = useState("dark");
 
-    const tema = document.querySelector("[data-bs-theme]");
-
-    const cambiarModo = (nuevoModo) =>  {
-        setModo(nuevoModo);
-    }
-
     useEffect(() => {
-        tema.setAttribute("data-bs-theme",modo);
+        const htmlElement = document.documentElement;
+        htmlElement.setAttribute("data-bs-theme", modo);
+        
+        // Aplicar el fondo según el tema
+        document.body.style.backgroundColor = modo === "dark" 
+            ? "#212529" 
+            : "#f8f9fa";
+            
     }, [modo]);
 
-  return (
-      <div className="btn-group mt-4 mb-4" role="group" aria-label="Esquema de colores">
-    <button className='btn btn-primary' title="Modo oscuro" onClick={() => cambiarModo("dark")}><i className="bi bi-moon-fill"></i></button>
-    <button className='btn btn-primary' title="Modo claro" onClick={() => cambiarModo("light")}><i className="bi bi-sun-fill"></i></button>
-    </div>
-  )
-}
+    return (
+        <div className="btn-group" role="group">
+            <button 
+                className='btn btn-primary'
+                onClick={() => setModo("dark")}
+                title="Modo oscuro"
+            >
+                <i className="bi bi-moon-fill"></i>
+            </button>
+            <button 
+                className='btn btn-primary'
+                onClick={() => setModo("light")}
+                title="Modo claro"
+            >
+                <i className="bi bi-sun-fill"></i>
+            </button>
+        </div>
+    );
+};
 
-export default ModoOscuro
+export default ModoOscuro;

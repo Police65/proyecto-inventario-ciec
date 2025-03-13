@@ -19,21 +19,32 @@ function App() {
   // Cargar datos iniciales
   useEffect(() => {
     const fetchData = async () => {
-      // Solicitudes
-      const { data: solicitudesData } = await supabase
+      // Solicitudes pendientes
+      const { data: solicitudesData, error: errorSolicitudes } = await supabase
         .from('solicitudcompra')
-        .select('*')
+        .select(`
+          *,
+          detalles:solicitudcompra_detalle(producto_id, cantidad)
+        `)
+        .eq('estado', 'Pendiente')
         .order('fecha_solicitud', { ascending: false });
-
+    
+      if (errorSolicitudes) {
+        console.error('Error al cargar solicitudes:', errorSolicitudes);
+      } else {
+        console.log("Solicitudes con detalles:", solicitudesData);
+      }
       setRequests(solicitudesData || []);
-
+  
       // Órdenes (solo para admin)
       if (userProfile?.rol === 'admin') {
-        const { data: ordenesData } = await supabase
+        const { data: ordenesData, error: errorOrdenes } = await supabase
           .from('ordencompra')
           .select('*, proveedor:proveedor_id(nombre)')
           .order('fecha_orden', { ascending: false });
-        
+        if (errorOrdenes) {
+          console.error('Error al cargar órdenes:', errorOrdenes);
+        }
         setOrders(ordenesData || []);
       }
     };
@@ -43,30 +54,37 @@ function App() {
   // Manejar envío de solicitud
   const handleSubmitRequest = async (requestData) => {
     try {
-      const inserts = requestData.products?.map(product => ({
-        descripcion: null,
-        producto_id: product.productId,
-        cantidad: product.quantity,
-        estado: 'Pendiente',
-        empleado_id: userProfile.empleado_id,
-        departamento_id: userProfile.departamento_id
-      })) || [{
-        descripcion: requestData.description,
-        producto_id: null,
-        cantidad: 1,
-        estado: 'Pendiente',
-        empleado_id: userProfile.empleado_id,
-        departamento_id: userProfile.departamento_id
-      }];
-
-      const { data, error } = await supabase
+      // Crear solicitud principal
+      const { data: solicitud, error } = await supabase
         .from('solicitudcompra')
-        .insert(inserts);
-
-      if (!error) {
-        setRequests(prev => [...(data || []), ...prev]);
-        setShowForm(false);
+        .insert([{
+          descripcion: requestData.description || 'Solicitud múltiple de productos',
+          estado: 'Pendiente',
+          empleado_id: userProfile.empleado_id,
+          departamento_id: userProfile.departamento_id
+        }])
+        .select('id');
+  
+      if (error) throw error;
+  
+      // Insertar detalles solo si no es una solicitud especial
+      if (!requestData.customRequest && requestData.products) {
+        const inserts = requestData.products.map(product => ({
+          solicitud_compra_id: solicitud[0].id,
+          producto_id: product.productId,
+          cantidad: product.quantity
+        }));
+  
+        const { error: detalleError } = await supabase
+          .from('solicitudcompra_detalle')
+          .insert(inserts);
+  
+        if (detalleError) throw detalleError;
       }
+  
+      setRequests(prev => [...prev, {...solicitud[0], detalles: requestData.products || []}]);
+      setShowForm(false);
+      
     } catch (error) {
       alert('Error: ' + error.message);
     }
@@ -81,11 +99,12 @@ function App() {
           <CustomNavbar onToggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)} />
           
           <Sidebar
-            isVisible={isSidebarVisible}
-            onNewRequest={() => setShowForm(true)}
-            onSelectTab={setActiveTab}
-            userProfile={userProfile}
-          />
+     isVisible={isSidebarVisible}
+     onNewRequest={() => setShowForm(true)}
+     onSelectTab={setActiveTab}
+     userProfile={userProfile}
+     pendingRequests={requests.filter(req => req.estado === 'Pendiente')}
+   />
 
           <div style={{
             marginLeft: isSidebarVisible ? '250px' : '0',
