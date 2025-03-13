@@ -1,7 +1,7 @@
 import React from 'react';
 import { Table, Button } from 'react-bootstrap';
 
-const RequestTable = ({ requests, withActions, onApprove, onReject }) => {
+const RequestTable = ({ requests, withActions, onApprove, onReject, showStatus = true }) => {
   const getStatusBadge = (estado) => {
     const variants = {
       Pendiente: 'warning',
@@ -24,7 +24,7 @@ const RequestTable = ({ requests, withActions, onApprove, onReject }) => {
             <th>ID</th>
             <th>Descripción</th>
             <th>Productos</th>
-            <th>Estado</th>
+            {showStatus && <th>Estado</th>}
             {withActions && <th>Acciones</th>}
           </tr>
         </thead>
@@ -35,17 +35,17 @@ const RequestTable = ({ requests, withActions, onApprove, onReject }) => {
               <td>{request.descripcion || 'N/A'}</td>
               <td>
                 {request.detalles?.map((detalle, i) => (
-                  <div key={i} className="mb-1">
+                  <div key={i} className="mb-1 small">
                     {detalle.producto_id ? (
                       <>
-                        <strong>Producto ID:</strong> {detalle.producto_id} 
+                        <strong>Producto {i + 1}:</strong> ID {detalle.producto_id}
                         <span className="ms-2">(Cantidad: {detalle.cantidad})</span>
                       </>
                     ) : 'Producto no especificado'}
                   </div>
                 )) || 'N/A'}
               </td>
-              <td>{getStatusBadge(request.estado)}</td>
+              {showStatus && <td>{getStatusBadge(request.estado)}</td>}
               
               {withActions && (
                 <td>
@@ -68,6 +68,13 @@ const RequestTable = ({ requests, withActions, onApprove, onReject }) => {
               )}
             </tr>
           ))}
+          {requests?.length === 0 && (
+            <tr>
+              <td colSpan={showStatus ? 5 : 4} className="text-center text-muted py-4">
+                No hay registros para mostrar
+              </td>
+            </tr>
+          )}
         </tbody>
       </Table>
     </div>

@@ -16,78 +16,83 @@ function App() {
   const [activeTab, setActiveTab] = useState('solicitudes');
   const [userProfile, setUserProfile] = useState(null);
 
-  // Cargar datos iniciales
+  const fetchRequests = async () => {
+    const baseQuery = supabase
+      .from('solicitudcompra')
+      .select(`
+        *,
+        detalles:solicitudcompra_detalle(producto_id, cantidad),
+        empleado:empleado_id(nombre, apellido)
+      `)
+      .order('fecha_solicitud', { ascending: false });
+
+    if (userProfile?.rol === 'admin') {
+      const { data, error } = await baseQuery;
+      if (!error) setRequests(data || []);
+    } else {
+      const { data, error } = await baseQuery
+        .eq('empleado_id', userProfile?.empleado_id);
+      if (!error) setRequests(data || []);
+    }
+  };
+
+  const fetchOrders = async () => {
+    if (userProfile?.rol === 'admin') {
+      const { data, error } = await supabase
+        .from('ordencompra')
+        .select('*, proveedor:proveedor_id(nombre)')
+        .order('fecha_orden', { ascending: false });
+      if (!error) setOrders(data || []);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      // Solicitudes pendientes
-      const { data: solicitudesData, error: errorSolicitudes } = await supabase
-        .from('solicitudcompra')
-        .select(`
-          *,
-          detalles:solicitudcompra_detalle(producto_id, cantidad)
-        `)
-        .eq('estado', 'Pendiente')
-        .order('fecha_solicitud', { ascending: false });
-    
-      if (errorSolicitudes) {
-        console.error('Error al cargar solicitudes:', errorSolicitudes);
-      } else {
-        console.log("Solicitudes con detalles:", solicitudesData);
-      }
-      setRequests(solicitudesData || []);
-  
-      // Órdenes (solo para admin)
-      if (userProfile?.rol === 'admin') {
-        const { data: ordenesData, error: errorOrdenes } = await supabase
-          .from('ordencompra')
-          .select('*, proveedor:proveedor_id(nombre)')
-          .order('fecha_orden', { ascending: false });
-        if (errorOrdenes) {
-          console.error('Error al cargar órdenes:', errorOrdenes);
-        }
-        setOrders(ordenesData || []);
-      }
-    };
-    fetchData();
+    if (userProfile) {
+      fetchRequests();
+      fetchOrders();
+    }
   }, [userProfile]);
 
-  // Manejar envío de solicitud
   const handleSubmitRequest = async (requestData) => {
     try {
-      // Crear solicitud principal
       const { data: solicitud, error } = await supabase
         .from('solicitudcompra')
         .insert([{
-          descripcion: requestData.description || 'Solicitud múltiple de productos',
+          descripcion: requestData.description || 'Solicitud múltiple',
           estado: 'Pendiente',
           empleado_id: userProfile.empleado_id,
           departamento_id: userProfile.departamento_id
         }])
         .select('id');
-  
+
       if (error) throw error;
-  
-      // Insertar detalles solo si no es una solicitud especial
+
       if (!requestData.customRequest && requestData.products) {
         const inserts = requestData.products.map(product => ({
           solicitud_compra_id: solicitud[0].id,
           producto_id: product.productId,
           cantidad: product.quantity
         }));
-  
+
         const { error: detalleError } = await supabase
           .from('solicitudcompra_detalle')
           .insert(inserts);
-  
+          
         if (detalleError) throw detalleError;
       }
-  
-      setRequests(prev => [...prev, {...solicitud[0], detalles: requestData.products || []}]);
+
+      await fetchRequests();
       setShowForm(false);
-      
     } catch (error) {
       alert('Error: ' + error.message);
     }
+  };
+
+  const getFilteredRequests = (estados) => {
+    return requests.filter(request => 
+      estados.includes(request.estado) &&
+      (userProfile?.rol === 'admin' || request.empleado_id === userProfile?.empleado_id)
+    );
   };
 
   return (
@@ -99,12 +104,12 @@ function App() {
           <CustomNavbar onToggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)} />
           
           <Sidebar
-     isVisible={isSidebarVisible}
-     onNewRequest={() => setShowForm(true)}
-     onSelectTab={setActiveTab}
-     userProfile={userProfile}
-     pendingRequests={requests.filter(req => req.estado === 'Pendiente')}
-   />
+            isVisible={isSidebarVisible}
+            onNewRequest={() => setShowForm(true)}
+            onSelectTab={setActiveTab}
+            userProfile={userProfile}
+            pendingRequests={getFilteredRequests(['Pendiente'])}
+          />
 
           <div style={{
             marginLeft: isSidebarVisible ? '250px' : '0',
@@ -118,27 +123,21 @@ function App() {
               {userProfile.rol === 'admin' ? (
                 <AdminDashboard 
                   activeTab={activeTab}
-                  solicitudesPendientes={requests.filter(r => r.estado === 'Pendiente')}
-                  solicitudesHistorial={requests.filter(r => r.estado !== 'Pendiente')}
+                  solicitudesPendientes={getFilteredRequests(['Pendiente'])}
+                  solicitudesHistorial={getFilteredRequests(['Aprobada', 'Rechazada'])}
                   ordenesHistorial={orders}
                 />
               ) : (
                 <>
                   {activeTab === 'solicitudes' && (
                     <RequestTable 
-                      requests={requests.filter(r => 
-                        r.empleado_id === userProfile.empleado_id &&
-                        r.estado === 'Pendiente'
-                      )}
+                      requests={getFilteredRequests(['Pendiente'])}
                     />
                   )}
                   
                   {activeTab === 'historial' && (
                     <RequestTable
-                      requests={requests.filter(r => 
-                        r.empleado_id === userProfile.empleado_id && 
-                        r.estado !== 'Pendiente'
-                      )}
+                      requests={getFilteredRequests(['Aprobada', 'Rechazada'])}
                     />
                   )}
                 </>
