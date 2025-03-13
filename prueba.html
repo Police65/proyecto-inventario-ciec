@@ -19,18 +19,19 @@
         }
         .header h2 {
             font-size: 18px;
-            margin: 0;
+            margin-left: 68%;
         }
         .header h3 {
             font-size: 16px;
-            margin: 0;
+            margin-left: 87%;
         }
         .header h4 {
             font-size: 14px;
-            margin: 0;
+            margin-left: 80%;
         }
         .info {
             margin-bottom: 20px;
+            text-align: center;
         }
         .info p {
             margin: 5px 0;
@@ -61,37 +62,92 @@
         .totales {
             text-align: right;
         }
+
+
+
+            /* Estilos exclusivos para la tabla con clase "tabla-sin-bordes" */
+    .tabla-sin-bordes {
+      border-collapse: collapse; /* Evita espacios entre bordes */
+      width: 100%;
+    }
+    .tabla-sin-bordes,
+    .tabla-sin-bordes td,
+    .tabla-sin-bordes tr {
+      border: none; /* Elimina los bordes en la tabla, filas y celdas */
+    }
+    .tabla-sin-bordes td {
+      padding: 8px; /* Espaciado interno en las celdas */
+    }
+
+
+
+    .cuadro {
+            border: 1px solid black;
+            padding: 10px;
+            margin-bottom: 10px;
+            width: 300px;
+        }
+        .firma {
+            margin-top: 20px;
+        }
+        .firma p {
+            margin: 5px 0;
+        }
+        .version {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+ 
+
+
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>Convenciones</h1>
-        <h2>Cámara de Industriales del Estado Carabobo</h2>
-        <h3>Coordinador de Administración y Finanzas</h3>
-        <h4>Orden de Compra</h4>
+        <h2>Coordinador de Administración y Finanzas</h2>
+         
+        <h3>Orden de Compra</h3>
+        <h4>Nro. 10</h4>
     </div>
 
+    <br><br><br><br><br><br>
     <div class="info">
-        <p><strong>Nro.</strong> 10</p>
+        
         <p>Zona Industrial Municipal norte- Av. Ernesto L. Ramper Edif. Cámara de Industriales-Valencia-Venezuela</p>
         <p>Web: www.cdec.org.ve - E-mail: logistica@cdec.org.ve - Telefax: (0241) 634920 - 6170285 - 6170269</p>
         <p>Apartado 388 - R.I.F. J-07510911-2 - N.I.T. 0071450217</p>
     </div>
 
-    <div class="proveedor">
-        <p><strong>PROVEEDOR:</strong> CIUDAD DIGITAL, CA</p>
-        <p><strong>RIF:</strong> J-25951696-6</p>
-        <p><strong>TELÉFONOS:</strong> 0241-18254646</p>
-    </div>
+    <br><br><br>
 
-    <div class="direccion">
-        <p><strong>DIRECCIÓN:</strong> Av Bolivar Norte Calle 137 Galpon 1344-155 Valencia - Edo Carabobo</p>
-    </div>
+
+    <table class="tabla-sin-bordes">
+        <tr>
+          <td><strong>PROVEEDOR:</strong></td>
+          <td><strong>CIUDAD DIGITAL, CA</strong></td>
+          <td><strong>FECHA:</strong></td>
+          <td>21/02/2024</td>
+        </tr>
+        <tr>
+          <td><strong>DIRECCIÓN:</strong></td>
+          <td>Av Bolivar Norte Calle 137 Galpon 1344-155 Valencia - Edo Carabobo</td>
+          <td><strong>RIF:</strong></td>
+          <td>J-25951696-6</td>
+        </tr>
+        <tr>
+          <td><strong>TELÉFONOS:</strong></td>
+          <td>0241-18254646</td>
+        </tr>
+      </table>
+     
+
+     <br><br><br>
 
     <div class="instrucciones">
         <p><strong>ESTIMADO PROVEEDOR, DE ACUERDO A SU COTIZACIÓN ENVIADA POR WS, FAVOR SUMINISTRAR LO ABAJO INDICADO</strong></p>
     </div>
 
+    
     <table>
         <thead>
             <tr>
@@ -173,32 +229,79 @@
                 <td>7.19</td>
                 <td>7.19</td>
             </tr>
+            <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td><strong>Sub-total:</strong></td>
+                <td><strong>4.202,85</strong></td>
+            </tr>
+            <tr class="desaparecer">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td><strong>IVA 16 %</strong></td>
+                <td><strong>672,46</strong></td>
+            </tr>
+            <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td><strong>Total:</strong></td>
+                <td><strong>4.875,31</strong></td>
+            </tr>
         </tbody>
     </table>
 
-    <div class="observaciones">
-        <p><strong>OBSERVACIONES:</strong></p>
-        <p>Elaborado por: [Nombre]</p>
-        <p>Aprobado por: [Nombre]</p>
-        <p>Ret. IVA: 75%</p>
-        <p>Neto a Pagar: 504.34</p>
+<p><strong>Rest. IVA 75%</strong>     504,34</p>
+
+<p><strong>Neto a pagar:  4.370,64</strong></p>
+    
+    <table class="anchura" style="border:none">
+        <tr style="border:none">
+            
+            <td style="width: 20%; border:none;"> <strong>OBSERVACIONES:</strong></td>
+            
+            <td> 
+
+                <table style="border:none">
+                    <tr style="border:none">
+                        <td style="border:none">
+<br><br><br><br><br>
+<br><br><br><br><br>
+                        </td>
+                    </tr>
+                </table>
+
+            </td>
+        
+        </tr>
+       
+    </table>
+        
+
+
+       
+    <div class="cuadro" style="width: 80%;">
+        <p>Elaborado por: Luis Miguel González
+
+             <br><br> (Nombres / Apellidos) 2 (Firma / Sello)</p>
+        <p>[ ]</p>
+        <br>
     </div>
 
-    <div class="firmas">
-        <div>
-            <p>Luis Miguel González</p>
-            <p>1 (Nombre / Apellido) 2 (Firma / Sello)</p>
-        </div>
-        <div>
-            <p>Jackeline Rodriguez</p>
-            <p>1 (Nombre / Apellido) 2 (Firma / Sello)</p>
-        </div>
+    <br><br>
+
+    <div class="cuadro" style="width: 80%;">
+        <p>Aprobado por: Luis Miguel González
+
+              <br><br> (Nombres / Apellidos) 2 (Firma / Sello)</p>
+        <p>[ ]</p>
+        <br>
     </div>
 
-    <div class="totales">
-        <p><strong>TCBEV:</strong> 4,370.96</p>
-        <p><strong>USD:</strong> 0.00</p>
-        <p><strong>Total en Bs.:</strong> 0.00</p>
-    </div>
+
+    <br><br><br><br><br><br>
+
 </body>
 </html>

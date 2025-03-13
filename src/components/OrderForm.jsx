@@ -90,10 +90,10 @@ const OrderForm = ({ show, onHide, request, onSuccess }) => {
       if (detalleError) throw detalleError;
 
       await supabase.from('solicitudcompra').update({ estado: 'Aprobada' }).eq('id', request.id);
-      onSuccess();
+      onSuccess(orden[0]); // Pasa la nueva orden al componente padre
       onHide();
     } catch (error) {
-      alert(`Error al crear la orden: ${error.message}`);
+      alert('Error al crear la orden: ' + error.message);
     }
   };
 

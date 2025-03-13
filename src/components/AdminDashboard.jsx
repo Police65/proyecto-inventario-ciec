@@ -13,10 +13,13 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
       .from('solicitudcompra')
       .update({ estado: 'Rechazada' })
       .eq('id', id);
-
-    if (!error) window.location.reload();
+  
+    if (!error) {
+      // Actualiza el estado localmente en lugar de recargar
+      const updatedRequests = solicitudesPendientes.filter(req => req.id !== id);
+      setSolicitudesPendientes(updatedRequests);
+    }
   };
-
   return (
     <>
       {activeTab === 'solicitudes' && (
