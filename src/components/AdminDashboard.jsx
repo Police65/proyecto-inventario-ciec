@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; 
+import React, { useState } from 'react';
 import { Button } from 'react-bootstrap';
 import OrderForm from './OrderForm';
 import RequestTable from './RequestTable';
@@ -22,8 +22,8 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
       {activeTab === 'solicitudes' && (
         <div className="bg-white rounded-3 p-4 shadow-sm">
           <h4 className="mb-4 text-dark">🔄 Solicitudes Pendientes</h4>
-          <RequestTable 
-            requests={solicitudesPendientes} 
+          <RequestTable
+            requests={solicitudesPendientes}
             withActions={true}
             onApprove={(request) => {
               setSelectedRequest(request);
@@ -53,25 +53,48 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
                 <tr>
                   <th>ID</th>
                   <th>Proveedor</th>
+                  <th>Solicitud Relacionada</th>
                   <th>Fecha</th>
                   <th>Total</th>
                   <th>Estado</th>
                 </tr>
               </thead>
               <tbody>
-                {ordenesHistorial?.map(orden => (
-                  <tr key={orden.id}>
-                    <td>{orden.id}</td>
-                    <td>{orden.proveedor?.nombre || 'N/A'}</td>
-                    <td>{new Date(orden.fecha_orden).toLocaleDateString()}</td>
-                    <td>{orden.neto_a_pagar?.toFixed(2)} {orden.unidad}</td>
-                    <td>
-                      <span className={`badge bg-${orden.estado === 'Completada' ? 'success' : 'warning'}`}>
-                        {orden.estado}
-                      </span>
+                {ordenesHistorial?.map(orden => {
+                  const statusColor = {
+                    'Pendiente': 'warning',
+                    'Completada': 'success',
+                    'Anulada': 'secondary'
+                  }[orden.estado];
+
+                  return (
+                    <tr key={orden.id}>
+                      <td>{orden.id}</td>
+                      <td>{orden.proveedor?.nombre || 'N/A'}</td>
+                      <td>{orden.solicitud?.descripcion || 'N/A'}</td>
+                      <td>{new Date(orden.fecha_orden).toLocaleDateString()}</td>
+                      <td>{orden.neto_a_pagar?.toFixed(2)} {orden.unidad}</td>
+                      <td>
+                        <span className={`badge bg-${statusColor}`}>
+                          {orden.estado}
+                        </span>
+                        {userProfile?.rol === 'admin' && (
+                          <OrderActions
+                            order={orden}
+                            onUpdate={() => window.location.reload()}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {ordenesHistorial?.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="text-center text-muted py-4">
+                      No hay órdenes registradas
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

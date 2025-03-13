@@ -1,6 +1,8 @@
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from 'react-bootstrap';
 const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingRequests = [] }) => {
+  const location = useLocation();
   return (
     <aside
       className={`bg-primary text-white min-vh-100 p-4 ${isVisible ? 'visible' : 'hidden'}`}
@@ -17,8 +19,9 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingReq
       <nav>
         <ul className="list-unstyled">
           <li className="mb-2">
-            {/* Ponemos white-space: nowrap en el botón para evitar el salto de línea */}
-            <button
+            {/* Se reemplaza el botón por un Link para navegar a la ruta /solicitudes */}
+            <Link
+              to="/solicitudes"
               className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
               style={{ whiteSpace: 'nowrap' }}
               onClick={() => onSelectTab('solicitudes')}
@@ -40,29 +43,31 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingReq
                     marginTop: '-10%',
                   }}
                 >
-                 {pendingRequests.length}
+                  {pendingRequests.length}
                 </span>
               </span>
-            </button>
+            </Link>
           </li>
           <li className="mb-2">
-            <button
+            <Link
+              to="/solicitudes"
               className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
               onClick={() => onSelectTab('historial')}
             >
               <i className="bi bi-clock-history me-2"></i>
               Historial
-            </button>
+            </Link>
           </li>
           {userProfile?.rol === 'admin' && (
             <li className="mb-2">
-              <button
+              <Link
+                to="/solicitudes"
                 className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
                 onClick={() => onSelectTab('ordenes')}
               >
                 <i className="bi bi-file-earmark-text me-2"></i>
                 Órdenes
-              </button>
+              </Link>
             </li>
           )}
         </ul>
