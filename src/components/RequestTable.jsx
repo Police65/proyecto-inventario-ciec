@@ -18,19 +18,20 @@ const RequestTable = ({ requests, withActions, onApprove, onReject, showStatus =
 
   return (
     <div className="table-responsive">
-      <Table striped hover className="align-middle">
-        <thead className="table-dark">
-          <tr>
-            <th>ID</th>
-            <th>Descripción</th>
-            <th>Productos</th>
-            {showStatus && <th>Estado</th>}
-            {withActions && <th>Acciones</th>}
-          </tr>
-        </thead>
-        <tbody>
+    {/* Implementación: Variante dark y texto claro */}
+    <Table striped hover className="align-middle" variant="dark">
+      <thead className="table-dark">
+        <tr>
+          <th>ID</th>
+          <th>Descripción</th>
+          <th>Productos</th>
+          {showStatus && <th>Estado</th>}
+          {withActions && <th>Acciones</th>}
+        </tr>
+      </thead>
+      <tbody>
           {requests?.map(request => (
-            <tr key={request.id}>
+            <tr key={request.id} className="text-light">
               <td>{request.id}</td>
               <td>{request.descripcion || 'N/A'}</td>
               <td>

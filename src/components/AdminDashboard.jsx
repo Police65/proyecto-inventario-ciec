@@ -13,18 +13,19 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
       .from('solicitudcompra')
       .update({ estado: 'Rechazada' })
       .eq('id', id);
-  
+
     if (!error) {
-      // Actualiza el estado localmente en lugar de recargar
       const updatedRequests = solicitudesPendientes.filter(req => req.id !== id);
       setSolicitudesPendientes(updatedRequests);
     }
   };
+
   return (
     <>
       {activeTab === 'solicitudes' && (
-        <div className="bg-white rounded-3 p-4 shadow-sm">
-          <h4 className="mb-4 text-dark">🔄 Solicitudes Pendientes</h4>
+        // Implementación: Cambiado bg-white a bg-dark y text-dark a text-light
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">🔄 Solicitudes Pendientes</h4>
           <RequestTable
             requests={solicitudesPendientes}
             withActions={true}
@@ -38,8 +39,8 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
       )}
 
       {activeTab === 'historial' && (
-        <div className="bg-white rounded-3 p-4 shadow-sm">
-          <h4 className="mb-4 text-dark">📚 Historial de Solicitudes</h4>
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">📚 Historial de Solicitudes</h4>
           <RequestTable
             requests={solicitudesHistorial}
             showStatus={true}
@@ -48,10 +49,11 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
       )}
 
       {activeTab === 'ordenes' && (
-        <div className="bg-white rounded-3 p-4 shadow-sm">
-          <h4 className="mb-4 text-dark">📦 Historial de Órdenes</h4>
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">📦 Historial de Órdenes</h4>
           <div className="table-responsive">
-            <table className="table table-hover align-middle">
+            {/* Implementación: Añadida variante dark a la tabla */}
+            <table className="table table-dark table-hover align-middle">
               <thead className="table-dark">
                 <tr>
                   <th>ID</th>
@@ -60,6 +62,13 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
                   <th>Fecha</th>
                   <th>Total</th>
                   <th>Estado</th>
+                  <td>
+                    <OrderPDF order={orden} />
+                    <OrderActions
+                      order={orden}
+                      onUpdate={() => window.location.reload()}
+                    />
+                  </td>
                 </tr>
               </thead>
               <tbody>

@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Table } from 'react-bootstrap';
 import { supabase } from '../supabaseClient';
+
 const Home = () => {
-  // Estado para almacenar los registros de la tabla "inventario"
   const [inventory, setInventory] = useState([]);
-  // useEffect para cargar los datos de "inventario" al montar el componente
+
   useEffect(() => {
     const fetchInventory = async () => {
       const { data, error } = await supabase
         .from('inventario')
-        // Realiza un join con la tabla "producto" usando el campo de referencia "producto_id"
         .select('*, producto:producto_id (descripcion)')
         .order('fecha_actualizacion', { ascending: false });
       
@@ -21,10 +20,13 @@ const Home = () => {
     };
     fetchInventory();
   }, []);
+
   return (
+    // Implementación: Cambiado text-black a text-light
     <Container fluid className="mt-3">
-         <h3 className="text-black">📝Inventario</h3>
-      <Table striped bordered hover responsive>
+      <h3 className="text-light">📝Inventario</h3>
+      {/* Implementación: Añadida variante dark */}
+      <Table striped bordered hover responsive variant="dark">
         <thead>
           <tr>
             <th>Nombre del Producto</th>
@@ -43,7 +45,7 @@ const Home = () => {
             ))
           ) : (
             <tr>
-              <td colSpan="3" className="text-center">
+              <td colSpan="3" className="text-center text-light">
                 No hay registros en el inventario
               </td>
             </tr>
@@ -53,4 +55,5 @@ const Home = () => {
     </Container>
   );
 };
+
 export default Home;

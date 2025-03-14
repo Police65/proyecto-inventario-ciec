@@ -12,7 +12,7 @@ const ModoOscuro = () => {
             ? "#212529" 
             : "#f8f9fa";
             
-    }, [modo]);
+    }, [modo]); 
 
     return (
         <div className="btn-group" role="group">

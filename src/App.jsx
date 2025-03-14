@@ -9,6 +9,7 @@ import AdminDashboard from './components/AdminDashboard';
 import Home from './components/Home';
 import Login from './Login';
 import { supabase } from './supabaseClient';
+import ModoOscuro from './components/ModoOscuro'; 
 
 const checkStoredSession = () => {
   const storedUser = localStorage.getItem('userProfile');
@@ -16,7 +17,7 @@ const checkStoredSession = () => {
   
   if (storedUser && storedTime) {
     const timeElapsed = Date.now() - parseInt(storedTime);
-    return timeElapsed < 300000 ? JSON.parse(storedUser) : null;
+    return timeElapsed < 900000 ? JSON.parse(storedUser) : null;
   }
   return null;
 };
@@ -36,69 +37,69 @@ function AuthenticatedLayout({
 }) {
   return (
     <>
-      <CustomNavbar
-        onToggleSidebar={toggleSidebar}
-        userRole={userProfile.rol}
-        userId={userProfile.id}
+    <CustomNavbar
+      onToggleSidebar={toggleSidebar}
+      userRole={userProfile.rol}
+      userId={userProfile.id}
+    />
+    <Sidebar
+      isVisible={isSidebarVisible}
+      onNewRequest={() => setShowForm(true)}
+      onSelectTab={setActiveTab}
+      userProfile={userProfile}
+      pendingRequests={getFilteredRequests(['Pendiente'])}
+    />
+    <div
+      style={{
+        marginLeft: isSidebarVisible ? '250px' : '0',
+        marginTop: '56px',
+        padding: '20px',
+        transition: 'margin-left 0.3s',
+        minHeight: 'calc(100vh - 56px)',
+        backgroundColor: '#212529' // Modificado: Color oscuro
+      }}
+    >
+      <Container fluid>
+        <Routes>
+          <Route path="/home" element={<Home />} />
+          <Route
+            path="/solicitudes"
+            element={
+              userProfile.rol === 'admin' ? (
+                <AdminDashboard
+                  activeTab={activeTab}
+                  solicitudesPendientes={getFilteredRequests(['Pendiente'])}
+                  solicitudesHistorial={getFilteredRequests(['Aprobada', 'Rechazada'])}
+                  ordenesHistorial={orders}
+                />
+              ) : (
+                <>
+                  {activeTab === 'solicitudes' && (
+                    <RequestTable requests={getFilteredRequests(['Pendiente'])} />
+                  )}
+                  {activeTab === 'historial' && (
+                    <RequestTable
+                      requests={getFilteredRequests(['Aprobada', 'Rechazada'])}
+                    />
+                  )}
+                </>
+              )
+            }
+          />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
+        </Routes>
+      </Container>
+    </div>
+    {userProfile.rol === 'usuario' && (
+      <RequestForm
+        show={showForm}
+        onHide={() => setShowForm(false)}
+        onSubmit={handleSubmitRequest}
       />
-      <Sidebar
-        isVisible={isSidebarVisible}
-        onNewRequest={() => setShowForm(true)}
-        onSelectTab={setActiveTab}
-        userProfile={userProfile}
-        pendingRequests={getFilteredRequests(['Pendiente'])}
-      />
-      <div
-        style={{
-          marginLeft: isSidebarVisible ? '250px' : '0',
-          marginTop: '56px',
-          padding: '20px',
-          transition: 'margin-left 0.3s',
-          minHeight: 'calc(100vh - 56px)',
-          backgroundColor: '#f8f9fa'
-        }}
-      >
-        <Container fluid>
-          <Routes>
-            <Route path="/home" element={<Home />} />
-            <Route
-              path="/solicitudes"
-              element={
-                userProfile.rol === 'admin' ? (
-                  <AdminDashboard
-                    activeTab={activeTab}
-                    solicitudesPendientes={getFilteredRequests(['Pendiente'])}
-                    solicitudesHistorial={getFilteredRequests(['Aprobada', 'Rechazada'])}
-                    ordenesHistorial={orders}
-                  />
-                ) : (
-                  <>
-                    {activeTab === 'solicitudes' && (
-                      <RequestTable requests={getFilteredRequests(['Pendiente'])} />
-                    )}
-                    {activeTab === 'historial' && (
-                      <RequestTable
-                        requests={getFilteredRequests(['Aprobada', 'Rechazada'])}
-                      />
-                    )}
-                  </>
-                )
-              }
-            />
-            <Route path="/" element={<Navigate to="/home" replace />} />
-            <Route path="*" element={<Navigate to="/home" replace />} />
-          </Routes>
-        </Container>
-      </div>
-      {userProfile.rol === 'usuario' && (
-        <RequestForm
-          show={showForm}
-          onHide={() => setShowForm(false)}
-          onSubmit={handleSubmitRequest}
-        />
-      )}
-    </>
-  );
+    )}
+  </>
+);
 }
 
 function App() {
@@ -180,6 +181,8 @@ function App() {
     if (userProfile) {
       localStorage.setItem('userProfile', JSON.stringify(userProfile));
       localStorage.setItem('sessionTime', Date.now().toString());
+      fetchRequests();
+    fetchOrders();
     }
   }, [userProfile]);
 
@@ -225,10 +228,33 @@ function App() {
     }
   };
 
+  const fetchOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ordencompra')
+        .select(`
+          *,
+          proveedor:proveedor_id (*),
+          productos:ordencompra_detalle (
+            *,
+            producto:producto_id (*)
+          ),
+          empleado:empleado_id (*)
+        `)
+        .order('fecha_orden', { ascending: false });
+  
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error cargando órdenes:', error);
+    }
+  };
+
   const isAuthenticated = !!userProfile;
 
   return (
     <BrowserRouter>
+      <ModoOscuro /> 
       <Routes>
         <Route
           path="/login"

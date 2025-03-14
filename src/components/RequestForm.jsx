@@ -53,14 +53,14 @@ const RequestForm = ({ show, onHide, onSubmit }) => {
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>Nueva Solicitud</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Form onSubmit={handleSubmit}>
+    <Modal show={show} onHide={onHide} centered contentClassName="bg-dark text-light">
+    <Modal.Header closeButton className="bg-dark border-secondary">
+      <Modal.Title className="text-light">Nueva Solicitud</Modal.Title>
+    </Modal.Header>
+    <Modal.Body className="bg-dark">
+      <Form onSubmit={handleSubmit}>
           {!customRequest && products.map((product, index) => (
-            <div key={product.id} className="mb-3 border p-2 rounded">
+             <div key={product.id} className="mb-3 border border-secondary p-2 rounded">
               <Form.Group className="mb-3">
                 <Form.Label>Producto:</Form.Label>
                 <Form.Select
