@@ -9,14 +9,14 @@ function Login({ onLogin }) {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      alert('Error al iniciar sesión: ' + error.message);
-    } else {
+      if (error) throw error;
+
       const { data: profile } = await supabase
         .from('user_profile')
         .select('*')
@@ -24,11 +24,11 @@ function Login({ onLogin }) {
         .single();
 
       if (profile) {
-        onLogin(profile); // Pasamos el perfil completo, incluyendo el rol
+        onLogin(profile);
         setShow(false);
-      } else {
-        alert('Perfil de usuario no encontrado');
       }
+    } catch (error) {
+      alert('Error: ' + error.message);
     }
   };
 

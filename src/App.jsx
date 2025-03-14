@@ -2,14 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Container } from 'react-bootstrap';
 import Sidebar from './components/Sidebar';
-import CustomNavbar from './components/Navbar'; // Verifica que el nombre y la ruta sean correctos
+import CustomNavbar from './components/Navbar';
 import RequestForm from './components/RequestForm';
 import RequestTable from './components/RequestTable';
 import AdminDashboard from './components/AdminDashboard';
-import Home from './components/Home'; // Verifica la ruta y el nombre (home.jsx o Home.jsx)
+import Home from './components/Home';
 import Login from './Login';
 import { supabase } from './supabaseClient';
-// Componente que agrupa todo lo que se muestra para usuarios autenticados
+
+const checkStoredSession = () => {
+  const storedUser = localStorage.getItem('userProfile');
+  const storedTime = localStorage.getItem('sessionTime');
+  
+  if (storedUser && storedTime) {
+    const timeElapsed = Date.now() - parseInt(storedTime);
+    return timeElapsed < 300000 ? JSON.parse(storedUser) : null;
+  }
+  return null;
+};
+
 function AuthenticatedLayout({
   userProfile,
   showForm,
@@ -21,8 +32,7 @@ function AuthenticatedLayout({
   activeTab,
   setActiveTab,
   handleSubmitRequest,
-  getFilteredRequests,
-  handleOrderSuccess
+  getFilteredRequests
 }) {
   return (
     <>
@@ -60,7 +70,6 @@ function AuthenticatedLayout({
                     solicitudesPendientes={getFilteredRequests(['Pendiente'])}
                     solicitudesHistorial={getFilteredRequests(['Aprobada', 'Rechazada'])}
                     ordenesHistorial={orders}
-                    onOrderSuccess={handleOrderSuccess}
                   />
                 ) : (
                   <>
@@ -98,89 +107,117 @@ function App() {
   const [orders, setOrders] = useState([]);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('solicitudes');
-  const [userProfile, setUserProfile] = useState(null);
+  const [userProfile, setUserProfile] = useState(checkStoredSession());
+  const [inactivityTimer, setInactivityTimer] = useState(null);
 
-  const toggleSidebar = () => setIsSidebarVisible(prev => !prev);
-
-  const getFilteredRequests = (estados) => {
-    return requests.filter(
-      request => estados.includes(request.estado) &&
-      (userProfile?.rol === 'admin' || request.empleado_id === userProfile?.empleado_id)
-    );
-  };
-
+  // Nueva función para cargar solicitudes
   const fetchRequests = async () => {
-    const baseQuery = supabase
-      .from('solicitudcompra')
-      .select(`
-        *,
-        detalles:solicitudcompra_detalle(producto_id, cantidad),
-        empleado:empleado_id(nombre, apellido)
-      `)
-      .order('fecha_solicitud', { ascending: false });
+    try {
+      const baseQuery = supabase
+        .from('solicitudcompra')
+        .select(`
+          *,
+          detalles:solicitudcompra_detalle(producto_id, cantidad),
+          empleado:empleado_id(nombre, apellido)
+        `)
+        .order('fecha_solicitud', { ascending: false });
 
-    const { data, error } = userProfile?.rol === 'admin' 
-      ? await baseQuery 
-      : await baseQuery.eq('empleado_id', userProfile?.empleado_id);
+      let queryResult;
+      
+      if (userProfile?.rol === 'admin') {
+        queryResult = await baseQuery;
+      } else {
+        queryResult = await baseQuery.eq('empleado_id', userProfile?.empleado_id);
+      }
 
-    if (!error) setRequests(data || []);
-  };
-
-  const fetchOrders = async () => {
-    if (userProfile?.rol === 'admin') {
-      const { data: ordenesData } = await supabase
-        .from('ordencompra')
-        .select('*, proveedor:proveedor_id(nombre)');
-      setOrders(ordenesData || []);
+      if (queryResult.error) throw queryResult.error;
+      setRequests(queryResult.data || []);
+    } catch (error) {
+      console.error('Error cargando solicitudes:', error);
+      alert('Error al cargar las solicitudes');
     }
   };
 
-  // Nueva función para manejar éxito de orden
-  const handleOrderSuccess = (newOrder) => {
-    setOrders(prev => [...prev, newOrder]);
-    fetchRequests();
+  // Cargar solicitudes al autenticarse
+  useEffect(() => {
+    if (userProfile) {
+      fetchRequests();
+    }
+  }, [userProfile]);
+
+  const resetInactivityTimer = () => {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    
+    const newTimer = setTimeout(() => {
+      localStorage.removeItem('userProfile');
+      localStorage.removeItem('sessionTime');
+      setUserProfile(null);
+    }, 300000);
+    
+    setInactivityTimer(newTimer);
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarVisible((prev) => !prev);
   };
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) window.location.href = '/login';
-    };
-
     if (userProfile) {
-      fetchRequests();
-      fetchOrders();
-      checkSession();
+      const activityListeners = ['mousemove', 'keydown', 'click'];
+      activityListeners.forEach(event => {
+        window.addEventListener(event, resetInactivityTimer);
+      });
+
+      return () => {
+        activityListeners.forEach(event => {
+          window.removeEventListener(event, resetInactivityTimer);
+        });
+      };
     }
   }, [userProfile]);
+
+  useEffect(() => {
+    if (userProfile) {
+      localStorage.setItem('userProfile', JSON.stringify(userProfile));
+      localStorage.setItem('sessionTime', Date.now().toString());
+    }
+  }, [userProfile]);
+
+  const getFilteredRequests = (estados) => {
+    return requests.filter(
+      (request) =>
+        estados.includes(request.estado) &&
+        (userProfile?.rol === 'admin' || request.empleado_id === userProfile?.empleado_id)
+    );
+  };
 
   const handleSubmitRequest = async (requestData) => {
     try {
       const { data: solicitud, error } = await supabase
         .from('solicitudcompra')
-        .insert([{
-          descripcion: requestData.description || 'Solicitud múltiple',
-          estado: 'Pendiente',
-          empleado_id: userProfile.empleado_id,
-          departamento_id: userProfile.departamento_id
-        }])
+        .insert([
+          {
+            descripcion: requestData.description || 'Solicitud múltiple',
+            estado: 'Pendiente',
+            empleado_id: userProfile.empleado_id,
+            departamento_id: userProfile.departamento_id
+          }
+        ])
         .select('id');
-
       if (error) throw error;
 
       if (!requestData.customRequest && requestData.products) {
-        const inserts = requestData.products.map(product => ({
+        const inserts = requestData.products.map((product) => ({
           solicitud_compra_id: solicitud[0].id,
           producto_id: product.productId,
           cantidad: product.quantity
         }));
-
         const { error: detalleError } = await supabase
           .from('solicitudcompra_detalle')
           .insert(inserts);
         if (detalleError) throw detalleError;
       }
-
+      
       await fetchRequests();
       setShowForm(false);
     } catch (error) {
@@ -193,18 +230,21 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Ruta de login: se muestra el Login si el usuario no está autenticado */}
         <Route
           path="/login"
           element={
-            !isAuthenticated ? (
-              <Login onLogin={setUserProfile} />
+            !userProfile ? (
+              <Login 
+                onLogin={(profile) => {
+                  setUserProfile(profile);
+                  resetInactivityTimer();
+                }}
+              />
             ) : (
               <Navigate to="/home" replace />
             )
           }
         />
-        {/* Rutas protegidas: solo se muestra el layout si el usuario está autenticado */}
         <Route
           path="/*"
           element={
@@ -227,10 +267,10 @@ function App() {
             )
           }
         />
-        {/* Redirige la raíz a /login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
 }
+
 export default App;

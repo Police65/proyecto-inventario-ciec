@@ -3,7 +3,9 @@ import { Navbar, Nav, Container, Button, Overlay, Popover } from 'react-bootstra
 import { Bell, PersonCircle, Cart, List } from 'react-bootstrap-icons';
 import { NavLink } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useNavigate } from 'react-router-dom';
 const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
+  const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
   const [notifications, setNotifications] = useState([]);
@@ -16,12 +18,10 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
     setShowProfileMenu(!showProfileMenu);
   };
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Error al cerrar sesión:', error);
-    } else {
-      window.location.href = 'vite-react-bootstrap/login';
-    }
+    await supabase.auth.signOut();
+    localStorage.removeItem('userProfile');
+    localStorage.removeItem('sessionTime');
+    navigate('/login');
   };
   useEffect(() => {
     if (userRole !== 'admin') {
