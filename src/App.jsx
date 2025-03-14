@@ -182,7 +182,7 @@ function App() {
       localStorage.setItem('userProfile', JSON.stringify(userProfile));
       localStorage.setItem('sessionTime', Date.now().toString());
       fetchRequests();
-    fetchOrders();
+      fetchOrders(); // Llamada añadida
     }
   }, [userProfile]);
 
@@ -234,12 +234,13 @@ function App() {
         .from('ordencompra')
         .select(`
           *,
-          proveedor:proveedor_id (*),
-          productos:ordencompra_detalle (
+          proveedor:proveedor_id(*),
+          productos:ordencompra_detalle(
             *,
-            producto:producto_id (*)
+            producto:producto_id(*)
           ),
-          empleado:empleado_id (*)
+          empleado:empleado_id(*),
+          solicitud_compra:solicitud_compra_id(*)
         `)
         .order('fecha_orden', { ascending: false });
   
@@ -248,7 +249,7 @@ function App() {
     } catch (error) {
       console.error('Error cargando órdenes:', error);
     }
-  };
+  };  
 
   const isAuthenticated = !!userProfile;
 

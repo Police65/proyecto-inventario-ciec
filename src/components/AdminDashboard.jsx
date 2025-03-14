@@ -3,6 +3,8 @@ import { Button } from 'react-bootstrap';
 import OrderForm from './OrderForm';
 import RequestTable from './RequestTable';
 import { supabase } from '../supabaseClient';
+import OrderPDF from './OrderPDF'; // Importación añadida
+import OrderActions from './OrderActions'; // Importación añadida
 
 const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial, ordenesHistorial }) => {
   const [showOrderForm, setShowOrderForm] = useState(false);
@@ -13,7 +15,7 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
       .from('solicitudcompra')
       .update({ estado: 'Rechazada' })
       .eq('id', id);
-
+  
     if (!error) {
       const updatedRequests = solicitudesPendientes.filter(req => req.id !== id);
       setSolicitudesPendientes(updatedRequests);
@@ -23,7 +25,6 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
   return (
     <>
       {activeTab === 'solicitudes' && (
-        // Implementación: Cambiado bg-white a bg-dark y text-dark a text-light
         <div className="bg-dark rounded-3 p-4 border border-secondary">
           <h4 className="mb-4 text-light">🔄 Solicitudes Pendientes</h4>
           <RequestTable
@@ -52,7 +53,6 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
         <div className="bg-dark rounded-3 p-4 border border-secondary">
           <h4 className="mb-4 text-light">📦 Historial de Órdenes</h4>
           <div className="table-responsive">
-            {/* Implementación: Añadida variante dark a la tabla */}
             <table className="table table-dark table-hover align-middle">
               <thead className="table-dark">
                 <tr>
@@ -62,13 +62,7 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
                   <th>Fecha</th>
                   <th>Total</th>
                   <th>Estado</th>
-                  <td>
-                    <OrderPDF order={orden} />
-                    <OrderActions
-                      order={orden}
-                      onUpdate={() => window.location.reload()}
-                    />
-                  </td>
+                  <th>Acciones</th> {/* Columna añadida para acciones */}
                 </tr>
               </thead>
               <tbody>
@@ -90,19 +84,23 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
                         <span className={`badge bg-${statusColor}`}>
                           {orden.estado}
                         </span>
-                        {userProfile?.rol === 'admin' && (
-                          <OrderActions
+                      </td>
+                      <td>
+                        {/* Integración del OrderPDF y OrderActions */}
+                        <div className="d-flex gap-2">
+                          <OrderPDF order={orden} />
+                          <OrderActions 
                             order={orden}
                             onUpdate={() => window.location.reload()}
                           />
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );
                 })}
                 {ordenesHistorial?.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="text-center text-muted py-4">
+                    <td colSpan="7" className="text-center text-muted py-4">
                       No hay órdenes registradas
                     </td>
                   </tr>
