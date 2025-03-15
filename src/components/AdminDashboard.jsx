@@ -3,8 +3,8 @@ import { Button } from 'react-bootstrap';
 import OrderForm from './OrderForm';
 import RequestTable from './RequestTable';
 import { supabase } from '../supabaseClient';
-import OrderPDF from './OrderPDF'; // Importación añadida
-import OrderActions from './OrderActions'; // Importación añadida
+import OrderPDF from './OrderPDF';
+import OrderActions from './OrderActions';
 
 const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial, ordenesHistorial }) => {
   const [showOrderForm, setShowOrderForm] = useState(false);
@@ -56,13 +56,8 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
             <table className="table table-dark table-hover align-middle">
               <thead className="table-dark">
                 <tr>
-                  <th>ID</th>
-                  <th>Proveedor</th>
-                  <th>Solicitud Relacionada</th>
-                  <th>Fecha</th>
-                  <th>Total</th>
-                  <th>Estado</th>
-                  <th>Acciones</th> {/* Columna añadida para acciones */}
+                  <th>ID</th><th>Proveedor</th><th>Solicitud Relacionada</th>
+                  <th>Fecha</th><th>Total</th><th>Estado</th><th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -77,18 +72,15 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
                     <tr key={orden.id}>
                       <td>{orden.id}</td>
                       <td>{orden.proveedor?.nombre || 'N/A'}</td>
-                      <td>{orden.solicitud?.descripcion || 'N/A'}</td>
+                      <td>{orden.solicitud_compra?.descripcion || 'N/A'}</td>
                       <td>{new Date(orden.fecha_orden).toLocaleDateString()}</td>
                       <td>{orden.neto_a_pagar?.toFixed(2)} {orden.unidad}</td>
                       <td>
-                        <span className={`badge bg-${statusColor}`}>
-                          {orden.estado}
-                        </span>
+                        <span className={`badge bg-${statusColor}`}>{orden.estado}</span>
                       </td>
                       <td>
-                        {/* Integración del OrderPDF y OrderActions */}
                         <div className="d-flex gap-2">
-                          <OrderPDF order={orden} />
+                          <OrderPDF order={orden} key={orden.id} />
                           <OrderActions 
                             order={orden}
                             onUpdate={() => window.location.reload()}
