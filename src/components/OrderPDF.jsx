@@ -13,6 +13,7 @@ const OrderPDF = ({ order }) => {
   const handleGeneratePDF = async () => {
     setLoading(true);
     try {
+      // 1. Cargar datos necesarios
       const [
         { data: camara }, 
         { data: ordenCompleta }
@@ -32,35 +33,59 @@ const OrderPDF = ({ order }) => {
           .single()
       ]);
 
+      // 2. Validar datos críticos
       if (!ordenCompleta || !camara) {
-        throw new Error('Datos incompletos para generar el PDF');
+        throw new Error(`
+          Datos faltantes:
+          ${!ordenCompleta ? '- Orden no encontrada\n' : ''}
+          ${!camara ? '- Datos de la cámara no configurados' : ''}
+        `);
       }
 
+      // 3. Actualizar estado con nuevos datos
       setPdfData({ orden: ordenCompleta, camara });
-      
-      // Esperar ciclo de renderizado
-      await new Promise(resolve => requestAnimationFrame(resolve));
-      
-      const input = contentRef.current;
+
+      // 4. Esperar ciclo de renderizado completo
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 5. Configurar elemento temporal visible
+      const originalStyle = contentRef.current.style.cssText;
+      contentRef.current.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 9999;
+        visibility: visible;
+      `;
+
+      // 6. Generar PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const canvas = await html2canvas(input, {
+      const canvas = await html2canvas(contentRef.current, {
         scale: 2,
         useCORS: true,
-        windowWidth: 794,
-        windowHeight: 1123,
-        logging: true
+        logging: true,
+        backgroundColor: '#FFFFFF'
       });
 
-      if (!canvas.width || !canvas.height) {
-        throw new Error('El canvas no tiene dimensiones válidas');
+      // 7. Restaurar estilos originales
+      contentRef.current.style.cssText = originalStyle;
+
+      // 8. Validar canvas
+      if (canvas.width === 0 || canvas.height === 0) {
+        throw new Error('El canvas generado no tiene dimensiones válidas');
       }
 
-      pdf.addImage(canvas, 'PNG', 0, 0, 210, 297);
+      // 9. Guardar PDF
+      const imgProps = pdf.getImageProperties(canvas);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      pdf.addImage(canvas, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`orden_${order.id}.pdf`);
 
     } catch (error) {
       console.error("Error generando PDF:", error);
-      alert('Error al generar el PDF: ' + error.message);
+      alert(`Error al generar PDF: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -77,19 +102,16 @@ const OrderPDF = ({ order }) => {
         {loading ? 'Generando...' : 'Generar PDF'}
       </Button>
 
-      <div ref={contentRef} style={{ 
+      {/* Contenedor PDF - Siempre presente en el DOM */}
+      <div ref={contentRef} style={{
+        width: '210mm',
+        minHeight: '297mm',
+        visibility: 'hidden',
         position: 'absolute',
         left: '-9999px',
-        width: '210mm',
-        height: '297mm',
-        visibility: 'hidden'
+        backgroundColor: 'white'
       }}>
-        {pdfData && (
-          <PDFTemplate 
-            orden={pdfData.orden} 
-            camara={pdfData.camara} 
-          />
-        )}
+        {pdfData && <PDFTemplate orden={pdfData.orden} camara={pdfData.camara} />}
       </div>
     </>
   );

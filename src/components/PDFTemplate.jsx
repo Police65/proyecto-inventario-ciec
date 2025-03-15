@@ -2,87 +2,120 @@ import React from 'react';
 import { format } from 'date-fns';
 
 const PDFTemplate = ({ orden, camara }) => {
-  const formatCurrency = (value, unidad) => 
-    new Intl.NumberFormat('es-VE', {
+  // Función de formato monetario
+  const formatCurrency = (value, unidad) => {
+    return new Intl.NumberFormat('es-VE', {
       style: 'currency',
       currency: unidad === 'USD' ? 'USD' : 'VES',
       minimumFractionDigits: 2
     }).format(value || 0);
+  };
 
-  return (
-    <div style={{
+  // Estilos base para compatibilidad con html2canvas
+  const baseStyles = {
+    page: {
       width: '210mm',
       minHeight: '297mm',
       padding: '20px',
       fontFamily: 'Arial, sans-serif',
       fontSize: '14px',
-      backgroundColor: 'white'
-    }}>
+      color: '#000000',
+      backgroundColor: '#FFFFFF'
+    },
+    header: {
+      textAlign: 'center',
+      marginBottom: '20px',
+      borderBottom: '2px solid #000'
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      margin: '10px 0',
+      backgroundColor: '#FFFFFF'
+    },
+    th: {
+      backgroundColor: '#f8f9fa',
+      border: '1px solid #000',
+      padding: '8px',
+      textAlign: 'left'
+    },
+    td: {
+      border: '1px solid #000',
+      padding: '8px',
+      backgroundColor: '#FFFFFF'
+    }
+  };
+
+  return (
+    <div style={baseStyles.page}>
       {/* Cabecera Institucional */}
-      <div style={{ textAlign: 'center', marginBottom: '20px', borderBottom: '2px solid #000' }}>
-        <h2 style={{ fontSize: '24px', margin: '5px 0' }}>{camara.nombre}</h2>
-        <h3 style={{ fontSize: '18px', margin: '5px 0' }}>Orden de Compra N°: {orden.id}</h3>
-        <p style={{ margin: '3px 0' }}>{format(new Date(orden.fecha_orden), 'dd/MM/yyyy')}</p>
+      <div style={baseStyles.header}>
+        <h2 style={{ fontSize: '24px', margin: '5px 0', color: '#000' }}>
+          {camara.nombre}
+        </h2>
+        <h3 style={{ fontSize: '18px', margin: '5px 0', color: '#000' }}>
+          Orden de Compra N°: {orden.id}
+        </h3>
+        <p style={{ margin: '3px 0', color: '#000' }}>
+          {format(new Date(orden.fecha_orden), 'dd/MM/yyyy')}
+        </p>
       </div>
 
       {/* Información de Contacto */}
       <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-        <p>{camara.direccion}</p>
-        <p>Teléfonos: {camara.telefonos} | RIF: {camara.rif}</p>
-        <p>Web: {camara.web} | Email: {camara.correo}</p>
+        <p style={{ color: '#000' }}>{camara.direccion}</p>
+        <p style={{ color: '#000' }}>
+          Teléfonos: {camara.telefonos} | RIF: {camara.rif}
+        </p>
+        <p style={{ color: '#000' }}>
+          Web: {camara.web} | Email: {camara.correo}
+        </p>
       </div>
 
-      {/* Datos del Proveedor */}
-      <table style={{ width: '100%', marginBottom: '25px', borderCollapse: 'collapse' }}>
+      {/* Tabla de Proveedor */}
+      <table style={baseStyles.table}>
         <tbody>
           <tr>
-            <td style={{ width: '20%', padding: '8px' }}><strong>Proveedor:</strong></td>
-            <td style={{ width: '30%', padding: '8px' }}>{orden.proveedor?.nombre || 'N/A'}</td>
-            <td style={{ width: '20%', padding: '8px' }}><strong>RIF:</strong></td>
-            <td style={{ width: '30%', padding: '8px' }}>{orden.proveedor?.rif || 'N/A'}</td>
+            <td style={{ ...baseStyles.td, fontWeight: 'bold', width: '15%' }}>Proveedor:</td>
+            <td style={{ ...baseStyles.td, width: '35%' }}>{orden.proveedor?.nombre || 'N/A'}</td>
+            <td style={{ ...baseStyles.td, fontWeight: 'bold', width: '15%' }}>RIF:</td>
+            <td style={{ ...baseStyles.td, width: '35%' }}>{orden.proveedor?.rif || 'N/A'}</td>
           </tr>
           <tr>
-            <td style={{ padding: '8px' }}><strong>Dirección:</strong></td>
-            <td colSpan="3" style={{ padding: '8px' }}>{orden.proveedor?.direccion || 'N/A'}</td>
-          </tr>
-          <tr>
-            <td style={{ padding: '8px' }}><strong>Teléfonos:</strong></td>
-            <td colSpan="3" style={{ padding: '8px' }}>{orden.proveedor?.telefono || 'N/A'}</td>
+            <td style={{ ...baseStyles.td, fontWeight: 'bold' }}>Dirección:</td>
+            <td colSpan="3" style={baseStyles.td}>{orden.proveedor?.direccion || 'N/A'}</td>
           </tr>
         </tbody>
       </table>
 
       {/* Instrucciones */}
-      <div style={{ marginBottom: '20px' }}>
-        <p><strong>ESTIMADO PROVEEDOR, DE ACUERDO A SU COTIZACIÓN ENVIADA POR WS, FAVOR SUMINISTRAR LO ABAJO INDICADO</strong></p>
+      <div style={{ margin: '20px 0', padding: '10px', border: '1px solid #000' }}>
+        <p style={{ fontWeight: 'bold', color: '#000' }}>
+          ESTIMADO PROVEEDOR, DE ACUERDO A SU COTIZACIÓN ENVIADA POR WS, FAVOR SUMINISTRAR LO ABAJO INDICADO
+        </p>
       </div>
 
       {/* Tabla de Productos */}
-      <table style={{ 
-        width: '100%',
-        borderCollapse: 'collapse',
-        marginBottom: '25px',
-        border: '1px solid #000'
-      }}>
+      <table style={baseStyles.table}>
         <thead>
-          <tr style={{ backgroundColor: '#f8f9fa' }}>
-            <th style={{ border: '1px solid #000', padding: '10px' }}>REF</th>
-            <th style={{ border: '1px solid #000', padding: '10px' }}>CANTIDAD</th>
-            <th style={{ border: '1px solid #000', padding: '10px' }}>DESCRIPCIÓN</th>
-            <th style={{ border: '1px solid #000', padding: '10px' }}>PRECIO UNITARIO</th>
-            <th style={{ border: '1px solid #000', padding: '10px' }}>TOTAL</th>
+          <tr>
+            <th style={baseStyles.th}>REF</th>
+            <th style={baseStyles.th}>CANTIDAD</th>
+            <th style={baseStyles.th}>DESCRIPCIÓN</th>
+            <th style={baseStyles.th}>PRECIO UNITARIO</th>
+            <th style={baseStyles.th}>TOTAL</th>
           </tr>
         </thead>
         <tbody>
           {orden.productos?.map((item, index) => (
             <tr key={index}>
-              <td style={{ border: '1px solid #000', padding: '8px' }}>{item.producto_id}</td>
-              <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'center' }}>{item.cantidad}</td>
-              <td style={{ border: '1px solid #000', padding: '8px' }}>{item.producto?.descripcion || 'N/A'}</td>
-              <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'right' }}>
+              <td style={baseStyles.td}>{item.producto_id}</td>
+              <td style={{ ...baseStyles.td, textAlign: 'center' }}>{item.cantidad}</td>
+              <td style={baseStyles.td}>{item.producto?.descripcion || 'N/A'}</td>
+              <td style={{ ...baseStyles.td, textAlign: 'right' }}>
                 {formatCurrency(item.precio_unitario, orden.unidad)}
               </td>
-              <td style={{ border: '1px solid #000', padding: '8px', textAlign: 'right' }}>
+              <td style={{ ...baseStyles.td, textAlign: 'right' }}>
                 {formatCurrency(item.cantidad * item.precio_unitario, orden.unidad)}
               </td>
             </tr>
@@ -91,11 +124,17 @@ const PDFTemplate = ({ orden, camara }) => {
       </table>
 
       {/* Totales */}
-      <div style={{ textAlign: 'right', marginBottom: '30px' }}>
-        <p><strong>Subtotal: {formatCurrency(orden.sub_total, orden.unidad)}</strong></p>
-        <p><strong>IVA (16%): {formatCurrency(orden.iva, orden.unidad)}</strong></p>
-        <p><strong>Ret. IVA (75%): {formatCurrency(orden.ret_iva, orden.unidad)}</strong></p>
-        <p style={{ fontSize: '16px', fontWeight: 'bold' }}>
+      <div style={{ marginTop: '20px', textAlign: 'right' }}>
+        <p style={{ color: '#000' }}>
+          <strong>Subtotal:</strong> {formatCurrency(orden.sub_total, orden.unidad)}
+        </p>
+        <p style={{ color: '#000' }}>
+          <strong>IVA (16%):</strong> {formatCurrency(orden.iva, orden.unidad)}
+        </p>
+        <p style={{ color: '#000' }}>
+          <strong>Ret. IVA (75%):</strong> {formatCurrency(orden.ret_iva, orden.unidad)}
+        </p>
+        <p style={{ color: '#000', fontSize: '16px', fontWeight: 'bold' }}>
           Neto a pagar: {formatCurrency(orden.neto_a_pagar, orden.unidad)}
         </p>
       </div>
@@ -109,17 +148,15 @@ const PDFTemplate = ({ orden, camara }) => {
         borderTop: '1px solid #000'
       }}>
         <div style={{ width: '45%', textAlign: 'center' }}>
-          <p style={{ borderBottom: '1px solid #000', paddingBottom: '40px' }}>
-            {orden.empleado?.nombre} {orden.empleado?.apellido}
-          </p>
-          <strong>Elaborado por</strong>
-          <p>Departamento de Compras</p>
+          <div style={{ borderBottom: '1px solid #000', height: '50px', marginBottom: '10px' }}></div>
+          <p style={{ color: '#000', fontWeight: 'bold' }}>{orden.empleado?.nombre} {orden.empleado?.apellido}</p>
+          <p style={{ color: '#000' }}>Departamento de Compras</p>
         </div>
         
         <div style={{ width: '45%', textAlign: 'center' }}>
-          <p style={{ borderBottom: '1px solid #000', paddingBottom: '40px' }}></p>
-          <strong>Aprobado por</strong>
-          <p>Coordinación Financiera</p>
+          <div style={{ borderBottom: '1px solid #000', height: '50px', marginBottom: '10px' }}></div>
+          <p style={{ color: '#000', fontWeight: 'bold' }}>Coordinación Financiera</p>
+          <p style={{ color: '#000' }}>Aprobado por</p>
         </div>
       </div>
     </div>
