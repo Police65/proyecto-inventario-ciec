@@ -12,72 +12,60 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   }
 });
 
-// Función para obtener solicitudes agrupables
-export const getSolicitudesAgrupables = async (solicitudId) => {
+// Funciones helper para agrupación
+export const agruparSolicitudes = async (solicitudId) => {
+  // Obtener la solicitud actual
   const { data: currentSolicitud } = await supabase
     .from('solicitudcompra')
-    .select('detalles:solicitudcompra_detalle(producto_id)')
+    .select('*, detalles:solicitudcompra_detalle(*)')
     .eq('id', solicitudId)
     .single();
 
-  const productoIds = currentSolicitud.detalles.map(d => d.producto_id);
-
-  const { data } = await supabase
+  // Obtener posibles agrupaciones por producto o categoría
+  const { data: agrupables } = await supabase
     .from('solicitudcompra')
     .select(`
       *,
-      detalles:solicitudcompra_detalle(producto_id, cantidad),
-      empleado:empleado_id(nombre, apellido)
+      detalles:solicitudcompra_detalle(*),
+      producto:producto(id, categoria_id)
     `)
-    .eq('estado', 'Pendiente')
-    .in('id', 
-      supabase
-        .from('solicitudcompra_detalle')
-        .select('solicitud_compra_id')
-        .in('producto_id', productoIds)
-    )
+    .or(`and(estado.eq.Pendiente,detalles.producto_id.in.(${currentSolicitud.detalles.map(d => d.producto_id).join(',')})),
+          and(estado.eq.Pendiente,producto.categoria_id.in.(${currentSolicitud.detalles.map(d => d.producto?.categoria_id).join(',')}))`)
     .neq('id', solicitudId);
 
-  return data || [];
+  return agrupables || [];
 };
 
-// Función para crear orden consolidada
-export const crearOrdenConsolidada = async (solicitudes, proveedorId) => {
+export const crearOrdenConsolidada = async (solicitudes, proveedorId, productosSeleccionados) => {
+  // Crear la orden
   const { data: orden, error } = await supabase
     .from('ordencompra')
     .insert({
-      estado_orden: 'borrador',
       proveedor_id: proveedorId,
-      fecha_orden: new Date().toISOString(),
-      estado: 'Consolidada'
+      estado: 'Borrador',
+      fecha_orden: new Date().toISOString()
     })
     .select('*')
     .single();
 
-  if (error) throw error;
+  // Insertar detalles de la orden
+  const detalles = productosSeleccionados.map(p => ({
+    orden_compra_id: orden.id,
+    producto_id: p.producto_id,
+    cantidad: p.cantidad,
+    precio_unitario: 0
+  }));
 
-  // Insertar relación en orden_solicitud
+  await supabase.from('ordencompra_detalle').insert(detalles);
+
+  // Vincular solicitudes con la orden
   const relaciones = solicitudes.map(s => ({
     orden_id: orden.id,
     solicitud_id: s.id
   }));
   
-  await supabase
-    .from('orden_solicitud')
-    .insert(relaciones);
+  await supabase.from('orden_solicitud').insert(relaciones);
 
-  // Insertar detalles de la orden
-  const detalles = solicitudes.flatMap(s => 
-    s.detalles.map(d => ({
-      orden_compra_id: orden.id,
-      producto_id: d.producto_id,
-      cantidad: d.cantidad,
-      precio_unitario: 0
-    }))
-  );
-
-  await supabase.from('ordencompra_detalle').insert(detalles);
-  
   // Actualizar estado de las solicitudes
   await supabase
     .from('solicitudcompra')
@@ -87,19 +75,14 @@ export const crearOrdenConsolidada = async (solicitudes, proveedorId) => {
   return orden;
 };
 
-// Función para obtener solicitudes de una orden
-export const getSolicitudesDeOrden = async (ordenId) => {
-  const { data } = await supabase
-    .from('orden_solicitud')
-    .select('solicitud_id')
-    .eq('orden_id', ordenId);
-
-  const solicitudIds = data?.map(item => item.solicitud_id) || [];
-
-  const { data: solicitudes } = await supabase
-    .from('solicitudcompra')
-    .select('*')
-    .in('id', solicitudIds);
-
-  return solicitudes;
+export const obtenerProductosPendientes = async () => {
+  return await supabase
+    .from('solicitudcompra_detalle')
+    .select(`
+      producto_id,
+      cantidad,
+      producto:producto_id(descripcion, categoria_id),
+      solicitud:solicitud_compra_id(estado)
+    `)
+    .eq('solicitud.estado', 'Pendiente');
 };

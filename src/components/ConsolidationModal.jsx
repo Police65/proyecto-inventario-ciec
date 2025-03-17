@@ -1,61 +1,92 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Button, Table, Alert } from 'react-bootstrap';
+import { Modal, Form, Button, Table, Row, Col, InputGroup, Alert } from 'react-bootstrap';
 import { supabase } from '../supabaseClient';
 
 const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
-  const [solicitudes, setSolicitudes] = useState([]);
-  const [selected, setSelected] = useState({});
+  const [todasSolicitudes, setTodasSolicitudes] = useState([]);
   const [proveedores, setProveedores] = useState([]);
+  const [selectedSolicitudes, setSelectedSolicitudes] = useState(new Set());
+  const [selectedProductos, setSelectedProductos] = useState(new Map());
   const [proveedorId, setProveedorId] = useState('');
-  const [productosConsolidados, setProductosConsolidados] = useState({});
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const cargarDatos = async () => {
-      if (!show || !solicitud) return;
+      try {
+        const { data: solicitudesData, error: errSolicitudes } = await supabase
+          .from('solicitudcompra')
+          .select(`
+            id,
+            detalles:solicitudcompra_detalle(
+              producto_id,
+              cantidad,
+              producto:producto_id(
+                id,
+                descripcion,
+                categoria_id
+              )
+            )
+          `)
+          .eq('estado', 'Pendiente');
 
-      // Cargar proveedores
-      const { data: provData } = await supabase.from('proveedor').select('*');
-      setProveedores(provData || []);
+        const { data: proveedoresData, error: errProveedores } = await supabase
+          .from('proveedor')
+          .select(`
+            id,
+            nombre,
+            categorias:proveedor_categoria(
+              categoria:categoria_id(nombre)
+          `);
 
-      // Cargar solicitudes agrupables
-      const { data: agrupables } = await supabase
-        .from('solicitudcompra')
-        .select(`
-          *,
-          detalles:solicitudcompra_detalle(producto_id, cantidad)
-        `)
-        .eq('estado', 'Pendiente')
-        .in('id', 
-          supabase
-            .from('solicitudcompra_detalle')
-            .select('solicitud_compra_id')
-            .in('producto_id', solicitud.detalles.map(d => d.producto_id))
-        );
+        if (errSolicitudes || errProveedores) throw new Error('Error cargando datos');
 
-      // Calcular productos consolidados
-      const productosMap = agrupables.reduce((acc, s) => {
-        s.detalles.forEach(d => {
-          acc[d.producto_id] = (acc[d.producto_id] || 0) + d.cantidad;
-        });
-        return acc;
-      }, {});
-
-      setProductosConsolidados(productosMap);
-      setSolicitudes(agrupables);
-      setSelected({ [solicitud.id]: true });
+        setTodasSolicitudes(solicitudesData || []);
+        setProveedores(proveedoresData || []);
+      } catch (err) {
+        setError(err.message);
+      }
     };
 
-    cargarDatos();
-  }, [show, solicitud]);
+    if (show) cargarDatos();
+  }, [show]);
 
-  const handleToggleSolicitud = (id) => {
-    setSelected(prev => ({ ...prev, [id]: !prev[id] }));
-  };
+  const productosConsolidados = Array.from(selectedSolicitudes)
+    .flatMap(solicitudId => {
+      const solicitud = todasSolicitudes.find(s => s.id === solicitudId);
+      return solicitud?.detalles || [];
+    })
+    .reduce((acc, detalle) => {
+      const existente = acc.find(p => p.producto.id === detalle.producto.id);
+      if (existente) {
+        existente.cantidad += detalle.cantidad;
+      } else {
+        acc.push({
+          producto: detalle.producto,
+          cantidad: detalle.cantidad,
+          cantidadOrdenar: detalle.cantidad
+        });
+      }
+      return acc;
+    }, []);
 
-  const handleConfirmarConsolidacion = async () => {
-    const solicitudesSeleccionadas = solicitudes.filter(s => selected[s.id]);
-    onConsolidate(solicitudesSeleccionadas, proveedorId);
-    onHide();
+  const handleCrearOrden = async () => {
+    try {
+      const productosOrden = productosConsolidados.map(p => ({
+        producto_id: p.producto.id,
+        cantidad: selectedProductos.get(p.producto.id) || p.cantidad
+      }));
+
+      const ordenData = {
+        proveedor_id: proveedorId,
+        productos: productosOrden,
+        solicitudes_ids: Array.from(selectedSolicitudes)
+      };
+
+      onConsolidate(ordenData);
+      onHide();
+    } catch (err) {
+      setError('Error al crear orden: ' + err.message);
+    }
   };
 
   return (
@@ -63,82 +94,110 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
       <Modal.Header closeButton className="bg-dark text-light">
         <Modal.Title>Consolidar Solicitudes</Modal.Title>
       </Modal.Header>
-      
-      <Modal.Body className="bg-dark text-light">
-        <Form.Group className="mb-4">
-          <Form.Label>Seleccionar Proveedor</Form.Label>
-          <Form.Select
-            value={proveedorId}
-            onChange={(e) => setProveedorId(e.target.value)}
-            className="bg-secondary text-light"
-            required
-          >
-            <option value="">Seleccionar proveedor...</option>
-            {proveedores.map(p => (
-              <option key={p.id} value={p.id}>{p.nombre}</option>
-            ))}
-          </Form.Select>
-        </Form.Group>
 
-        <div className="mb-4">
-          <h5>Resumen Consolidado</h5>
-          <Table striped bordered hover variant="dark">
-            <thead>
-              <tr>
-                <th>Producto ID</th>
-                <th>Cantidad Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(productosConsolidados).map(([id, cantidad]) => (
-                <tr key={id}>
-                  <td>{id}</td>
-                  <td>{cantidad}</td>
+      <Modal.Body className="bg-dark text-light" style={{ minHeight: '60vh' }}>
+        {error && <Alert variant="danger">{error}</Alert>}
+        
+        <Row>
+          <Col md={8}>
+            <h5>Seleccionar Solicitudes</h5>
+            <Table striped bordered hover variant="dark">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>ID</th>
+                  <th>Productos</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
+              </thead>
+              <tbody>
+                {todasSolicitudes.map(solicitud => (
+                  <tr key={solicitud.id}>
+                    <td>
+                      <Form.Check
+                        checked={selectedSolicitudes.has(solicitud.id)}
+                        onChange={() => {
+                          const newSet = new Set(selectedSolicitudes);
+                          newSet.has(solicitud.id) 
+                            ? newSet.delete(solicitud.id) 
+                            : newSet.add(solicitud.id);
+                          setSelectedSolicitudes(newSet);
+                        }}
+                      />
+                    </td>
+                    <td>#{solicitud.id}</td>
+                    <td>
+                      {solicitud.detalles?.map((d, i) => (
+                        <div key={i}>
+                          {d.producto.descripcion} (x{d.cantidad})
+                        </div>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Col>
 
-        <h5>Solicitudes Disponibles</h5>
-        <Table striped bordered hover variant="dark">
-          <thead>
-            <tr>
-              <th></th>
-              <th>ID Solicitud</th>
-              <th>Productos</th>
-              <th>Cantidad Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {solicitudes.map(s => (
-              <tr key={s.id}>
-                <td>
-                  <Form.Check 
-                    type="checkbox"
-                    checked={!!selected[s.id]}
-                    onChange={() => handleToggleSolicitud(s.id)}
-                  />
-                </td>
-                <td>#{s.id}</td>
-                <td>
-                  {s.detalles.map((d, i) => (
-                    <div key={i}>Producto {d.producto_id} x {d.cantidad}</div>
-                  ))}
-                </td>
-                <td>{s.detalles.reduce((sum, d) => sum + d.cantidad, 0)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+          <Col md={4}>
+            <h5>Productos Consolidados</h5>
+            <Table striped bordered hover variant="dark">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Total</th>
+                  <th>A Ordenar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productosConsolidados.map((p, i) => (
+                  <tr key={i}>
+                    <td>{p.producto.descripcion}</td>
+                    <td>{p.cantidad}</td>
+                    <td>
+                      <InputGroup>
+                        <Form.Control
+                          type="number"
+                          min="0"
+                          max={p.cantidad}
+                          value={selectedProductos.get(p.producto.id) || p.cantidad}
+                          onChange={(e) => {
+                            const nuevaCantidad = Math.min(p.cantidad, Math.max(0, e.target.value));
+                            setSelectedProductos(prev => new Map(prev.set(p.producto.id, nuevaCantidad)));
+                          }}
+                        />
+                      </InputGroup>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+
+            <h5 className="mt-4">Proveedor</h5>
+            <Form.Select
+              value={proveedorId}
+              onChange={(e) => setProveedorId(e.target.value)}
+              className="bg-secondary text-light"
+            >
+              <option value="">Seleccionar proveedor...</option>
+              {proveedores.map(proveedor => (
+                <option key={proveedor.id} value={proveedor.id}>
+                  {proveedor.nombre} - 
+                  {proveedor.categorias?.map(c => c.categoria.nombre).join(', ')}
+                </option>
+              ))}
+            </Form.Select>
+
+            <Button
+              variant="success"
+              className="mt-3 w-100"
+              onClick={handleCrearOrden}
+              disabled={!proveedorId || productosConsolidados.length === 0}
+            >
+              Generar Orden Consolidada
+            </Button>
+          </Col>
+        </Row>
       </Modal.Body>
-      
-      <Modal.Footer className="bg-dark">
-        <Button variant="secondary" onClick={onHide}>Cancelar</Button>
-        <Button variant="primary" onClick={handleConfirmarConsolidacion}>
-          Crear Orden Consolidada
-        </Button>
-      </Modal.Footer>
     </Modal>
   );
 };

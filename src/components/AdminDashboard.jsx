@@ -1,117 +1,120 @@
-import React, { useState } from 'react';
-import { Button } from 'react-bootstrap';
-import OrderForm from './OrderForm';
+import React, { useState, useEffect } from 'react';
+import { Tabs, Tab, Table, Button } from 'react-bootstrap';
 import RequestTable from './RequestTable';
-import { supabase } from '../supabaseClient';
+import ConsolidationModal from './ConsolidationModal';
+import OrderForm from './OrderForm';
 import OrderPDF from './OrderPDF';
 import OrderActions from './OrderActions';
+import { supabase } from '../supabaseClient';
 
-const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial, ordenesHistorial }) => {
+const AdminDashboard = ({ activeTab, solicitudesPendientes }) => {
+  const [showConsolidation, setShowConsolidation] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [ordenConsolidada, setOrdenConsolidada] = useState(null);
+  const [ordenesConsolidadas, setOrdenesConsolidadas] = useState([]);
 
-  const handleReject = async (id) => {
-    const { error } = await supabase
-      .from('solicitudcompra')
-      .update({ estado: 'Rechazada' })
-      .eq('id', id);
-  
-    if (!error) {
-      const updatedRequests = solicitudesPendientes.filter(req => req.id !== id);
-      setSolicitudesPendientes(updatedRequests);
-    }
+  useEffect(() => {
+    const cargarOrdenes = async () => {
+      const { data } = await supabase
+        .from('ordencompra')
+        .select(`
+          *,
+          proveedor:proveedor_id(*),
+          detalles:ordencompra_detalle(*, producto:producto_id(*) ),
+          solicitudes:orden_solicitud(solicitud:solicitud_compra_id(id))
+        `)
+        .order('fecha_orden', { ascending: false });
+
+      setOrdenesConsolidadas(data || []);
+    };
+    cargarOrdenes();
+  }, []);
+
+  const handleConsolidate = (ordenData) => {
+    setOrdenConsolidada(ordenData);
+    setShowOrderForm(true);
   };
 
   return (
-    <>
-      {activeTab === 'solicitudes' && (
-        <div className="bg-dark rounded-3 p-4 border border-secondary">
-          <h4 className="mb-4 text-light">🔄 Solicitudes Pendientes</h4>
+    <div className="p-4">
+      <Tabs activeKey={activeTab} className="mb-3">
+        <Tab eventKey="solicitudes" title="Solicitudes">
           <RequestTable
             requests={solicitudesPendientes}
             withActions={true}
             onApprove={(request) => {
-              setSelectedRequest(request);
-              setShowOrderForm(true);
+              setShowConsolidation(true);
             }}
-            onReject={handleReject}
+            onReject={async (id) => {
+              await supabase
+                .from('solicitudcompra')
+                .update({ estado: 'Rechazada' })
+                .eq('id', id);
+            }}
           />
-        </div>
-      )}
+        </Tab>
 
-      {activeTab === 'historial' && (
-        <div className="bg-dark rounded-3 p-4 border border-secondary">
-          <h4 className="mb-4 text-light">📚 Historial de Solicitudes</h4>
-          <RequestTable
-            requests={solicitudesHistorial}
-            showStatus={true}
-          />
-        </div>
-      )}
-
-      {activeTab === 'ordenes' && (
-        <div className="bg-dark rounded-3 p-4 border border-secondary">
-          <h4 className="mb-4 text-light">📦 Historial de Órdenes</h4>
-          <div className="table-responsive">
-            <table className="table table-dark table-hover align-middle">
-              <thead className="table-dark">
-                <tr>
-                  <th>ID</th><th>Proveedor</th><th>Solicitud Relacionada</th>
-                  <th>Fecha</th><th>Total</th><th>Estado</th><th>Acciones</th>
+        <Tab eventKey="ordenes" title="Órdenes Consolidadas">
+          <Table striped bordered hover variant="dark">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Proveedor</th>
+                <th>Productos</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ordenesConsolidadas.map(orden => (
+                <tr key={orden.id}>
+                  <td>{orden.id}</td>
+                  <td>{orden.proveedor?.nombre}</td>
+                  <td>
+                    {orden.detalles?.map((d, i) => (
+                      <div key={i}>
+                        {d.producto.descripcion} (x{d.cantidad})
+                      </div>
+                    ))}
+                  </td>
+                  <td>
+                    <span className={`badge bg-${orden.estado === 'Borrador' ? 'warning' : 'success'}`}>
+                      {orden.estado}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="d-flex gap-2">
+                      <OrderPDF order={orden} />
+                      <OrderActions 
+                        order={orden}
+                        onUpdate={() => window.location.reload()}
+                      />
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {ordenesHistorial?.map(orden => {
-                  const statusColor = {
-                    'Pendiente': 'warning',
-                    'Completada': 'success',
-                    'Anulada': 'secondary'
-                  }[orden.estado];
+              ))}
+            </tbody>
+          </Table>
+        </Tab>
+      </Tabs>
 
-                  return (
-                    <tr key={orden.id}>
-                      <td>{orden.id}</td>
-                      <td>{orden.proveedor?.nombre || 'N/A'}</td>
-                      <td>{orden.solicitud_compra?.descripcion || 'N/A'}</td>
-                      <td>{new Date(orden.fecha_orden).toLocaleDateString()}</td>
-                      <td>{orden.neto_a_pagar?.toFixed(2)} {orden.unidad}</td>
-                      <td>
-                        <span className={`badge bg-${statusColor}`}>{orden.estado}</span>
-                      </td>
-                      <td>
-                        <div className="d-flex gap-2">
-                          <OrderPDF order={orden} key={orden.id} />
-                          <OrderActions 
-                            order={orden}
-                            onUpdate={() => window.location.reload()}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {ordenesHistorial?.length === 0 && (
-                  <tr>
-                    <td colSpan="7" className="text-center text-muted py-4">
-                      No hay órdenes registradas
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      <ConsolidationModal
+        show={showConsolidation}
+        onHide={() => setShowConsolidation(false)}
+        onConsolidate={handleConsolidate}
+      />
 
       {showOrderForm && (
         <OrderForm
           show={showOrderForm}
           onHide={() => setShowOrderForm(false)}
-          request={selectedRequest}
-          onSuccess={() => window.location.reload()}
+          ordenConsolidada={ordenConsolidada}
+          onSuccess={() => {
+            window.location.reload(); // Actualizar lista de órdenes
+          }}
         />
       )}
-    </>
+    </div>
   );
 };
 
