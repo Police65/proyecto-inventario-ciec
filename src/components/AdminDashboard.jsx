@@ -1,119 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import { Tabs, Tab, Table, Button } from 'react-bootstrap';
-import RequestTable from './RequestTable';
+import { Button, Table, Badge, Alert } from 'react-bootstrap';
 import ConsolidationModal from './ConsolidationModal';
-import OrderForm from './OrderForm';
-import OrderPDF from './OrderPDF';
-import OrderActions from './OrderActions';
 import { supabase } from '../supabaseClient';
 
-const AdminDashboard = ({ activeTab, solicitudesPendientes }) => {
+const AdminDashboard = () => {
   const [showConsolidation, setShowConsolidation] = useState(false);
-  const [showOrderForm, setShowOrderForm] = useState(false);
-  const [ordenConsolidada, setOrdenConsolidada] = useState(null);
   const [ordenesConsolidadas, setOrdenesConsolidadas] = useState([]);
+  const [error, setError] = useState('');
 
+  // Cargar órdenes al iniciar
   useEffect(() => {
     const cargarOrdenes = async () => {
-      const { data } = await supabase
-        .from('ordencompra')
-        .select(`
-          *,
-          proveedor:proveedor_id(*),
-          detalles:ordencompra_detalle(*, producto:producto_id(*) ),
-          solicitudes:orden_solicitud(solicitud:solicitud_compra_id(id))
-        `)
-        .order('fecha_orden', { ascending: false });
-
-      setOrdenesConsolidadas(data || []);
+      const { data, error } = await supabase
+        .from('ordenes_consolidadas')
+        .select('*');
+      
+      if (!error) setOrdenesConsolidadas(data);
     };
     cargarOrdenes();
   }, []);
 
-  const handleConsolidate = (ordenData) => {
-    setOrdenConsolidada(ordenData);
-    setShowOrderForm(true);
-  };
-
   return (
     <div className="p-4">
-      <Tabs activeKey={activeTab} className="mb-3">
-        <Tab eventKey="solicitudes" title="Solicitudes">
-          <RequestTable
-            requests={solicitudesPendientes}
-            withActions={true}
-            onApprove={(request) => {
-              setShowConsolidation(true);
-            }}
-            onReject={async (id) => {
-              await supabase
-                .from('solicitudcompra')
-                .update({ estado: 'Rechazada' })
-                .eq('id', id);
-            }}
-          />
-        </Tab>
+      <div className="d-flex justify-content-between mb-4">
+        <h3 className="text-light">Órdenes de Compra</h3>
+        {/* Botón para abrir el modal de consolidación */}
+        <Button 
+          variant="primary" 
+          onClick={() => setShowConsolidation(true)}
+        >
+          Consolidar Solicitudes
+        </Button>
+      </div>
 
-        <Tab eventKey="ordenes" title="Órdenes Consolidadas">
-          <Table striped bordered hover variant="dark">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Proveedor</th>
-                <th>Productos</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ordenesConsolidadas.map(orden => (
-                <tr key={orden.id}>
-                  <td>{orden.id}</td>
-                  <td>{orden.proveedor?.nombre}</td>
-                  <td>
-                    {orden.detalles?.map((d, i) => (
-                      <div key={i}>
-                        {d.producto.descripcion} (x{d.cantidad})
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    <span className={`badge bg-${orden.estado === 'Borrador' ? 'warning' : 'success'}`}>
-                      {orden.estado}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="d-flex gap-2">
-                      <OrderPDF order={orden} />
-                      <OrderActions 
-                        order={orden}
-                        onUpdate={() => window.location.reload()}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Tab>
-      </Tabs>
-
+      {/* Modal de Consolidación */}
       <ConsolidationModal
         show={showConsolidation}
         onHide={() => setShowConsolidation(false)}
-        onConsolidate={handleConsolidate}
+        onConsolidate={(nuevaOrden) => {
+          setOrdenesConsolidadas([...ordenesConsolidadas, nuevaOrden]);
+        }}
       />
 
-      {showOrderForm && (
-        <OrderForm
-          show={showOrderForm}
-          onHide={() => setShowOrderForm(false)}
-          ordenConsolidada={ordenConsolidada}
-          onSuccess={() => {
-            window.location.reload(); // Actualizar lista de órdenes
-          }}
-        />
-      )}
+      {/* Tabla de Órdenes */}
+      <Table striped bordered hover variant="dark">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Productos</th>
+            <th>Solicitudes</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ordenesConsolidadas.map(orden => (
+            <tr key={orden.id}>
+              <td>{orden.id}</td>
+              <td>
+                {orden.productos.map((p, i) => (
+                  <div key={i}>
+                    {p.descripcion} (x{p.cantidad})
+                  </div>
+                ))}
+              </td>
+              <td>
+                {orden.solicitudes.map((s, i) => (
+                  <Badge key={i} bg="secondary" className="me-1">
+                    #{s}
+                  </Badge>
+                ))}
+              </td>
+              <td>
+                <Button variant="success" size="sm">
+                  Crear Orden
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
     </div>
   );
 };

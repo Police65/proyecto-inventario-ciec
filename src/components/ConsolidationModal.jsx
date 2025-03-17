@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Form, Button, Table, Row, Col, InputGroup, Alert } from 'react-bootstrap';
 import { supabase } from '../supabaseClient';
 
-const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
+const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
   const [todasSolicitudes, setTodasSolicitudes] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [selectedSolicitudes, setSelectedSolicitudes] = useState(new Set());
@@ -38,10 +38,12 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
               categoria:categoria_id(nombre)
           `);
 
-        if (errSolicitudes || errProveedores) throw new Error('Error cargando datos');
+        if (errSolicitudes) throw new Error('Error cargando solicitudes: ' + errSolicitudes.message);
+        if (errProveedores) throw new Error('Error cargando proveedores: ' + errProveedores.message);
 
         setTodasSolicitudes(solicitudesData || []);
         setProveedores(proveedoresData || []);
+
       } catch (err) {
         setError(err.message);
       }
@@ -71,19 +73,22 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
 
   const handleCrearOrden = async () => {
     try {
-      const productosOrden = productosConsolidados.map(p => ({
-        producto_id: p.producto.id,
-        cantidad: selectedProductos.get(p.producto.id) || p.cantidad
-      }));
+      // Validación básica
+      if (!proveedorId) throw new Error('Seleccione un proveedor');
+      if (productosConsolidados.length === 0) throw new Error('No hay productos seleccionados');
 
       const ordenData = {
         proveedor_id: proveedorId,
-        productos: productosOrden,
+        productos: productosConsolidados.map(p => ({
+          producto_id: p.producto.id,
+          cantidad: selectedProductos.get(p.producto.id) || p.cantidad
+        })),
         solicitudes_ids: Array.from(selectedSolicitudes)
       };
 
       onConsolidate(ordenData);
       onHide();
+
     } catch (err) {
       setError('Error al crear orden: ' + err.message);
     }
@@ -104,7 +109,7 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
             <Table striped bordered hover variant="dark">
               <thead>
                 <tr>
-                  <th></th>
+                  <th style={{ width: '50px' }}></th>
                   <th>ID</th>
                   <th>Productos</th>
                 </tr>
@@ -113,13 +118,14 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
                 {todasSolicitudes.map(solicitud => (
                   <tr key={solicitud.id}>
                     <td>
-                      <Form.Check
+                      <Form.Check 
+                        type="checkbox"
                         checked={selectedSolicitudes.has(solicitud.id)}
-                        onChange={() => {
+                        onChange={(e) => {
                           const newSet = new Set(selectedSolicitudes);
-                          newSet.has(solicitud.id) 
-                            ? newSet.delete(solicitud.id) 
-                            : newSet.add(solicitud.id);
+                          e.target.checked 
+                            ? newSet.add(solicitud.id)
+                            : newSet.delete(solicitud.id);
                           setSelectedSolicitudes(newSet);
                         }}
                       />
@@ -127,8 +133,11 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
                     <td>#{solicitud.id}</td>
                     <td>
                       {solicitud.detalles?.map((d, i) => (
-                        <div key={i}>
-                          {d.producto.descripcion} (x{d.cantidad})
+                        <div key={i} className="mb-1">
+                          <small>
+                            {d.producto.descripcion} 
+                            <span className="ms-2 text-muted">(x{d.cantidad})</span>
+                          </small>
                         </div>
                       ))}
                     </td>
@@ -139,62 +148,64 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
           </Col>
 
           <Col md={4}>
-            <h5>Productos Consolidados</h5>
-            <Table striped bordered hover variant="dark">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Total</th>
-                  <th>A Ordenar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {productosConsolidados.map((p, i) => (
-                  <tr key={i}>
-                    <td>{p.producto.descripcion}</td>
-                    <td>{p.cantidad}</td>
-                    <td>
-                      <InputGroup>
-                        <Form.Control
-                          type="number"
-                          min="0"
-                          max={p.cantidad}
-                          value={selectedProductos.get(p.producto.id) || p.cantidad}
-                          onChange={(e) => {
-                            const nuevaCantidad = Math.min(p.cantidad, Math.max(0, e.target.value));
-                            setSelectedProductos(prev => new Map(prev.set(p.producto.id, nuevaCantidad)));
-                          }}
-                        />
-                      </InputGroup>
-                    </td>
+            <div className="sticky-top" style={{ top: '20px' }}>
+              <h5>Productos Consolidados</h5>
+              <Table striped bordered hover variant="dark">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th>Total</th>
+                    <th>A Ordenar</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {productosConsolidados.map((p, i) => (
+                    <tr key={i}>
+                      <td>{p.producto.descripcion}</td>
+                      <td>{p.cantidad}</td>
+                      <td>
+                        <InputGroup>
+                          <Form.Control
+                            type="number"
+                            min="0"
+                            max={p.cantidad}
+                            value={selectedProductos.get(p.producto.id) || p.cantidad}
+                            onChange={(e) => {
+                              const value = Math.min(p.cantidad, Math.max(0, e.target.value));
+                              setSelectedProductos(prev => new Map(prev.set(p.producto.id, value)));
+                            }}
+                          />
+                        </InputGroup>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+
+              <h5 className="mt-4">Proveedor</h5>
+              <Form.Select
+                value={proveedorId}
+                onChange={(e) => setProveedorId(e.target.value)}
+                className="bg-secondary text-light"
+              >
+                <option value="">Seleccionar proveedor...</option>
+                {proveedores.map(proveedor => (
+                  <option key={proveedor.id} value={proveedor.id}>
+                    {proveedor.nombre} - 
+                    {proveedor.categorias?.map(c => c.categoria.nombre).join(', ')}
+                  </option>
                 ))}
-              </tbody>
-            </Table>
+              </Form.Select>
 
-            <h5 className="mt-4">Proveedor</h5>
-            <Form.Select
-              value={proveedorId}
-              onChange={(e) => setProveedorId(e.target.value)}
-              className="bg-secondary text-light"
-            >
-              <option value="">Seleccionar proveedor...</option>
-              {proveedores.map(proveedor => (
-                <option key={proveedor.id} value={proveedor.id}>
-                  {proveedor.nombre} - 
-                  {proveedor.categorias?.map(c => c.categoria.nombre).join(', ')}
-                </option>
-              ))}
-            </Form.Select>
-
-            <Button
-              variant="success"
-              className="mt-3 w-100"
-              onClick={handleCrearOrden}
-              disabled={!proveedorId || productosConsolidados.length === 0}
-            >
-              Generar Orden Consolidada
-            </Button>
+              <Button
+                variant="success"
+                className="mt-3 w-100"
+                onClick={handleCrearOrden}
+                disabled={!proveedorId || productosConsolidados.length === 0}
+              >
+                Generar Orden Consolidada
+              </Button>
+            </div>
           </Col>
         </Row>
       </Modal.Body>
