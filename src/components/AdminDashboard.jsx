@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Table, Badge, Alert, Modal } from 'react-bootstrap';
 import ConsolidationModal from './ConsolidationModal';
+import OrderForm from './OrderForm';
 import { supabase } from '../supabaseClient';
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ userProfile }) => {
   const [showConsolidacion, setShowConsolidacion] = useState(false);
   const [solicitudesPendientes, setSolicitudesPendientes] = useState([]);
-  const [ordenConsolidada, setOrdenConsolidada] = useState(null);
-  const [showConfirmacion, setShowConfirmacion] = useState(false);
+  const [ordenesConsolidadas, setOrdenesConsolidadas] = useState([]);
+  const [ordenSeleccionada, setOrdenSeleccionada] = useState(null);
+  const [showOrderForm, setShowOrderForm] = useState(false);
   const [error, setError] = useState('');
-  const [proveedores, setProveedores] = useState([]);
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -27,13 +28,18 @@ const AdminDashboard = () => {
           `)
           .eq('estado', 'Pendiente');
 
-        const { data: proveedoresData } = await supabase
-          .from('proveedor')
-          .select('id, nombre');
+        const { data: ordenesData } = await supabase
+          .from('ordenes_consolidadas')
+          .select(`
+            id,
+            proveedor:proveedor_id(id, nombre),
+            productos,
+            fecha_creacion
+          `)
+          .order('fecha_creacion', { ascending: false });
 
         setSolicitudesPendientes(solicitudesData || []);
-        setProveedores(proveedoresData || []);
-
+        setOrdenesConsolidadas(ordenesData || []);
       } catch (err) {
         setError('Error cargando datos: ' + err.message);
       }
@@ -41,72 +47,15 @@ const AdminDashboard = () => {
     cargarDatos();
   }, []);
 
-  const confirmarOrden = async () => {
+  const handleEliminarConsolidacion = async (id) => {
     try {
-      const solicitudesIds = ordenConsolidada.productos.flatMap(p => p.solicitudes);
-      const primeraSolicitudId = solicitudesIds[0]; // Tomamos la primera solicitud como referencia
-
-      const subtotal = ordenConsolidada.productos.reduce(
-        (acc, p) => acc + (p.precio_unitario * p.cantidad), 
-        0
-      );
-
-      // 1. Crear orden principal con referencia a la solicitud
-      const { data: ordenCompra, error: ordenError } = await supabase
-        .from('ordencompra')
-        .insert({
-          solicitud_compra_id: primeraSolicitudId,
-          proveedor_id: ordenConsolidada.proveedor_id,
-          estado: 'Pendiente',
-          fecha_orden: new Date().toISOString(),
-          empleado_id: 1,
-          sub_total: subtotal,
-          iva: subtotal * 0.16,
-          ret_iva: subtotal * 0.16 * 0.75,
-          neto_a_pagar: subtotal + (subtotal * 0.16) - (subtotal * 0.16 * 0.75),
-          unidad: 'Bs'
-        })
-        .select('*')
-        .single();
-
-      if (ordenError) throw ordenError;
-
-      // 2. Insertar detalles
-      const { error: detalleError } = await supabase
-        .from('ordencompra_detalle')
-        .insert(ordenConsolidada.productos.map(p => ({
-          orden_compra_id: ordenCompra.id,
-          producto_id: p.producto_id,
-          cantidad: p.cantidad,
-          precio_unitario: p.precio_unitario
-        })));
-
-      if (detalleError) throw detalleError;
-
-      // 3. Relacionar múltiples solicitudes con la orden
-      const { error: linkError } = await supabase
-        .from('orden_solicitud')
-        .insert(solicitudesIds.map(solicitudId => ({
-          orden_id: ordenCompra.id,
-          solicitud_id: solicitudId
-        })));
-
-      if (linkError) throw linkError;
-
-      // 4. Actualizar estado de las solicitudes
-      const { error: updateError } = await supabase
-        .from('solicitudcompra')
-        .update({ estado: 'En Proceso' })
-        .in('id', solicitudesIds);
-
-      if (updateError) throw updateError;
-
-      setSolicitudesPendientes(prev => prev.filter(s => !solicitudesIds.includes(s.id)));
-      setShowConfirmacion(false);
-      setOrdenConsolidada(null);
-
+      await supabase
+        .from('ordenes_consolidadas')
+        .delete()
+        .eq('id', id);
+      setOrdenesConsolidadas(prev => prev.filter(oc => oc.id !== id));
     } catch (err) {
-      setError('Error confirmando orden: ' + err.message);
+      setError('Error eliminando consolidación: ' + err.message);
     }
   };
 
@@ -116,91 +65,128 @@ const AdminDashboard = () => {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      <Table striped bordered hover variant="dark">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Solicitante</th>
-            <th>Productos</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {solicitudesPendientes.map(solicitud => (
-            <tr key={solicitud.id}>
-              <td>#{solicitud.id}</td>
-              <td>{solicitud.empleado?.nombre} {solicitud.empleado?.apellido}</td>
-              <td>
-                {solicitud.detalles?.map((d, i) => (
-                  <Badge key={i} bg="info" className="me-1">
-                    {d.producto.descripcion} (x{d.cantidad})
-                  </Badge>
-                ))}
-              </td>
-              <td>
-                <Button 
-                  variant="success" 
-                  size="sm"
-                  onClick={() => setShowConsolidacion(true)}
-                >
-                  Consolidar
-                </Button>
-              </td>
+      <div className="mb-5">
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h4>Órdenes Consolidadas</h4>
+          <Button variant="primary" onClick={() => setShowConsolidacion(true)}>
+            Nueva Consolidación
+          </Button>
+        </div>
+
+        <Table striped bordered hover variant="dark">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Proveedor</th>
+              <th>Productos</th>
+              <th>Acciones</th>
             </tr>
-          ))}
-        </tbody>
-      </Table>
+          </thead>
+          <tbody>
+            {ordenesConsolidadas.map(orden => (
+              <tr key={orden.id}>
+                <td>#{orden.id}</td>
+                <td>{orden.proveedor?.nombre}</td>
+                <td>
+                  {orden.productos.map((p, i) => (
+                    <Badge key={i} bg="secondary" className="me-1 mb-1">
+                      {p.descripcion} (x{p.cantidad})
+                    </Badge>
+                  ))}
+                </td>
+                <td>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    className="me-2"
+                    onClick={() => {
+                      setOrdenSeleccionada(orden);
+                      setShowOrderForm(true);
+                    }}
+                  >
+                    Crear Orden
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => handleEliminarConsolidacion(orden.id)}
+                  >
+                    Eliminar
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
 
       <ConsolidationModal
         show={showConsolidacion}
         onHide={() => setShowConsolidacion(false)}
-        onConsolidate={(ordenData) => {
-          setOrdenConsolidada(ordenData);
-          setShowConfirmacion(true);
+        onConsolidate={async (ordenData) => {
+          try {
+            const { data, error } = await supabase
+              .from('ordenes_consolidadas')
+              .insert([ordenData])
+              .select('*');
+
+            if (!error) setOrdenesConsolidadas(prev => [...prev, ...data]);
+          } catch (err) {
+            setError('Error guardando consolidación: ' + err.message);
+          }
         }}
       />
 
-      <Modal show={showConfirmacion} onHide={() => setShowConfirmacion(false)} centered className="dark-modal">
-        <Modal.Header closeButton className="bg-dark border-secondary">
-          <Modal.Title>Confirmar Orden</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="bg-dark">
-          {ordenConsolidada && (
-            <>
-              <h5>Proveedor: {
-                proveedores.find(p => p.id === ordenConsolidada.proveedor_id)?.nombre
-              }</h5>
-              
-              <h6 className="mt-3">Productos:</h6>
-              <ul>
-                {ordenConsolidada.productos.map((p, i) => (
-                  <li key={i}>
-                    {p.descripcion} - {p.cantidad} unidades
-                    <div className="text-muted small">
-                      (Solicitudes: {Array.from(p.solicitudes).join(', ')})
-                    </div>
-                    <div className="text-success small">
-                      Precio unitario: {p.precio_unitario} Bs
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-3">
-                <h6>Totales:</h6>
-                <p>Subtotal: {ordenConsolidada.productos.reduce((acc, p) => acc + (p.precio_unitario * p.cantidad), 0).toFixed(2)} Bs</p>
-              </div>
-            </>
-          )}
-        </Modal.Body>
-        <Modal.Footer className="bg-dark border-secondary">
-          <Button variant="secondary" onClick={() => setShowConfirmacion(false)}>
-            Cancelar
-          </Button>
-          <Button variant="success" onClick={confirmarOrden}>
-            Confirmar Orden
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <OrderForm
+        show={showOrderForm}
+        onHide={() => setShowOrderForm(false)}
+        ordenConsolidada={ordenSeleccionada}
+        userProfile={userProfile}
+        onSuccess={() => {
+          setOrdenesConsolidadas(prev => 
+            prev.filter(oc => oc.id !== ordenSeleccionada.id)
+          );
+          setOrdenSeleccionada(null);
+        }}
+      />
+
+      <div className="mt-5">
+        <h4>Solicitudes Pendientes</h4>
+        <Table striped bordered hover variant="dark">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Solicitante</th>
+              <th>Productos</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {solicitudesPendientes.map(solicitud => (
+              <tr key={solicitud.id}>
+                <td>#{solicitud.id}</td>
+                <td>{solicitud.empleado?.nombre} {solicitud.empleado?.apellido}</td>
+                <td>
+                  {solicitud.detalles?.map((d, i) => (
+                    <Badge key={i} bg="info" className="me-1">
+                      {d.producto.descripcion} (x{d.cantidad})
+                    </Badge>
+                  ))}
+                </td>
+                <td>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={() => setShowConsolidacion(true)}
+                  >
+                    Consolidar
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
     </div>
   );
 };

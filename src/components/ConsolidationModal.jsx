@@ -40,7 +40,6 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
 
         setSolicitudes(solicitudesData || []);
         setProveedores(proveedoresData || []);
-
       } catch (err) {
         setError('Error cargando datos: ' + err.message);
       }
@@ -54,7 +53,7 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
       const solicitud = solicitudes.find(s => s.id === solicitudId);
       return solicitud?.detalles?.map(d => ({
         ...d,
-        solicitudId: solicitud.id
+        solicitudId: solicitud.id,
       })) || [];
     })
     .reduce((acc, item) => {
@@ -68,7 +67,7 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
           descripcion: item.producto.descripcion,
           cantidad: item.cantidad,
           solicitudes: new Set([item.solicitudId]),
-          cantidadOrdenar: item.cantidad
+          cantidadOrdenar: item.cantidad,
         });
       }
       return acc;
@@ -76,32 +75,27 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
 
   const handleCrearOrden = async () => {
     try {
-      // Crear orden consolidada
-      const { data: ordenConsolidada, error } = await supabase
+      const ordenData = {
+        proveedor_id: Number(proveedorId),
+        productos: productosConsolidados.map(p => ({
+          ...p,
+          solicitudes: Array.from(p.solicitudes), // Convertir Set a Array
+        })),
+        estado: 'Pendiente',
+        fecha_creacion: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
         .from('ordenes_consolidadas')
-        .insert([{
-          proveedor_id: proveedorId,
-          productos: productosConsolidados,
-          estado: 'Pendiente'
-        }])
-        .select('*')
-        .single();
+        .insert([ordenData])
+        .select('id, proveedor_id, productos'); // Selección específica
 
       if (error) throw error;
 
-      // Llamar a la función padre con los datos
-      onConsolidate({
-        ...ordenConsolidada,
-        productos: productosConsolidados.map(p => ({
-          ...p,
-          solicitudes: Array.from(p.solicitudes)
-        }))
-      });
-      
+      onConsolidate(data[0]);
       onHide();
-
     } catch (err) {
-      setError('Error creando orden: ' + err.message);
+      setError('Error al crear consolidación: ' + err.message);
     }
   };
 
@@ -131,7 +125,7 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
                         checked={selectedSolicitudes.has(solicitud.id)}
                         onChange={(e) => {
                           const newSet = new Set(selectedSolicitudes);
-                          e.target.checked 
+                          e.target.checked
                             ? newSet.add(solicitud.id)
                             : newSet.delete(solicitud.id);
                           setSelectedSolicitudes(newSet);
@@ -196,7 +190,7 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
               <option value="">Seleccionar proveedor...</option>
               {proveedores.map(proveedor => (
                 <option key={proveedor.id} value={proveedor.id}>
-                  {proveedor.nombre} - 
+                  {proveedor.nombre} -
                   {proveedor.categorias?.map(c => c.categoria.nombre).join(', ') || 'Sin categorías'}
                 </option>
               ))}

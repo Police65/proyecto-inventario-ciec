@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from 'react-bootstrap';
+
 const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingRequests = [] }) => {
   const location = useLocation();
   return (
@@ -19,7 +20,6 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingReq
       <nav>
         <ul className="list-unstyled">
           <li className="mb-2">
-            {/* Se reemplaza el botón por un Link para navegar a la ruta /solicitudes */}
             <Link
               to="/solicitudes"
               className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
@@ -59,16 +59,28 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingReq
             </Link>
           </li>
           {userProfile?.rol === 'admin' && (
-            <li className="mb-2">
-              <Link
-                to="/solicitudes"
-                className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
-                onClick={() => onSelectTab('ordenes')}
-              >
-                <i className="bi bi-file-earmark-text me-2"></i>
-                Órdenes
-              </Link>
-            </li>
+            <>
+              <li className="mb-2">
+                <Link
+                  to="/solicitudes"
+                  className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
+                  onClick={() => onSelectTab('ordenes')}
+                >
+                  <i className="bi bi-file-earmark-text me-2"></i>
+                  Órdenes
+                </Link>
+              </li>
+              <li className="mb-2">
+                <Link
+                  to="/solicitudes"
+                  className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
+                  onClick={() => onSelectTab('consolidadas')}
+                >
+                  <i className="bi bi-archive me-2"></i>
+                  Consolidadas
+                </Link>
+              </li>
+            </>
           )}
         </ul>
       </nav>
@@ -81,4 +93,5 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingReq
     </aside>
   );
 };
+
 export default Sidebar;
