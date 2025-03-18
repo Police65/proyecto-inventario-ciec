@@ -9,11 +9,12 @@ const AdminDashboard = () => {
   const [ordenConsolidada, setOrdenConsolidada] = useState(null);
   const [showConfirmacion, setShowConfirmacion] = useState(false);
   const [error, setError] = useState('');
+  const [proveedores, setProveedores] = useState([]);
 
   useEffect(() => {
-    const cargarSolicitudes = async () => {
+    const cargarDatos = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: solicitudesData } = await supabase
           .from('solicitudcompra')
           .select(`
             id,
@@ -26,49 +27,81 @@ const AdminDashboard = () => {
           `)
           .eq('estado', 'Pendiente');
 
-        if (error) throw error;
-        setSolicitudesPendientes(data || []);
+        const { data: proveedoresData } = await supabase
+          .from('proveedor')
+          .select('id, nombre');
+
+        setSolicitudesPendientes(solicitudesData || []);
+        setProveedores(proveedoresData || []);
+
       } catch (err) {
-        setError('Error cargando solicitudes: ' + err.message);
+        setError('Error cargando datos: ' + err.message);
       }
     };
-    cargarSolicitudes();
+    cargarDatos();
   }, []);
 
   const confirmarOrden = async () => {
     try {
-      const { data: nuevaOrden, error } = await supabase
-        .from('ordencompra')
-        .insert({
-          proveedor_id: ordenConsolidada.proveedor_id,
-          fecha_orden: new Date().toISOString(),
-          estado: 'Pendiente',
-          empleado_id: 1, // ID del usuario logueado
-          productos: ordenConsolidada.productos
-        })
-        .select('*');
+      const solicitudesIds = ordenConsolidada.productos.flatMap(p => p.solicitudes);
+      const primeraSolicitudId = solicitudesIds[0]; // Tomamos la primera solicitud como referencia
 
-      if (error) throw error;
-
-      // Crear relaciones orden_solicitud
-      const relaciones = ordenConsolidada.productos
-        .flatMap(p => Array.from(p.solicitudes).map(solicitud_id => ({
-          orden_id: nuevaOrden[0].id,
-          solicitud_id
-        })));
-
-      await supabase.from('orden_solicitud').insert(relaciones);
-
-      // Actualizar estado de las solicitudes
-      await supabase
-        .from('solicitudcompra')
-        .update({ estado: 'En Proceso' })
-        .in('id', [...new Set(ordenConsolidada.productos.flatMap(p => Array.from(p.solicitudes)))]);
-
-      setSolicitudesPendientes(prev => 
-        prev.filter(s => !ordenConsolidada.productos.some(p => Array.from(p.solicitudes).includes(s.id)))
+      const subtotal = ordenConsolidada.productos.reduce(
+        (acc, p) => acc + (p.precio_unitario * p.cantidad), 
+        0
       );
 
+      // 1. Crear orden principal con referencia a la solicitud
+      const { data: ordenCompra, error: ordenError } = await supabase
+        .from('ordencompra')
+        .insert({
+          solicitud_compra_id: primeraSolicitudId,
+          proveedor_id: ordenConsolidada.proveedor_id,
+          estado: 'Pendiente',
+          fecha_orden: new Date().toISOString(),
+          empleado_id: 1,
+          sub_total: subtotal,
+          iva: subtotal * 0.16,
+          ret_iva: subtotal * 0.16 * 0.75,
+          neto_a_pagar: subtotal + (subtotal * 0.16) - (subtotal * 0.16 * 0.75),
+          unidad: 'Bs'
+        })
+        .select('*')
+        .single();
+
+      if (ordenError) throw ordenError;
+
+      // 2. Insertar detalles
+      const { error: detalleError } = await supabase
+        .from('ordencompra_detalle')
+        .insert(ordenConsolidada.productos.map(p => ({
+          orden_compra_id: ordenCompra.id,
+          producto_id: p.producto_id,
+          cantidad: p.cantidad,
+          precio_unitario: p.precio_unitario
+        })));
+
+      if (detalleError) throw detalleError;
+
+      // 3. Relacionar múltiples solicitudes con la orden
+      const { error: linkError } = await supabase
+        .from('orden_solicitud')
+        .insert(solicitudesIds.map(solicitudId => ({
+          orden_id: ordenCompra.id,
+          solicitud_id: solicitudId
+        })));
+
+      if (linkError) throw linkError;
+
+      // 4. Actualizar estado de las solicitudes
+      const { error: updateError } = await supabase
+        .from('solicitudcompra')
+        .update({ estado: 'En Proceso' })
+        .in('id', solicitudesIds);
+
+      if (updateError) throw updateError;
+
+      setSolicitudesPendientes(prev => prev.filter(s => !solicitudesIds.includes(s.id)));
       setShowConfirmacion(false);
       setOrdenConsolidada(null);
 
@@ -146,9 +179,16 @@ const AdminDashboard = () => {
                     <div className="text-muted small">
                       (Solicitudes: {Array.from(p.solicitudes).join(', ')})
                     </div>
+                    <div className="text-success small">
+                      Precio unitario: {p.precio_unitario} Bs
+                    </div>
                   </li>
                 ))}
               </ul>
+              <div className="mt-3">
+                <h6>Totales:</h6>
+                <p>Subtotal: {ordenConsolidada.productos.reduce((acc, p) => acc + (p.precio_unitario * p.cantidad), 0).toFixed(2)} Bs</p>
+              </div>
             </>
           )}
         </Modal.Body>

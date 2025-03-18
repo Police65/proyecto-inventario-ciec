@@ -13,11 +13,12 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
   useEffect(() => {
     const cargarDatos = async () => {
       try {
+        // Cargar solicitudes pendientes
         const { data: solicitudesData } = await supabase
           .from('solicitudcompra')
           .select(`
             id,
-            empleado_id,
+            empleado:empleado_id(nombre, apellido),
             detalles:solicitudcompra_detalle(
               producto_id,
               cantidad,
@@ -26,12 +27,15 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
           `)
           .eq('estado', 'Pendiente');
 
+        // Cargar proveedores con categorías
         const { data: proveedoresData } = await supabase
           .from('proveedor')
           .select(`
             id,
             nombre,
-            proveedor_categoria:categoria_id(nombre)
+            categorias:proveedor_categoria(
+              categoria:categoria_id(nombre)
+            )
           `);
 
         setSolicitudes(solicitudesData || []);
@@ -70,18 +74,35 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
       return acc;
     }, []);
 
-  const handleCrearOrden = () => {
-    const ordenData = {
-      proveedor_id: Number(proveedorId),
-      productos: productosConsolidados.map(p => ({
-        producto_id: p.producto_id,
-        cantidad: cantidades.get(p.producto_id) || p.cantidad,
-        solicitudes: Array.from(p.solicitudes)
-      }))
-    };
-    
-    onConsolidate(ordenData);
-    onHide();
+  const handleCrearOrden = async () => {
+    try {
+      // Crear orden consolidada
+      const { data: ordenConsolidada, error } = await supabase
+        .from('ordenes_consolidadas')
+        .insert([{
+          proveedor_id: proveedorId,
+          productos: productosConsolidados,
+          estado: 'Pendiente'
+        }])
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      // Llamar a la función padre con los datos
+      onConsolidate({
+        ...ordenConsolidada,
+        productos: productosConsolidados.map(p => ({
+          ...p,
+          solicitudes: Array.from(p.solicitudes)
+        }))
+      });
+      
+      onHide();
+
+    } catch (err) {
+      setError('Error creando orden: ' + err.message);
+    }
   };
 
   return (
@@ -175,7 +196,8 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
               <option value="">Seleccionar proveedor...</option>
               {proveedores.map(proveedor => (
                 <option key={proveedor.id} value={proveedor.id}>
-                  {proveedor.nombre} - {proveedor.proveedor_categoria?.nombre}
+                  {proveedor.nombre} - 
+                  {proveedor.categorias?.map(c => c.categoria.nombre).join(', ') || 'Sin categorías'}
                 </option>
               ))}
             </Form.Select>
