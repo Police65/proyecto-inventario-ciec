@@ -1,4 +1,20 @@
-// supabaseClient.js - Actualizar funciones de agrupación
+// supabaseClient.js
+import { createClient } from '@supabase/supabase-js';
+
+// Configuración principal de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: localStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  }
+});
+
+// Funciones de agrupación
 export const agruparSolicitudes = async (solicitudId) => {
   const { data: currentSolicitud } = await supabase
     .from('solicitudcompra')
@@ -6,11 +22,10 @@ export const agruparSolicitudes = async (solicitudId) => {
     .eq('id', solicitudId)
     .single();
 
-  // Obtener productos y categorías de la solicitud actual
   const productosIds = currentSolicitud.detalles.map(d => d.producto_id);
   const categoriasIds = currentSolicitud.detalles.map(d => d.producto.categoria_id);
 
-  // Buscar solicitudes agrupables por producto o categoría
+  // Corregir la sintaxis de la consulta
   const { data: agrupables } = await supabase
     .from('solicitudcompra')
     .select(`
@@ -28,21 +43,23 @@ export const agruparSolicitudes = async (solicitudId) => {
   };
 };
 
+// Funciones helper
 const agruparPorProducto = (solicitudes) => {
   const grupos = {};
-  solicitudes.forEach(solicitud => {
-    solicitud.detalles.forEach(detalle => {
-      if (!grupos[detalle.producto_id]) {
-        grupos[detalle.producto_id] = {
+  solicitudes?.forEach(solicitud => {
+    solicitud.detalles?.forEach(detalle => {
+      const productoId = detalle.producto_id;
+      if (!grupos[productoId]) {
+        grupos[productoId] = {
           producto: detalle.producto_id,
           cantidadTotal: 0,
           solicitudes: new Set(),
           detalles: []
         };
       }
-      grupos[detalle.producto_id].cantidadTotal += detalle.cantidad;
-      grupos[detalle.producto_id].solicitudes.add(solicitud.id);
-      grupos[detalle.producto_id].detalles.push(detalle);
+      grupos[productoId].cantidadTotal += detalle.cantidad;
+      grupos[productoId].solicitudes.add(solicitud.id);
+      grupos[productoId].detalles.push(detalle);
     });
   });
   return Object.values(grupos);
@@ -50,9 +67,9 @@ const agruparPorProducto = (solicitudes) => {
 
 const agruparPorCategoria = (solicitudes) => {
   const grupos = {};
-  solicitudes.forEach(solicitud => {
-    solicitud.detalles.forEach(detalle => {
-      const categoriaId = detalle.producto.categoria_id;
+  solicitudes?.forEach(solicitud => {
+    solicitud.detalles?.forEach(detalle => {
+      const categoriaId = detalle.producto?.categoria_id;
       if (!grupos[categoriaId]) {
         grupos[categoriaId] = {
           categoria: categoriaId,
