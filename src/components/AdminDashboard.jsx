@@ -22,6 +22,7 @@ const AdminDashboard = () => {
               producto_id,
               cantidad,
               producto:producto_id(descripcion)
+            )
           `)
           .eq('estado', 'Pendiente');
 
@@ -65,7 +66,7 @@ const AdminDashboard = () => {
         .in('id', [...new Set(ordenConsolidada.productos.flatMap(p => Array.from(p.solicitudes)))]);
 
       setSolicitudesPendientes(prev => 
-        prev.filter(s => !ordenConsolidada.productos.some(p => Array.from(p.solicitudes).includes(s.id))
+        prev.filter(s => !ordenConsolidada.productos.some(p => Array.from(p.solicitudes).includes(s.id)))
       );
 
       setShowConfirmacion(false);
