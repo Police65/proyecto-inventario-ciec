@@ -68,11 +68,17 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
       if (!userProfile?.empleado_id) throw new Error("Error de autenticación");
       if (productos.length === 0) throw new Error("No hay productos");
 
+      // Obtener la primera solicitud (solo para cumplir con el constraint temporalmente)
+      const primeraSolicitudId = [...new Set(
+        ordenConsolidada.productos.flatMap(p => p.solicitudes)
+      )][0];
+
       // Crear orden principal
       const { data: orden, error } = await supabase
         .from('ordencompra')
         .insert([{
           ...formData,
+          solicitud_compra_id: primeraSolicitudId, // Temporal
           proveedor_id: Number(formData.proveedor_id),
           empleado_id: userProfile.empleado_id,
           estado: 'Pendiente',
