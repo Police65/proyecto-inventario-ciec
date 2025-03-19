@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) => {
   const [productos, setProductos] = useState([]);
   const [proveedores, setProveedores] = useState([]);
+  const [inicializado, setInicializado] = useState(false);
   const [formData, setFormData] = useState({
     sub_total: 0,
     iva: 0,
@@ -16,32 +17,49 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
     proveedor_id: ordenConsolidada?.proveedor_id || null
   });
 
-  // Cargar proveedores y productos iniciales
   useEffect(() => {
     const cargarDatos = async () => {
-      // Cargar lista de proveedores
+      if (!userProfile?.empleado_id) {
+        alert("Error: El usuario no tiene un empleado asociado");
+        onHide();
+        return;
+      }
+
       const { data: proveedoresData } = await supabase
         .from('proveedor')
         .select('id, nombre');
       
       if (proveedoresData) setProveedores(proveedoresData);
 
-      // Inicializar productos si hay orden consolidada
-      if (ordenConsolidada) {
+      if (ordenConsolidada && !inicializado) {
         const productosIniciales = ordenConsolidada.productos.map(p => ({
           ...p,
-          precio_unitario: p.precio_unitario || 0
+          cantidad: Number(p.cantidad) || 0, // Aseguramos valor numérico
+          precio_unitario: Number(p.precio_unitario) || 0
         }));
+        
         setProductos(productosIniciales);
         calcularTotales(productosIniciales);
+        setInicializado(true);
       }
     };
 
-    if (show) cargarDatos();
-  }, [show, ordenConsolidada]);
+    if (show) {
+      cargarDatos();
+    } else {
+      setInicializado(false);
+      setProductos([]); // Limpiar productos al cerrar
+    }
+  }, [show, ordenConsolidada, userProfile, onHide, inicializado]);
 
   const calcularTotales = (productosActualizados) => {
-    const subtotal = productosActualizados.reduce(
+    const productosValidos = productosActualizados.map(p => ({
+      ...p,
+      cantidad: Number(p.cantidad) || 0,
+      precio_unitario: Number(p.precio_unitario) || 0
+    }));
+
+    const subtotal = productosValidos.reduce(
       (acc, p) => acc + (p.precio_unitario * p.cantidad),
       0
     );
@@ -63,22 +81,25 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
     e.preventDefault();
     
     try {
-      // Validaciones críticas
       if (!formData.proveedor_id) throw new Error("¡Seleccione un proveedor!");
       if (!userProfile?.empleado_id) throw new Error("Error de autenticación");
       if (productos.length === 0) throw new Error("No hay productos");
+      
+      const solicitudesIds = ordenConsolidada?.solicitudes || [];
+      if (solicitudesIds.length === 0) {
+        throw new Error("No hay solicitudes vinculadas a esta consolidación");
+      }
 
-      // Obtener la primera solicitud (solo para cumplir con el constraint temporalmente)
-      const primeraSolicitudId = [...new Set(
-        ordenConsolidada.productos.flatMap(p => p.solicitudes)
-      )][0];
+      // Validar precios unitarios
+      const preciosInvalidos = productos.some(p => 
+        isNaN(p.precio_unitario) || p.precio_unitario <= 0
+      );
+      if (preciosInvalidos) throw new Error("Precios unitarios inválidos");
 
-      // Crear orden principal
       const { data: orden, error } = await supabase
         .from('ordencompra')
         .insert([{
           ...formData,
-          solicitud_compra_id: primeraSolicitudId, // Temporal
           proveedor_id: Number(formData.proveedor_id),
           empleado_id: userProfile.empleado_id,
           estado: 'Pendiente',
@@ -89,7 +110,6 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
 
       if (error) throw error;
 
-      // Crear detalles de la orden
       const detalles = productos.map(p => ({
         orden_compra_id: orden.id,
         producto_id: p.producto_id,
@@ -99,11 +119,6 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
 
       await supabase.from('ordencompra_detalle').insert(detalles);
 
-      // Vincular solicitudes
-      const solicitudesIds = [...new Set(
-        ordenConsolidada.productos.flatMap(p => p.solicitudes)
-      )];
-
       await supabase.from('orden_solicitud').insert(
         solicitudesIds.map(solicitudId => ({
           orden_id: orden.id,
@@ -111,7 +126,6 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
         }))
       );
 
-      // Actualizar estado de solicitudes
       await supabase
         .from('solicitudcompra')
         .update({ estado: 'En Proceso' })
@@ -135,7 +149,6 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
       
       <Modal.Body className="bg-dark text-light">
         <Form onSubmit={handleSubmit}>
-          {/* Sección de Proveedor */}
           <div className="row mb-4">
             <div className="col-md-6">
               <Form.Group>
@@ -177,12 +190,11 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
             </div>
           </div>
 
-          {/* Tabla de Productos */}
           <Table striped bordered hover variant="dark">
             <thead>
               <tr>
                 <th>Producto</th>
-                <th>Cantidad</th>
+                <th>Cantidad Consolidada</th>
                 <th>Precio Unitario ({simboloMoneda})</th>
                 <th>Total ({simboloMoneda})</th>
               </tr>
@@ -198,26 +210,37 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
                         type="number"
                         step="0.01"
                         min="0"
-                        value={p.precio_unitario}
+                        value={productos[i].precio_unitario === '' ? '' : productos[i].precio_unitario}
                         onChange={(e) => {
+                          const value = e.target.value;
+                          const numericValue = parseFloat(value);
+                          
                           const nuevosProductos = [...productos];
-                          nuevosProductos[i].precio_unitario = parseFloat(e.target.value) || 0;
+                          nuevosProductos[i].precio_unitario = value === '' ? '' : numericValue;
+                          
                           setProductos(nuevosProductos);
                           calcularTotales(nuevosProductos);
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === '') {
+                            const nuevosProductos = [...productos];
+                            nuevosProductos[i].precio_unitario = 0;
+                            setProductos(nuevosProductos);
+                            calcularTotales(nuevosProductos);
+                          }
                         }}
                       />
                       <InputGroup.Text>{simboloMoneda}</InputGroup.Text>
                     </InputGroup>
                   </td>
                   <td>
-                    {(p.precio_unitario * p.cantidad).toFixed(2)}
+                    {((p.precio_unitario || 0) * p.cantidad).toFixed(2)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </Table>
 
-          {/* Sección de Totales */}
           <div className="mt-4 p-3 bg-secondary rounded">
             <h5>Totales</h5>
             
@@ -231,7 +254,7 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
                   max="100"
                   value={formData.retencion_porcentaje}
                   onChange={(e) => {
-                    const porcentaje = parseFloat(e.target.value) || 0;
+                    const porcentaje = Math.min(100, Math.max(0, Number(e.target.value)));
                     setFormData(prev => ({
                       ...prev,
                       retencion_porcentaje: porcentaje
@@ -261,7 +284,6 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
             </div>
           </div>
 
-          {/* Botones de Acción */}
           <div className="mt-4 d-grid gap-2">
             <Button variant="success" type="submit" size="lg">
               🚀 Crear Orden

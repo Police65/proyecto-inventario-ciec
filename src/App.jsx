@@ -185,6 +185,10 @@ function App() {
 
   const handleSubmitRequest = async (requestData) => {
     try {
+      if (!userProfile?.empleado_id) {
+        throw new Error("Usuario no tiene empleado asociado");
+      }
+
       const { data: solicitud, error } = await supabase
         .from('solicitudcompra')
         .insert([{
@@ -251,6 +255,10 @@ function App() {
             !userProfile ? (
               <Login 
                 onLogin={(profile) => {
+                  if (!profile.empleado_id) {
+                    alert("Tu usuario no está asociado a un empleado. Contacta al administrador.");
+                    return;
+                  }
                   setUserProfile({
                     ...profile,
                     empleado_id: profile.empleado_id

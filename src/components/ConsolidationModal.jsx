@@ -72,20 +72,24 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
 
   const handleCrearOrden = async () => {
     try {
+      const todasSolicitudes = Array.from(selectedSolicitudes);
+
       const ordenData = {
         proveedor_id: Number(proveedorId),
         productos: productosConsolidados.map(p => ({
-          ...p,
-          solicitudes: Array.from(p.solicitudes),
+          producto_id: p.producto_id,
+          descripcion: p.descripcion,
+          cantidad: p.cantidadOrdenar,
         })),
+        solicitudes: todasSolicitudes,
         estado: 'Pendiente',
-        fecha_creacion: new Date().toISOString(),
+        fecha_creacion: new Date().toISOString()
       };
 
       const { data, error } = await supabase
         .from('ordenes_consolidadas')
         .insert([ordenData])
-        .select('id, proveedor_id, productos');
+        .select('id, proveedor_id, productos, solicitudes');
 
       if (error) throw error;
 
