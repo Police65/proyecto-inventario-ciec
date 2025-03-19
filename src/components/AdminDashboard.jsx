@@ -32,7 +32,7 @@ const AdminDashboard = ({ userProfile }) => {
           .from('ordenes_consolidadas')
           .select(`
             id,
-            proveedor:proveedor_id(id, nombre),
+            proveedor:proveedor_id(nombre),
             productos,
             fecha_creacion
           `)

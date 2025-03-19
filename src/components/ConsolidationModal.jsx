@@ -13,7 +13,6 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
   useEffect(() => {
     const cargarDatos = async () => {
       try {
-        // Cargar solicitudes pendientes
         const { data: solicitudesData } = await supabase
           .from('solicitudcompra')
           .select(`
@@ -27,7 +26,6 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
           `)
           .eq('estado', 'Pendiente');
 
-        // Cargar proveedores con categorías
         const { data: proveedoresData } = await supabase
           .from('proveedor')
           .select(`
@@ -44,7 +42,6 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
         setError('Error cargando datos: ' + err.message);
       }
     };
-
     if (show) cargarDatos();
   }, [show]);
 
@@ -79,7 +76,7 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
         proveedor_id: Number(proveedorId),
         productos: productosConsolidados.map(p => ({
           ...p,
-          solicitudes: Array.from(p.solicitudes), // Convertir Set a Array
+          solicitudes: Array.from(p.solicitudes),
         })),
         estado: 'Pendiente',
         fecha_creacion: new Date().toISOString(),
@@ -88,7 +85,7 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
       const { data, error } = await supabase
         .from('ordenes_consolidadas')
         .insert([ordenData])
-        .select('id, proveedor_id, productos'); // Selección específica
+        .select('id, proveedor_id, productos');
 
       if (error) throw error;
 
