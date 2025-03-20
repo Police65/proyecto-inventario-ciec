@@ -84,8 +84,10 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
       if (!formData.proveedor_id) throw new Error("¡Seleccione un proveedor!");
       if (!userProfile?.empleado_id) throw new Error("Error de autenticación");
       if (productos.length === 0) throw new Error("No hay productos");
+      console.log(ordenConsolidada);
       
       const solicitudesIds = ordenConsolidada?.solicitudes || [];
+      console.log(solicitudesIds);
       if (solicitudesIds.length === 0) {
         throw new Error("No hay solicitudes vinculadas a esta consolidación");
       }
@@ -95,7 +97,7 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
         isNaN(p.precio_unitario) || p.precio_unitario <= 0
       );
       if (preciosInvalidos) throw new Error("Precios unitarios inválidos");
-
+      console.log(solicitudesIds[0]); 
       const { data: orden, error } = await supabase
         .from('ordencompra')
         .insert([{
@@ -103,11 +105,12 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
           proveedor_id: Number(formData.proveedor_id),
           empleado_id: userProfile.empleado_id,
           estado: 'Pendiente',
-          fecha_orden: new Date().toISOString()
+          fecha_orden: new Date().toISOString(),
+          solicitud_compra_id: Number(solicitudesIds[0])
         }])
         .select('*')
         .single();
-
+        console.log("prueba2");
       if (error) throw error;
 
       const detalles = productos.map(p => ({
@@ -119,17 +122,38 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
 
       await supabase.from('ordencompra_detalle').insert(detalles);
 
-      await supabase.from('orden_solicitud').insert(
+   /**   await supabase.from('orden_solicitud').insert(
         solicitudesIds.map(solicitudId => ({
           orden_id: orden.id,
           solicitud_id: solicitudId
         }))
-      );
+      ); */
 
+      /*
+        solicitudesIds.map( async solicitudId => {
+          await supabase.from('orden_solicitud').insert(
+          {orden_id: orden.id,
+          solicitud_id: solicitudId})
+        })
+        */
+
+        /*
+for (let i = 0; i < solicitudesIds.length; i++) {
+  await supabase.from('orden_solicitud').insert(
+  {orden_id: orden.id,
+    solicitud_id: Number(solicitudesIds[i])})
+}*/
+
+console.log(orden.id, solicitudesIds[0]);
+await supabase.from('orden_solicitud').insert([{
+ 
+    ordencompra_id: Number(orden.id),
+    solicitud_id: Number(solicitudesIds[0])
+  }] ); 
       await supabase
         .from('solicitudcompra')
-        .update({ estado: 'En Proceso' })
-        .in('id', solicitudesIds);
+        .update({ estado: 'Aprobada' })
+        .eq('id', solicitudesIds[0]);
 
       onSuccess();
       onHide();

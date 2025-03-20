@@ -34,7 +34,9 @@ const AdminDashboard = ({ userProfile }) => {
             id,
             proveedor:proveedor_id(nombre),
             productos,
-            fecha_creacion
+            estado,
+            fecha_creacion,
+            solicitudes
           `)
           .order('fecha_creacion', { ascending: false });
 
