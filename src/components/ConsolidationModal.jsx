@@ -1,69 +1,70 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Button, Table, Row, Col, InputGroup, Alert } from 'react-bootstrap';
+import { Modal, Form, Button, Table, Row, Col, InputGroup, Alert, Badge } from 'react-bootstrap';
 import { supabase } from '../supabaseClient';
 
-const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
-  const [todasSolicitudes, setTodasSolicitudes] = useState([]);
+const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
+  const [solicitudes, setSolicitudes] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [selectedSolicitudes, setSelectedSolicitudes] = useState(new Set());
-  const [selectedProductos, setSelectedProductos] = useState(new Map());
+  const [cantidades, setCantidades] = useState(new Map());
   const [proveedorId, setProveedorId] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     const cargarDatos = async () => {
       try {
-        const { data: solicitudesData, error: errSolicitudes } = await supabase
+        const { data: solicitudesData } = await supabase
           .from('solicitudcompra')
           .select(`
             id,
+            empleado:empleado_id(nombre, apellido),
             detalles:solicitudcompra_detalle(
               producto_id,
               cantidad,
-              producto:producto_id(
-                id,
-                descripcion,
-                categoria_id
-              )
+              producto:producto_id(descripcion, categoria_id)
             )
           `)
           .eq('estado', 'Pendiente');
 
-        const { data: proveedoresData, error: errProveedores } = await supabase
+        const { data: proveedoresData } = await supabase
           .from('proveedor')
           .select(`
             id,
             nombre,
             categorias:proveedor_categoria(
               categoria:categoria_id(nombre)
+            )
           `);
 
-        if (errSolicitudes || errProveedores) throw new Error('Error cargando datos');
-
-        setTodasSolicitudes(solicitudesData || []);
+        setSolicitudes(solicitudesData || []);
         setProveedores(proveedoresData || []);
       } catch (err) {
-        setError(err.message);
+        setError('Error cargando datos: ' + err.message);
       }
     };
-
     if (show) cargarDatos();
   }, [show]);
 
   const productosConsolidados = Array.from(selectedSolicitudes)
     .flatMap(solicitudId => {
-      const solicitud = todasSolicitudes.find(s => s.id === solicitudId);
-      return solicitud?.detalles || [];
+      const solicitud = solicitudes.find(s => s.id === solicitudId);
+      return solicitud?.detalles?.map(d => ({
+        ...d,
+        solicitudId: solicitud.id,
+      })) || [];
     })
-    .reduce((acc, detalle) => {
-      const existente = acc.find(p => p.producto.id === detalle.producto.id);
+    .reduce((acc, item) => {
+      const existente = acc.find(p => p.producto_id === item.producto_id);
       if (existente) {
-        existente.cantidad += detalle.cantidad;
+        existente.cantidad += item.cantidad;
+        existente.solicitudes.add(item.solicitudId);
       } else {
         acc.push({
-          producto: detalle.producto,
-          cantidad: detalle.cantidad,
-          cantidadOrdenar: detalle.cantidad
+          producto_id: item.producto_id,
+          descripcion: item.producto.descripcion,
+          cantidad: item.cantidad,
+          solicitudes: new Set([item.solicitudId]),
+          cantidadOrdenar: item.cantidad,
         });
       }
       return acc;
@@ -71,55 +72,63 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
 
   const handleCrearOrden = async () => {
     try {
-      const productosOrden = productosConsolidados.map(p => ({
-        producto_id: p.producto.id,
-        cantidad: selectedProductos.get(p.producto.id) || p.cantidad
-      }));
+      const todasSolicitudes = Array.from(selectedSolicitudes);
 
       const ordenData = {
-        proveedor_id: proveedorId,
-        productos: productosOrden,
-        solicitudes_ids: Array.from(selectedSolicitudes)
+        proveedor_id: Number(proveedorId),
+        productos: productosConsolidados.map(p => ({
+          producto_id: p.producto_id,
+          descripcion: p.descripcion,
+          cantidad: p.cantidadOrdenar,
+        })),
+        solicitudes: todasSolicitudes,
+        estado: 'Pendiente',
+        fecha_creacion: new Date().toISOString()
       };
 
-      onConsolidate(ordenData);
+      const { data, error } = await supabase
+        .from('ordenes_consolidadas')
+        .insert([ordenData])
+        .select('id, proveedor_id, productos, solicitudes');
+
+      if (error) throw error;
+
+      onConsolidate(data[0]);
       onHide();
     } catch (err) {
-      setError('Error al crear orden: ' + err.message);
+      setError('Error al crear consolidación: ' + err.message);
     }
   };
 
   return (
-    <Modal show={show} onHide={onHide} size="xl" centered>
-      <Modal.Header closeButton className="bg-dark text-light">
+    <Modal show={show} onHide={onHide} size="xl" centered className="bg-dark text-light">
+      <Modal.Header closeButton className="bg-dark border-secondary">
         <Modal.Title>Consolidar Solicitudes</Modal.Title>
       </Modal.Header>
 
-      <Modal.Body className="bg-dark text-light" style={{ minHeight: '60vh' }}>
-        {error && <Alert variant="danger">{error}</Alert>}
-        
+      <Modal.Body>
         <Row>
-          <Col md={8}>
-            <h5>Seleccionar Solicitudes</h5>
+          <Col md={7}>
+            <h5>Solicitudes Pendientes</h5>
             <Table striped bordered hover variant="dark">
               <thead>
                 <tr>
                   <th></th>
                   <th>ID</th>
-                  <th>Productos</th>
+                  <th>Productos Solicitados</th>
                 </tr>
               </thead>
               <tbody>
-                {todasSolicitudes.map(solicitud => (
+                {solicitudes.map(solicitud => (
                   <tr key={solicitud.id}>
                     <td>
                       <Form.Check
                         checked={selectedSolicitudes.has(solicitud.id)}
-                        onChange={() => {
+                        onChange={(e) => {
                           const newSet = new Set(selectedSolicitudes);
-                          newSet.has(solicitud.id) 
-                            ? newSet.delete(solicitud.id) 
-                            : newSet.add(solicitud.id);
+                          e.target.checked
+                            ? newSet.add(solicitud.id)
+                            : newSet.delete(solicitud.id);
                           setSelectedSolicitudes(newSet);
                         }}
                       />
@@ -127,9 +136,9 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
                     <td>#{solicitud.id}</td>
                     <td>
                       {solicitud.detalles?.map((d, i) => (
-                        <div key={i}>
+                        <Badge key={i} bg="secondary" className="me-1">
                           {d.producto.descripcion} (x{d.cantidad})
-                        </div>
+                        </Badge>
                       ))}
                     </td>
                   </tr>
@@ -138,7 +147,7 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
             </Table>
           </Col>
 
-          <Col md={4}>
+          <Col md={5} className="border-start">
             <h5>Productos Consolidados</h5>
             <Table striped bordered hover variant="dark">
               <thead>
@@ -151,7 +160,7 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
               <tbody>
                 {productosConsolidados.map((p, i) => (
                   <tr key={i}>
-                    <td>{p.producto.descripcion}</td>
+                    <td>{p.descripcion}</td>
                     <td>{p.cantidad}</td>
                     <td>
                       <InputGroup>
@@ -159,10 +168,11 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
                           type="number"
                           min="0"
                           max={p.cantidad}
-                          value={selectedProductos.get(p.producto.id) || p.cantidad}
+                          value={cantidades.get(p.producto_id) || p.cantidad}
                           onChange={(e) => {
-                            const nuevaCantidad = Math.min(p.cantidad, Math.max(0, e.target.value));
-                            setSelectedProductos(prev => new Map(prev.set(p.producto.id, nuevaCantidad)));
+                            const newCantidades = new Map(cantidades);
+                            newCantidades.set(p.producto_id, Math.min(p.cantidad, Number(e.target.value)));
+                            setCantidades(newCantidades);
                           }}
                         />
                       </InputGroup>
@@ -181,8 +191,8 @@ const ConsolidationModal = ({ show, onHide, solicitud, onConsolidate }) => {
               <option value="">Seleccionar proveedor...</option>
               {proveedores.map(proveedor => (
                 <option key={proveedor.id} value={proveedor.id}>
-                  {proveedor.nombre} - 
-                  {proveedor.categorias?.map(c => c.categoria.nombre).join(', ')}
+                  {proveedor.nombre} -
+                  {proveedor.categorias?.map(c => c.categoria.nombre).join(', ') || 'Sin categorías'}
                 </option>
               ))}
             </Form.Select>
