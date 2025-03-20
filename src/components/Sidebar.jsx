@@ -67,7 +67,7 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingReq
                   onClick={() => onSelectTab('ordenes')}
                 >
                   <i className="bi bi-file-earmark-text me-2"></i>
-                  Órdenes
+                  Historial de Órdenes
                 </Link>
               </li>
               <li className="mb-2">
@@ -78,6 +78,16 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingReq
                 >
                   <i className="bi bi-archive me-2"></i>
                   Consolidadas
+                </Link>
+              </li>
+              <li className="mb-2">
+                <Link
+                  to="/solicitudes"
+                  className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
+                  onClick={() => onSelectTab('historial-solicitudes')}
+                >
+                  <i className="bi bi-clock-history me-2"></i>
+                  Historial Solicitudes
                 </Link>
               </li>
             </>

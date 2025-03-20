@@ -1,195 +1,122 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Table, Badge, Alert, Modal } from 'react-bootstrap';
-import ConsolidationModal from './ConsolidationModal';
+import { Button } from 'react-bootstrap';
 import OrderForm from './OrderForm';
+import RequestTable from './RequestTable';
 import { supabase } from '../supabaseClient';
+import OrderPDF from './OrderPDF';
+import OrderActions from './OrderActions';
 
-const AdminDashboard = ({ userProfile }) => {
-  const [showConsolidacion, setShowConsolidacion] = useState(false);
-  const [solicitudesPendientes, setSolicitudesPendientes] = useState([]);
-  const [ordenesConsolidadas, setOrdenesConsolidadas] = useState([]);
-  const [ordenSeleccionada, setOrdenSeleccionada] = useState(null);
+const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial, ordenesHistorial }) => {
   const [showOrderForm, setShowOrderForm] = useState(false);
-  const [error, setError] = useState('');
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [solicitudesPendientesState, setSolicitudesPendientesState] = useState(solicitudesPendientes);
 
   useEffect(() => {
-    const cargarDatos = async () => {
-      try {
-        const { data: solicitudesData } = await supabase
-          .from('solicitudcompra')
-          .select(`
-            id,
-            empleado:empleado_id(nombre, apellido),
-            detalles:solicitudcompra_detalle(
-              producto_id,
-              cantidad,
-              producto:producto_id(descripcion)
-            )
-          `)
-          .eq('estado', 'Pendiente');
+    setSolicitudesPendientesState(solicitudesPendientes);
+  }, [solicitudesPendientes]);
 
-        const { data: ordenesData } = await supabase
-          .from('ordenes_consolidadas')
-          .select(`
-            id,
-            proveedor:proveedor_id(nombre),
-            productos,
-            estado,
-            fecha_creacion,
-            solicitudes
-          `)
-          .order('fecha_creacion', { ascending: false });
-
-        setSolicitudesPendientes(solicitudesData || []);
-        setOrdenesConsolidadas(ordenesData || []);
-      } catch (err) {
-        setError('Error cargando datos: ' + err.message);
-      }
-    };
-    cargarDatos();
-  }, []);
-
-  const handleEliminarConsolidacion = async (id) => {
-    try {
-      await supabase
-        .from('ordenes_consolidadas')
-        .delete()
-        .eq('id', id);
-      setOrdenesConsolidadas(prev => prev.filter(oc => oc.id !== id));
-    } catch (err) {
-      setError('Error eliminando consolidación: ' + err.message);
+  const handleReject = async (id) => {
+    const { error } = await supabase
+      .from('solicitudcompra')
+      .update({ estado: 'Rechazada' })
+      .eq('id', id);
+  
+    if (!error) {
+      const updatedRequests = solicitudesPendientesState.filter(req => req.id !== id);
+      setSolicitudesPendientesState(updatedRequests);
     }
   };
 
   return (
-    <div className="p-4 bg-dark text-light" style={{ minHeight: '100vh' }}>
-      <h2 className="mb-4">Panel de Administración</h2>
-
-      {error && <Alert variant="danger">{error}</Alert>}
-
-      <div className="mb-5">
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h4>Órdenes Consolidadas</h4>
-          <Button variant="primary" onClick={() => setShowConsolidacion(true)}>
-            Nueva Consolidación
-          </Button>
+    <>
+      {activeTab === 'solicitudes' && (
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">🔄 Solicitudes Pendientes</h4>
+          <RequestTable
+            requests={solicitudesPendientesState}
+            withActions={true}
+            onApprove={(request) => {
+              setSelectedRequest(request);
+              setShowOrderForm(true);
+            }}
+            onReject={handleReject}
+          />
         </div>
+      )}
 
-        <Table striped bordered hover variant="dark">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Proveedor</th>
-              <th>Productos</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ordenesConsolidadas.map(orden => (
-              <tr key={orden.id}>
-                <td>#{orden.id}</td>
-                <td>{orden.proveedor?.nombre}</td>
-                <td>
-                  {orden.productos.map((p, i) => (
-                    <Badge key={i} bg="secondary" className="me-1 mb-1">
-                      {p.descripcion} (x{p.cantidad})
-                    </Badge>
-                  ))}
-                </td>
-                <td>
-                  <Button
-                    variant="success"
-                    size="sm"
-                    className="me-2"
-                    onClick={() => {
-                      setOrdenSeleccionada(orden);
-                      setShowOrderForm(true);
-                    }}
-                  >
-                    Crear Orden
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => handleEliminarConsolidacion(orden.id)}
-                  >
-                    Eliminar
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </div>
+      {activeTab === 'historial' && (
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">📚 Historial de Solicitudes</h4>
+          <RequestTable
+            requests={solicitudesHistorial}
+            showStatus={true}
+          />
+        </div>
+      )}
 
-      <ConsolidationModal
-        show={showConsolidacion}
-        onHide={() => setShowConsolidacion(false)}
-        onConsolidate={async (ordenData) => {
-          try {
-            const { data, error } = await supabase
-              .from('ordenes_consolidadas')
-              .insert([ordenData])
-              .select('*');
+      {activeTab === 'ordenes' && (
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">📦 Historial de Órdenes</h4>
+          <div className="table-responsive">
+            <table className="table table-dark table-hover align-middle">
+              <thead className="table-dark">
+                <tr>
+                  <th>ID</th><th>Proveedor</th><th>Solicitud Relacionada</th>
+                  <th>Fecha</th><th>Total</th><th>Estado</th><th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ordenesHistorial?.map(orden => {
+                  const statusColor = {
+                    'Pendiente': 'warning',
+                    'Completada': 'success',
+                    'Anulada': 'secondary'
+                  }[orden.estado];
 
-            if (!error) setOrdenesConsolidadas(prev => [...prev, ...data]);
-          } catch (err) {
-            setError('Error guardando consolidación: ' + err.message);
-          }
-        }}
-      />
+                  return (
+                    <tr key={orden.id}>
+                      <td>{orden.id}</td>
+                      <td>{orden.proveedor?.nombre || 'N/A'}</td>
+                      <td>{orden.solicitud_compra?.descripcion || 'N/A'}</td>
+                      <td>{new Date(orden.fecha_orden).toLocaleDateString()}</td>
+                      <td>{orden.neto_a_pagar?.toFixed(2)} {orden.unidad}</td>
+                      <td>
+                        <span className={`badge bg-${statusColor}`}>{orden.estado}</span>
+                      </td>
+                      <td>
+                        <div className="d-flex gap-2">
+                          <OrderPDF order={orden} key={orden.id} />
+                          <OrderActions 
+                            order={orden}
+                            onUpdate={() => window.location.reload()}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {ordenesHistorial?.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="text-center text-muted py-4">
+                      No hay órdenes registradas
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-      <OrderForm
-        show={showOrderForm}
-        onHide={() => setShowOrderForm(false)}
-        ordenConsolidada={ordenSeleccionada}
-        userProfile={userProfile}
-        onSuccess={() => {
-          setOrdenesConsolidadas(prev => 
-            prev.filter(oc => oc.id !== ordenSeleccionada.id)
-          );
-          setOrdenSeleccionada(null);
-        }}
-      />
-
-      <div className="mt-5">
-        <h4>Solicitudes Pendientes</h4>
-        <Table striped bordered hover variant="dark">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Solicitante</th>
-              <th>Productos</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {solicitudesPendientes.map(solicitud => (
-              <tr key={solicitud.id}>
-                <td>#{solicitud.id}</td>
-                <td>{solicitud.empleado?.nombre} {solicitud.empleado?.apellido}</td>
-                <td>
-                  {solicitud.detalles?.map((d, i) => (
-                    <Badge key={i} bg="info" className="me-1">
-                      {d.producto.descripcion} (x{d.cantidad})
-                    </Badge>
-                  ))}
-                </td>
-                <td>
-                  <Button
-                    variant="success"
-                    size="sm"
-                    onClick={() => setShowConsolidacion(true)}
-                  >
-                    Consolidar
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </div>
-    </div>
+      {showOrderForm && (
+        <OrderForm
+          show={showOrderForm}
+          onHide={() => setShowOrderForm(false)}
+          request={selectedRequest}
+          onSuccess={() => window.location.reload()}
+        />
+      )}
+    </>
   );
 };
 
