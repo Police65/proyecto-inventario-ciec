@@ -52,10 +52,10 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingReq
             <Link
               to="/solicitudes"
               className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
-              onClick={() => onSelectTab('historial')}
+              onClick={() => onSelectTab('historial-solicitudes')}
             >
               <i className="bi bi-clock-history me-2"></i>
-              Historial
+              Historial Solicitudes
             </Link>
           </li>
           {userProfile?.rol === 'admin' && (
@@ -74,20 +74,10 @@ const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingReq
                 <Link
                   to="/solicitudes"
                   className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
-                  onClick={() => onSelectTab('consolidadas')}
+                  onClick={() => onSelectTab('ordenes-consolidadas')}
                 >
                   <i className="bi bi-archive me-2"></i>
-                  Consolidadas
-                </Link>
-              </li>
-              <li className="mb-2">
-                <Link
-                  to="/solicitudes"
-                  className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
-                  onClick={() => onSelectTab('historial-solicitudes')}
-                >
-                  <i className="bi bi-clock-history me-2"></i>
-                  Historial Solicitudes
+                  Órdenes Consolidadas
                 </Link>
               </li>
             </>
