@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Form, Button, Table, InputGroup } from 'react-bootstrap';
 import { supabase } from '../supabaseClient';
 
-const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) => {
+const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess, selectedRequest }) => {
   const [productos, setProductos] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [inicializado, setInicializado] = useState(false);
@@ -33,13 +33,25 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
       
       if (proveedoresData) setProveedores(proveedoresData);
 
+      // Cargar productos según el tipo de solicitud
       if (ordenConsolidada && !inicializado) {
+        // Caso: Orden consolidada
         const productosIniciales = ordenConsolidada.productos.map(p => ({
           ...p,
-          cantidad: Number(p.cantidad) || 0, // Aseguramos valor numérico
+          cantidad: Number(p.cantidad) || 0,
           precio_unitario: Number(p.precio_unitario) || 0
         }));
-        
+        setProductos(productosIniciales);
+        calcularTotales(productosIniciales);
+        setInicializado(true);
+      } else if (selectedRequest?.detalles && !inicializado) {
+        // Caso: Aprobación individual
+        const productosIniciales = selectedRequest.detalles.map(d => ({
+          producto_id: d.producto_id,
+          descripcion: d.producto?.descripcion || 'Producto sin nombre',
+          cantidad: Number(d.cantidad) || 0,
+          precio_unitario: 0
+        }));
         setProductos(productosIniciales);
         calcularTotales(productosIniciales);
         setInicializado(true);
@@ -50,9 +62,9 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
       cargarDatos();
     } else {
       setInicializado(false);
-      setProductos([]); // Limpiar productos al cerrar
+      setProductos([]);
     }
-  }, [show, ordenConsolidada, userProfile, onHide, inicializado]);
+  }, [show, ordenConsolidada, userProfile, onHide, inicializado, selectedRequest]);
 
   const calcularTotales = (productosActualizados) => {
     const productosValidos = productosActualizados.map(p => ({
@@ -86,12 +98,15 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
       if (!formData.proveedor_id) throw new Error("¡Seleccione un proveedor!");
       if (!userProfile?.empleado_id) throw new Error("Error de autenticación");
       if (productos.length === 0) throw new Error("No hay productos");
-      console.log(ordenConsolidada);
+
+      // Obtener IDs de solicitudes según el tipo
+      const solicitudesIds = ordenConsolidada?.solicitudes || 
+        (selectedRequest?.id ? [selectedRequest.id] : []);
       
-      const solicitudesIds = ordenConsolidada?.solicitudes || [];
-      console.log(solicitudesIds);
+      console.log('Solicitudes IDs:', solicitudesIds);
+      
       if (solicitudesIds.length === 0) {
-        throw new Error("No hay solicitudes vinculadas a esta consolidación");
+        throw new Error("No hay solicitudes vinculadas");
       }
 
       // Validar precios unitarios
@@ -99,7 +114,8 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
         isNaN(p.precio_unitario) || p.precio_unitario <= 0
       );
       if (preciosInvalidos) throw new Error("Precios unitarios inválidos");
-      console.log(solicitudesIds[0]); 
+
+      // Crear la orden de compra
       const { data: orden, error } = await supabase
         .from('ordencompra')
         .insert([{
@@ -112,9 +128,10 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
         }])
         .select('*')
         .single();
-        console.log("prueba2");
+
       if (error) throw error;
 
+      // Insertar detalles de la orden
       const detalles = productos.map(p => ({
         orden_compra_id: orden.id,
         producto_id: p.producto_id,
@@ -147,15 +164,19 @@ for (let i = 0; i < solicitudesIds.length; i++) {
 }*/
 
 console.log(orden.id, solicitudesIds[0]);
-await supabase.from('orden_solicitud').insert([{
- 
-    ordencompra_id: Number(orden.id),
-    solicitud_id: Number(solicitudesIds[0])
-  }] ); 
+      // Vincular con solicitudes
+      await supabase.from('orden_solicitud').insert(
+        solicitudesIds.map(solicitudId => ({
+          ordencompra_id: Number(orden.id),
+          solicitud_id: Number(solicitudId)
+        })
+      ));
+
+      // Actualizar estado de las solicitudes
       await supabase
         .from('solicitudcompra')
         .update({ estado: 'Aprobada' })
-        .eq('id', solicitudesIds[0]);
+        .in('id', solicitudesIds);
 
       onSuccess();
       onHide();
@@ -164,6 +185,7 @@ await supabase.from('orden_solicitud').insert([{
       alert('❌ Error: ' + error.message);
     }
   };
+
 
   const simboloMoneda = formData.unidad === 'Bs' ? 'Bs' : '$';
 
