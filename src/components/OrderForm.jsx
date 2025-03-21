@@ -19,6 +19,8 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) =
 
   useEffect(() => {
     const cargarDatos = async () => {
+      console.log('UserProfile en OrderForm:', userProfile);  
+      console.log('Empleado ID:', userProfile?.empleado_id); 
       if (!userProfile?.empleado_id) {
         alert("Error: El usuario no tiene un empleado asociado");
         onHide();

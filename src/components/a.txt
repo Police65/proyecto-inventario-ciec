@@ -1,0 +1,2805 @@
+
+Te mostrare mi proyecto para que puedas ayudarme con el 
+
+
+PS C:\Users\Fermin\Documents\GitHub\proyecto-inventario-ciec> dir
+
+
+    Directorio: C:\Users\Fermin\Documents\GitHub\proyecto-inventario-ciec
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----        12/03/2025     18:40                .vite
+d-----        18/03/2025      8:06                node_modules
+d-----        12/03/2025     18:40                plantillas y esas cosas
+d-----        19/03/2025     22:35                src
+-a----        12/03/2025     18:40            290 .env
+-a----        12/03/2025     18:40            277 .gitignore
+-a----        12/03/2025     18:40          35180 Captura.jpg
+-a----        14/03/2025     21:53         695468 Codigo aun mas viejo.rar
+-a----        12/03/2025     18:40            404 index.html
+-a----        18/03/2025     21:29          50919 logo.jpg
+-a----        18/03/2025     21:29         108468 package-lock.json
+-a----        20/03/2025      1:05           1048 package.json
+-a----        12/03/2025     18:40         105258 pnpm-lock.yaml
+-a----        13/03/2025     10:40           8229 prueba.html
+-a----        14/03/2025      7:47              2 README.md
+-a----        19/03/2025     21:30           4131 script_si.sql
+-a----        14/03/2025     20:42            591 testConexion.js
+-a----        13/03/2025     14:12            206 vite.config.js
+
+
+PS C:\Users\Fermin\Documents\GitHub\proyecto-inventario-ciec> dir src
+
+
+    Directorio: C:\Users\Fermin\Documents\GitHub\proyecto-inventario-ciec\src
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----        12/03/2025     18:40                assets
+d-----        19/03/2025     22:35                components
+d-----        14/03/2025     19:56                styles
+-a----        14/03/2025      6:52           1963 Login.jsx
+-a----        12/03/2025     18:40            351 main.jsx
+-a----        18/03/2025     21:29           2930 supabaseClient.js
+-a----        12/03/2025     18:40            420 supabaseClientTest.js
+
+
+PS C:\Users\Fermin\Documents\GitHub\proyecto-inventario-ciec> dir src/components
+
+
+    Directorio: C:\Users\Fermin\Documents\GitHub\proyecto-inventario-ciec\src\components
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a----        18/03/2025      8:06           7190 a.txt
+-a----        19/03/2025     23:35           6368 AdminDashboard.jsx
+-a----        19/03/2025     22:35           7488 ConsolidationModal.jsx
+-a----        16/03/2025     21:06           1819 Home.jsx
+-a----        14/03/2025     19:56           1079 ModoOscuro.jsx
+-a----        14/03/2025      7:10           5642 Navbar.jsx
+-a----        13/03/2025      6:31           1219 OrderActions.jsx
+-a----        18/03/2025      8:06           3356 OrderCompletionForm.jsx
+-a----        20/03/2025      1:00          11422 OrderForm.jsx
+-a----        15/03/2025     12:30           6009 PDFTemplate.jsx
+-a----        14/03/2025     19:56           5131 RequestForm.jsx
+-a----        14/03/2025     19:56           2692 RequestTable.jsx
+-a----        18/03/2025     21:29           3413 Sidebar.jsx
+
+
+PS C:\Users\Fermin\Documents\GitHub\proyecto-inventario-ciec> dir src/styles    
+
+
+    Directorio: C:\Users\Fermin\Documents\GitHub\proyecto-inventario-ciec\src\styles
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a----        12/03/2025     18:40            981 App.css
+-a----        14/03/2025     19:56           1683 index.css
+
+
+PS C:\Users\Fermin\Documents\GitHub\proyecto-inventario-ciec> 
+
+
+
+vite.config.js
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  // base: '/vite-react-bootstrap/',
+  plugins: [react()]
+});
+
+
+testConexion.js
+import { supabase } from './src/supabaseClientTest.js'; 
+async function verificarConexion() {
+  try {
+    console.log('Verificando conexión con la base de datos...');
+
+    const { data, error } = await supabase
+      .from('proveedor')
+      .select('*')
+      .limit(1);
+
+    if (error) {
+      console.error('❌ Error al conectar con la base de datos:', error.message);
+    } else {
+      console.log('✅ Conexión exitosa. Datos obtenidos:', data);
+    }
+  } catch (err) {
+    console.error('❌ Error inesperado:', err.message);
+  }
+}
+
+verificarConexion();
+
+script_si.sql
+-- Tabla: camaraindustriales
+CREATE TABLE IF NOT EXISTS camaraindustriales (
+  id integer,
+  nombre character varying,
+  direccion text,
+  web character varying,
+  correo character varying,
+  telefonos character varying,
+  rif character varying
+);
+
+-- Tabla: cargo
+CREATE TABLE IF NOT EXISTS cargo (
+  id integer,
+  nombre character varying,
+  departamento_id integer
+);
+
+-- Tabla: categoria_producto
+CREATE TABLE IF NOT EXISTS categoria_producto (
+  id integer,
+  nombre character varying
+);
+
+-- Tabla: categoria_proveedor
+CREATE TABLE IF NOT EXISTS categoria_proveedor (
+  id integer,
+  nombre character varying
+);
+
+-- Tabla: departamento
+CREATE TABLE IF NOT EXISTS departamento (
+  id integer,
+  nombre character varying
+);
+
+-- Tabla: empleado
+CREATE TABLE IF NOT EXISTS empleado (
+  id integer,
+  cedula character varying,
+  nombre character varying,
+  apellido character varying,
+  cargo_actual_id integer,
+  firma text,
+  departamento_id integer
+);
+
+-- Tabla: empleadocargohistorial
+CREATE TABLE IF NOT EXISTS empleadocargohistorial (
+  id integer,
+  empleado_id integer,
+  cargo_id integer,
+  fecha_inicio date,
+  fecha_fin date
+);
+
+-- Tabla: facturas_orden
+CREATE TABLE IF NOT EXISTS facturas_orden (
+  id integer,
+  orden_compra_id integer,
+  numero_factura character varying,
+  fecha_recepcion date,
+  documento_factura text,
+  total_recepcionado numeric
+);
+
+-- Tabla: inventario
+CREATE TABLE IF NOT EXISTS inventario (
+  id integer,
+  producto_id integer,
+  ubicacion text,
+  fecha_actualizacion timestamp without time zone,
+  existencias integer
+);
+
+-- Tabla: orden_solicitud
+CREATE TABLE IF NOT EXISTS orden_solicitud (
+  orden_id integer,
+  solicitud_id integer
+);
+
+-- Tabla: ordencompra
+CREATE TABLE IF NOT EXISTS ordencompra (
+  id integer,
+  solicitud_compra_id integer,
+  proveedor_id integer,
+  fecha_orden timestamp without time zone,
+  estado character varying,
+  precio_unitario numeric,
+  sub_total numeric,
+  iva numeric,
+  ret_iva numeric,
+  neto_a_pagar numeric,
+  unidad character varying,
+  observaciones text,
+  empleado_id integer,
+  changed_by integer,
+  fecha_modificacion timestamp without time zone,
+  retencion_porcentaje numeric
+);
+
+-- Tabla: ordencompra_detalle
+CREATE TABLE IF NOT EXISTS ordencompra_detalle (
+  id integer,
+  orden_compra_id integer,
+  producto_id integer,
+  cantidad integer,
+  precio_unitario numeric,
+  monto_total numeric
+);
+
+-- Tabla: ordenes_consolidadas
+CREATE TABLE IF NOT EXISTS ordenes_consolidadas (
+  id integer,
+  proveedor_id integer,
+  productos jsonb,
+  estado character varying,
+  fecha_creacion timestamp without time zone,
+  solicitudes jsonb
+);
+
+-- Tabla: producto
+CREATE TABLE IF NOT EXISTS producto (
+  id integer,
+  descripcion text,
+  cantidad_disponible integer,
+  categoria_id integer
+);
+
+-- Tabla: productos_no_recibidos
+CREATE TABLE IF NOT EXISTS productos_no_recibidos (
+  id integer,
+  orden_compra_id integer,
+  producto_id integer,
+  cantidad_faltante integer,
+  motivo text
+);
+
+-- Tabla: proveedor
+CREATE TABLE IF NOT EXISTS proveedor (
+  id integer,
+  nombre character varying,
+  direccion text,
+  rif character varying,
+  telefono character varying,
+  correo character varying,
+  pagina_web character varying
+);
+
+-- Tabla: proveedor_categoria
+CREATE TABLE IF NOT EXISTS proveedor_categoria (
+  proveedor_id integer,
+  categoria_id integer
+);
+
+-- Tabla: solicitudcompra
+CREATE TABLE IF NOT EXISTS solicitudcompra (
+  id integer,
+  descripcion text,
+  fecha_solicitud timestamp without time zone,
+  estado character varying,
+  empleado_id integer,
+  departamento_id integer
+);
+
+-- Tabla: solicitudcompra_detalle
+CREATE TABLE IF NOT EXISTS solicitudcompra_detalle (
+  id integer,
+  solicitud_compra_id integer,
+  producto_id integer,
+  cantidad integer
+);
+
+-- Tabla: user_profile
+CREATE TABLE IF NOT EXISTS user_profile (
+  id uuid,
+  empleado_id integer,
+  departamento_id integer,
+  CONSTRAINT fk_user_profile_user FOREIGN KEY (id) REFERENCES auth.users (id)
+);
+
+
+package.json
+{
+  "name": "proyecto-inventario-ciec",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "/src/main.jsx",
+  "homepage": "",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview",
+    "update": "npm-check-updates -u",
+    "deploy": "vite build && gh-pages -d dist",
+    "test-conexion": "node testConexion.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "bootstrap": "^5.3.3",
+    "bootstrap-icons": "^1.11.3",
+    "date-fns": "^4.1.0",
+    "dotenv": "^16.4.7",
+    "gh-pages": "^6.3.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.0",
+    "react": "^19.0.0",
+    "react-bootstrap": "^2.10.9",
+    "react-bootstrap-icons": "^1.11.5",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.3.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "npm-check-updates": "^17.1.15",
+    "vite": "^6.2.0"
+  }
+}
+
+
+supabaseClient.js
+// supabaseClient.js
+import { createClient } from '@supabase/supabase-js';
+
+// Configuración principal de Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: localStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  }
+});
+
+// Funciones de agrupación
+export const agruparSolicitudes = async (solicitudId) => {
+  const { data: currentSolicitud } = await supabase
+    .from('solicitudcompra')
+    .select('*, detalles:solicitudcompra_detalle(*, producto:producto_id(categoria_id))')
+    .eq('id', solicitudId)
+    .single();
+
+  const productosIds = currentSolicitud.detalles.map(d => d.producto_id);
+  const categoriasIds = currentSolicitud.detalles.map(d => d.producto.categoria_id);
+
+  // Corregir la sintaxis de la consulta
+  const { data: agrupables } = await supabase
+    .from('solicitudcompra')
+    .select(`
+      *,
+      detalles:solicitudcompra_detalle(*, producto:producto_id(categoria_id)),
+      empleado:empleado_id(nombre, apellido)
+    `)
+    .or(`and(estado.eq.Pendiente,detalles.producto_id.in.(${productosIds.join(',')}),
+          and(estado.eq.Pendiente,producto.categoria_id.in.(${categoriasIds.join(',')}))`)
+    .neq('id', solicitudId);
+
+  return {
+    porProducto: agruparPorProducto(agrupables),
+    porCategoria: agruparPorCategoria(agrupables)
+  };
+};
+
+// Funciones helper
+const agruparPorProducto = (solicitudes) => {
+  const grupos = {};
+  solicitudes?.forEach(solicitud => {
+    solicitud.detalles?.forEach(detalle => {
+      const productoId = detalle.producto_id;
+      if (!grupos[productoId]) {
+        grupos[productoId] = {
+          producto: detalle.producto_id,
+          cantidadTotal: 0,
+          solicitudes: new Set(),
+          detalles: []
+        };
+      }
+      grupos[productoId].cantidadTotal += detalle.cantidad;
+      grupos[productoId].solicitudes.add(solicitud.id);
+      grupos[productoId].detalles.push(detalle);
+    });
+  });
+  return Object.values(grupos);
+};
+
+const agruparPorCategoria = (solicitudes) => {
+  const grupos = {};
+  solicitudes?.forEach(solicitud => {
+    solicitud.detalles?.forEach(detalle => {
+      const categoriaId = detalle.producto?.categoria_id;
+      if (!grupos[categoriaId]) {
+        grupos[categoriaId] = {
+          categoria: categoriaId,
+          cantidadTotal: 0,
+          solicitudes: new Set(),
+          productos: new Set(),
+          detalles: []
+        };
+      }
+      grupos[categoriaId].cantidadTotal += detalle.cantidad;
+      grupos[categoriaId].solicitudes.add(solicitud.id);
+      grupos[categoriaId].productos.add(detalle.producto_id);
+      grupos[categoriaId].detalles.push(detalle);
+    });
+  });
+  return Object.values(grupos);
+};
+
+
+main.jsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './styles/index.css';
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap-icons/font/bootstrap-icons.css";
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
+
+Login.jsx
+import React, { useState } from 'react'; 
+import { Button, Form, Modal } from 'react-bootstrap';
+import { supabase } from './supabaseClient.js';
+
+function Login({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(true);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      const { data: profile } = await supabase
+        .from('user_profile')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profile) {
+        onLogin(profile);
+        setShow(false);
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  };
+
+  return (
+    <Modal show={show} onHide={() => setShow(false)}>
+      <Modal.Header closeButton>
+        <Modal.Title>Iniciar Sesión</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Form onSubmit={handleLogin}>
+          <Form.Group controlId="formEmail">
+            <Form.Label>Email</Form.Label>
+            <Form.Control
+              type="email"
+              placeholder="Ingrese su email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </Form.Group>
+          <Form.Group controlId="formPassword">
+            <Form.Label>Contraseña</Form.Label>
+            <Form.Control
+              type="password"
+              placeholder="Ingrese su contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </Form.Group>
+          <Button variant="primary" type="submit" className="mt-3">
+            Iniciar Sesión
+          </Button>
+        </Form>
+      </Modal.Body>
+    </Modal>
+  );
+}
+
+export default Login;
+
+
+App.jsx
+
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Container } from 'react-bootstrap';
+import Sidebar from './components/Sidebar';
+import CustomNavbar from './components/Navbar';
+import RequestForm from './components/RequestForm';
+import RequestTable from './components/RequestTable';
+import AdminDashboard from './components/AdminDashboard';
+import Home from './components/Home';
+import Login from './Login';
+import { supabase } from './supabaseClient';
+import ModoOscuro from './components/ModoOscuro';
+
+const checkStoredSession = () => {
+  const storedUser = localStorage.getItem('userProfile');
+  const storedTime = localStorage.getItem('sessionTime');
+  
+  if (storedUser && storedTime) {
+    const timeElapsed = Date.now() - parseInt(storedTime);
+    if (timeElapsed < 900000) {
+      const parsedUser = JSON.parse(storedUser);
+      if (parsedUser.empleado_id && parsedUser.rol) {
+        return parsedUser;
+      }
+    }
+  }
+  return null;
+};
+
+function AuthenticatedLayout({
+  userProfile,
+  showForm,
+  setShowForm,
+  requests,
+  orders,
+  isSidebarVisible,
+  toggleSidebar,
+  activeTab,
+  setActiveTab,
+  handleSubmitRequest,
+  getFilteredRequests
+}) {
+  return (
+    <>
+      <CustomNavbar
+        onToggleSidebar={toggleSidebar}
+        userRole={userProfile.rol}
+        userId={userProfile.id}
+      />
+      <Sidebar
+        isVisible={isSidebarVisible}
+        onNewRequest={() => setShowForm(true)}
+        onSelectTab={setActiveTab}
+        userProfile={userProfile}
+        pendingRequests={getFilteredRequests(['Pendiente'])}
+      />
+      <div
+        style={{
+          marginLeft: isSidebarVisible ? '250px' : '0',
+          marginTop: '56px',
+          padding: '20px',
+          transition: 'margin-left 0.3s',
+          minHeight: 'calc(100vh - 56px)',
+          backgroundColor: '#212529'
+        }}
+      >
+        <Container fluid>
+          <Routes>
+            <Route path="/home" element={<Home />} />
+            <Route
+              path="/solicitudes"
+              element={
+                userProfile.rol === 'admin' ? (
+                  <AdminDashboard
+                    activeTab={activeTab}
+                    solicitudesPendientes={getFilteredRequests(['Pendiente'])}
+                    solicitudesHistorial={getFilteredRequests(['Aprobada', 'Rechazada'])}
+                    ordenesHistorial={orders}
+                    userProfile={userProfile}
+                  />
+                ) : (
+                  <>
+                    {activeTab === 'solicitudes' && (
+                      <RequestTable requests={getFilteredRequests(['Pendiente'])} />
+                    )}
+                    {activeTab === 'historial' && (
+                      <RequestTable
+                        requests={getFilteredRequests(['Aprobada', 'Rechazada'])}
+                      />
+                    )}
+                  </>
+                )
+              }
+            />
+            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="*" element={<Navigate to="/home" replace />} />
+          </Routes>
+        </Container>
+      </div>
+      {userProfile.rol === 'usuario' && (
+        <RequestForm
+          show={showForm}
+          onHide={() => setShowForm(false)}
+          onSubmit={handleSubmitRequest}
+        />
+      )}
+    </>
+  );
+}
+
+function App() {
+  const [showForm, setShowForm] = useState(false);
+  const [requests, setRequests] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('solicitudes');
+  const [userProfile, setUserProfile] = useState(checkStoredSession());
+  const [inactivityTimer, setInactivityTimer] = useState(null);
+
+  const fetchRequests = async () => {
+    try {
+      const baseQuery = supabase
+        .from('solicitudcompra')
+        .select(`
+          *,
+          detalles:solicitudcompra_detalle(producto_id, cantidad),
+          empleado:empleado_id(nombre, apellido)
+        `)
+        .order('fecha_solicitud', { ascending: false });
+
+      let queryResult = userProfile?.rol === 'admin' 
+        ? await baseQuery 
+        : await baseQuery.eq('empleado_id', userProfile?.empleado_id);
+
+      if (queryResult.error) throw queryResult.error;
+      setRequests(queryResult.data || []);
+    } catch (error) {
+      console.error('Error cargando solicitudes:', error);
+      alert('Error al cargar las solicitudes');
+    }
+  };
+
+  useEffect(() => {
+    if (userProfile) {
+      fetchRequests();
+    }
+  }, [userProfile]);
+
+  const resetInactivityTimer = () => {
+    clearTimeout(inactivityTimer);
+    setInactivityTimer(
+      setTimeout(() => {
+        localStorage.removeItem('userProfile');
+        localStorage.removeItem('sessionTime');
+        setUserProfile(null);
+      }, 300000)
+    );
+  };
+
+  const toggleSidebar = () => setIsSidebarVisible(prev => !prev);
+
+  useEffect(() => {
+    if (userProfile) {
+      const events = ['mousemove', 'keydown', 'click'];
+      events.forEach(e => window.addEventListener(e, resetInactivityTimer));
+      return () => events.forEach(e => window.removeEventListener(e, resetInactivityTimer));
+    }
+  }, [userProfile]);
+
+  useEffect(() => {
+    if (userProfile) {
+      localStorage.setItem('userProfile', JSON.stringify(userProfile));
+      localStorage.setItem('sessionTime', Date.now().toString());
+      fetchRequests();
+      fetchOrders();
+    }
+  }, [userProfile]);
+
+  const getFilteredRequests = (estados) => {
+    return requests.filter(request => 
+      estados.includes(request.estado) &&
+      (userProfile?.rol === 'admin' || request.empleado_id === userProfile?.empleado_id)
+    );
+  };
+
+  const handleSubmitRequest = async (requestData) => {
+    try {
+      if (!userProfile?.empleado_id) {
+        throw new Error("Usuario no tiene empleado asociado");
+      }
+
+      const { data: solicitud, error } = await supabase
+        .from('solicitudcompra')
+        .insert([{
+          descripcion: requestData.description || 'Solicitud múltiple',
+          estado: 'Pendiente',
+          empleado_id: userProfile.empleado_id,
+          departamento_id: userProfile.departamento_id
+        }])
+        .select('id');
+
+      if (error) throw error;
+
+      if (!requestData.customRequest && requestData.products) {
+        const inserts = requestData.products.map(product => ({
+          solicitud_compra_id: solicitud[0].id,
+          producto_id: product.productId,
+          cantidad: product.quantity
+        }));
+        
+        const { error: detalleError } = await supabase
+          .from('solicitudcompra_detalle')
+          .insert(inserts);
+          
+        if (detalleError) throw detalleError;
+      }
+
+      await fetchRequests();
+      setShowForm(false);
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ordencompra')
+        .select(`
+          *,
+          proveedor:proveedor_id(*),
+          productos:ordencompra_detalle(
+            *,
+            producto:producto_id(*)
+          ),
+          empleado:empleado_id(*),
+          solicitud_compra:solicitud_compra_id(*)
+        `)
+        .order('fecha_orden', { ascending: false });
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error cargando órdenes:', error);
+    }
+  };
+
+  return (
+    <BrowserRouter>
+      <ModoOscuro />
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            !userProfile ? (
+              <Login 
+                onLogin={(profile) => {
+                  if (!profile.empleado_id) {
+                    alert("Tu usuario no está asociado a un empleado. Contacta al administrador.");
+                    return;
+                  }
+                  setUserProfile({
+                    ...profile,
+                    empleado_id: profile.empleado_id
+                  });
+                  resetInactivityTimer();
+                }}
+              />
+            ) : (
+              <Navigate to="/home" replace />
+            )
+          }
+        />
+        <Route
+          path="/*"
+          element={
+            userProfile ? (
+              <AuthenticatedLayout
+                userProfile={userProfile}
+                showForm={showForm}
+                setShowForm={setShowForm}
+                requests={requests}
+                orders={orders}
+                isSidebarVisible={isSidebarVisible}
+                toggleSidebar={toggleSidebar}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                handleSubmitRequest={handleSubmitRequest}
+                getFilteredRequests={getFilteredRequests}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+
+
+index.css
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #212529 !important; /* Fondo oscuro permanente */
+  color: #f8f9fa !important; /* Texto claro */
+  transition: background-color 0.3s ease;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.card {
+  margin-bottom: 20px;
+  border: 1px solid #e3e6f0;
+  border-radius: 0.35rem;
+  background-color: #343a40 !important;
+  color: #f8f9fa !important;
+}
+
+.card-header {
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 0;
+  border-bottom: 1px solid #e3e6f0;
+  background-color: #2d3338 !important;
+  border-bottom: 1px solid #495057 !important;
+  color: #f8f9fa !important;
+}
+.table-dark {
+  --bs-table-bg: #343a40;
+  --bs-table-striped-bg: #2d3338;
+  --bs-table-striped-color: #fff;
+  --bs-table-active-bg: #373b3e;
+  --bs-table-active-color: #fff;
+  --bs-table-hover-bg: #323539;
+  --bs-table-hover-color: #fff;
+  color: #fff;
+  border-color: #495057;
+}
+
+.card-body {
+  padding: 1.25rem;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.hidden {
+  left: -250px !important; 
+}
+
+.visible {
+  left: 0 !important; 
+}
+.badge {
+  padding: 0.5em 0.75em;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+.bg-warning {
+  background-color: #ffc107 !important;
+  color: #000;
+}
+
+.bg-success {
+  background-color: #198754 !important;
+}
+
+.bg-danger {
+  background-color: #dc3545 !important;
+}
+
+App.css
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.table-dark {
+  background-color: #343a40;
+  color: #fff;
+  width: 100%;
+}
+
+.table-dark th,
+.table-dark td {
+  border-color: #454d55;
+  padding: 12px;
+  text-align: center;
+}
+
+.table-dark th {
+  background-color: #454d55;
+  font-size: 1.1rem;
+}
+
+.table-dark tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.075);
+}
+
+.d-flex {
+  display: flex;
+}
+
+.justify-content-center {
+  justify-content: center;
+}
+
+.align-items-center {
+  align-items: center;
+}
+
+.h-100 {
+  height: 100%;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+
+Sidebar.jsx
+
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Button } from 'react-bootstrap';
+
+const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingRequests = [] }) => {
+  const location = useLocation();
+  return (
+    <aside
+      className={`bg-primary text-white min-vh-100 p-4 ${isVisible ? 'visible' : 'hidden'}`}
+      style={{
+        width: '250px',
+        position: 'fixed',
+        top: '56px',
+        left: isVisible ? '0' : '-250px',
+        transition: 'left 0.3s',
+        zIndex: 1000,
+      }}
+    >
+      <h1 className="h4 mb-4">Cámara de Industriales</h1>
+      <nav>
+        <ul className="list-unstyled">
+          <li className="mb-2">
+            <Link
+              to="/solicitudes"
+              className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
+              style={{ whiteSpace: 'nowrap' }}
+              onClick={() => onSelectTab('solicitudes')}
+            >
+              <i className="bi bi-list-task me-2"></i>
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                Solicitudes
+                <span
+                  className="bg-danger d-flex justify-content-center align-items-center"
+                  style={{
+                    display: 'inline-flex',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    marginLeft: '8px',
+                    fontSize: '12px',
+                    color: 'white',
+                    verticalAlign: 'middle',
+                    marginTop: '-10%',
+                  }}
+                >
+                  {pendingRequests.length}
+                </span>
+              </span>
+            </Link>
+          </li>
+          <li className="mb-2">
+            <Link
+              to="/solicitudes"
+              className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
+              onClick={() => onSelectTab('historial')}
+            >
+              <i className="bi bi-clock-history me-2"></i>
+              Historial
+            </Link>
+          </li>
+          {userProfile?.rol === 'admin' && (
+            <>
+              <li className="mb-2">
+                <Link
+                  to="/solicitudes"
+                  className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
+                  onClick={() => onSelectTab('ordenes')}
+                >
+                  <i className="bi bi-file-earmark-text me-2"></i>
+                  Órdenes
+                </Link>
+              </li>
+              <li className="mb-2">
+                <Link
+                  to="/solicitudes"
+                  className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
+                  onClick={() => onSelectTab('consolidadas')}
+                >
+                  <i className="bi bi-archive me-2"></i>
+                  Consolidadas
+                </Link>
+              </li>
+            </>
+          )}
+        </ul>
+      </nav>
+      {userProfile?.rol === 'usuario' && (
+        <Button variant="light" className="w-100 mt-4" onClick={onNewRequest}>
+          <i className="bi bi-plus-circle me-2"></i>
+          Nueva Solicitud
+        </Button>
+      )}
+    </aside>
+  );
+};
+
+export default Sidebar;
+
+RequestTable.jsx
+
+import React from 'react';
+import { Table, Button } from 'react-bootstrap';
+
+const RequestTable = ({ requests, withActions, onApprove, onReject, showStatus = true }) => {
+  const getStatusBadge = (estado) => {
+    const variants = {
+      Pendiente: 'warning',
+      Aprobada: 'success',
+      Rechazada: 'danger'
+    };
+    
+    return (
+      <span className={`badge bg-${variants[estado]}`}>
+        {estado}
+      </span>
+    );
+  };
+
+  return (
+    <div className="table-responsive">
+    {/* Implementación: Variante dark y texto claro */}
+    <Table striped hover className="align-middle" variant="dark">
+      <thead className="table-dark">
+        <tr>
+          <th>ID</th>
+          <th>Descripción</th>
+          <th>Productos</th>
+          {showStatus && <th>Estado</th>}
+          {withActions && <th>Acciones</th>}
+        </tr>
+      </thead>
+      <tbody>
+          {requests?.map(request => (
+            <tr key={request.id} className="text-light">
+              <td>{request.id}</td>
+              <td>{request.descripcion || 'N/A'}</td>
+              <td>
+                {request.detalles?.map((detalle, i) => (
+                  <div key={i} className="mb-1 small">
+                    {detalle.producto_id ? (
+                      <>
+                        <strong>Producto {i + 1}:</strong> ID {detalle.producto_id}
+                        <span className="ms-2">(Cantidad: {detalle.cantidad})</span>
+                      </>
+                    ) : 'Producto no especificado'}
+                  </div>
+                )) || 'N/A'}
+              </td>
+              {showStatus && <td>{getStatusBadge(request.estado)}</td>}
+              
+              {withActions && (
+                <td>
+                  <Button 
+                    variant="success" 
+                    size="sm" 
+                    className="me-2"
+                    onClick={() => onApprove(request)}
+                  >
+                    Aprobar
+                  </Button>
+                  <Button 
+                    variant="danger" 
+                    size="sm"
+                    onClick={() => onReject(request.id)}
+                  >
+                    Rechazar
+                  </Button>
+                </td>
+              )}
+            </tr>
+          ))}
+          {requests?.length === 0 && (
+            <tr>
+              <td colSpan={showStatus ? 5 : 4} className="text-center text-muted py-4">
+                No hay registros para mostrar
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </Table>
+    </div>
+  );
+};
+
+export default RequestTable;
+
+RequestForm.jsx
+
+import React, { useState, useEffect } from 'react';
+import { Modal, Form, Button } from 'react-bootstrap';
+import { supabase } from '../supabaseClient.js';
+import { v4 as uuidv4 } from 'uuid'; // Añadir esta importación
+
+const RequestForm = ({ show, onHide, onSubmit }) => {
+  const [products, setProducts] = useState([{ id: uuidv4(), productId: '', quantity: 1 }]);
+  const [customRequest, setCustomRequest] = useState(false);
+  const [description, setDescription] = useState('');
+  const [fetchedProducts, setFetchedProducts] = useState([]); // Renombrado para evitar conflicto
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    const { data, error } = await supabase.from('producto').select('*');
+    if (!error) setFetchedProducts(data);
+  };
+
+  const handleAddProduct = () => {
+    setProducts([...products, { id: uuidv4(), productId: '', quantity: 1 }]);
+  };
+
+  const handleRemoveProduct = (id) => {
+    if (products.length > 1) {
+      setProducts(products.filter(product => product.id !== id));
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    // Validaciones
+    if (customRequest && !description.trim()) {
+      alert('Ingrese una descripción para la requisición especial');
+      return;
+    }
+    
+    if (!customRequest) {
+      const hasEmptyFields = products.some(p => !p.productId || p.quantity < 1);
+      if (hasEmptyFields) {
+        alert('Complete todos los campos de productos');
+        return;
+      }
+    }
+
+    onSubmit({
+      products: customRequest ? null : products,
+      description: customRequest ? description : null
+    });
+    onHide();
+  };
+
+  return (
+    <Modal show={show} onHide={onHide} centered contentClassName="bg-dark text-light">
+    <Modal.Header closeButton className="bg-dark border-secondary">
+      <Modal.Title className="text-light">Nueva Solicitud</Modal.Title>
+    </Modal.Header>
+    <Modal.Body className="bg-dark">
+      <Form onSubmit={handleSubmit}>
+          {!customRequest && products.map((product, index) => (
+             <div key={product.id} className="mb-3 border border-secondary p-2 rounded">
+              <Form.Group className="mb-3">
+                <Form.Label>Producto:</Form.Label>
+                <Form.Select
+                  value={product.productId}
+                  onChange={(e) => {
+                    const newProducts = [...products];
+                    newProducts[index].productId = e.target.value;
+                    setProducts(newProducts);
+                  }}
+                >
+                  <option value="">Seleccionar producto</option>
+                  {fetchedProducts.map((prod) => (
+                    <option key={prod.id} value={prod.id}>
+                      {prod.descripcion}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Cantidad:</Form.Label>
+                <Form.Control
+                  type="number"
+                  value={product.quantity}
+                  onChange={(e) => {
+                    const newProducts = [...products];
+                    newProducts[index].quantity = e.target.value;
+                    setProducts(newProducts);
+                  }}
+                  min="1"
+                />
+              </Form.Group>
+              {products.length > 1 && (
+                <Button 
+                  variant="danger" 
+                  size="sm" 
+                  onClick={() => handleRemoveProduct(product.id)}
+                  className="mb-2"
+                >
+                  Eliminar producto
+                </Button>
+              )}
+            </div>
+          ))}
+
+          <Button 
+            variant="outline-primary" 
+            onClick={handleAddProduct} 
+            className="mb-3"
+            disabled={customRequest}
+          >
+            Añadir otro producto
+          </Button>
+
+          <Form.Group className="mb-3">
+            <Form.Check
+              type="checkbox"
+              label="Requisición especial"
+              checked={customRequest}
+              onChange={(e) => setCustomRequest(e.target.checked)}
+            />
+          </Form.Group>
+
+          {customRequest && (
+            <Form.Group className="mb-3">
+              <Form.Label>Descripción:</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </Form.Group>
+          )}
+
+          <div className="d-flex justify-content-between">
+            <Button variant="secondary" onClick={onHide}>
+              Cancelar
+            </Button>
+            <Button variant="primary" type="submit">
+              Enviar
+            </Button>
+          </div>
+        </Form>
+      </Modal.Body>
+    </Modal>
+  );
+};
+
+export default RequestForm;
+
+PDFTemplate.jsx
+import React from 'react';
+import { format } from 'date-fns';
+
+const PDFTemplate = ({ orden, camara }) => {
+  // Función de formato monetario
+  const formatCurrency = (value, unidad) => {
+    return new Intl.NumberFormat('es-VE', {
+      style: 'currency',
+      currency: unidad === 'USD' ? 'USD' : 'VES',
+      minimumFractionDigits: 2
+    }).format(value || 0);
+  };
+
+  // Estilos base para compatibilidad con html2canvas
+  const baseStyles = {
+    page: {
+      width: '210mm',
+      minHeight: '297mm',
+      padding: '20px',
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '14px',
+      color: '#000000',
+      backgroundColor: '#FFFFFF'
+    },
+    header: {
+      textAlign: 'center',
+      marginBottom: '20px',
+      borderBottom: '2px solid #000'
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      margin: '10px 0',
+      backgroundColor: '#FFFFFF'
+    },
+    th: {
+      backgroundColor: '#f8f9fa',
+      border: '1px solid #000',
+      padding: '8px',
+      textAlign: 'left'
+    },
+    td: {
+      border: '1px solid #000',
+      padding: '8px',
+      backgroundColor: '#FFFFFF'
+    }
+  };
+
+  return (
+    <div style={baseStyles.page}>
+      {/* Cabecera Institucional */}
+      <div style={baseStyles.header}>
+        <h2 style={{ fontSize: '24px', margin: '5px 0', color: '#000' }}>
+          {camara.nombre}
+        </h2>
+        <h3 style={{ fontSize: '18px', margin: '5px 0', color: '#000' }}>
+          Orden de Compra N°: {orden.id}
+        </h3>
+        <p style={{ margin: '3px 0', color: '#000' }}>
+          {format(new Date(orden.fecha_orden), 'dd/MM/yyyy')}
+        </p>
+      </div>
+
+      {/* Información de Contacto */}
+      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+        <p style={{ color: '#000' }}>{camara.direccion}</p>
+        <p style={{ color: '#000' }}>
+          Teléfonos: {camara.telefonos} | RIF: {camara.rif}
+        </p>
+        <p style={{ color: '#000' }}>
+          Web: {camara.web} | Email: {camara.correo}
+        </p>
+      </div>
+
+      {/* Tabla de Proveedor */}
+      <table style={baseStyles.table}>
+        <tbody>
+          <tr>
+            <td style={{ ...baseStyles.td, fontWeight: 'bold', width: '15%' }}>Proveedor:</td>
+            <td style={{ ...baseStyles.td, width: '35%' }}>{orden.proveedor?.nombre || 'N/A'}</td>
+            <td style={{ ...baseStyles.td, fontWeight: 'bold', width: '15%' }}>RIF:</td>
+            <td style={{ ...baseStyles.td, width: '35%' }}>{orden.proveedor?.rif || 'N/A'}</td>
+          </tr>
+          <tr>
+            <td style={{ ...baseStyles.td, fontWeight: 'bold' }}>Dirección:</td>
+            <td colSpan="3" style={baseStyles.td}>{orden.proveedor?.direccion || 'N/A'}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Instrucciones */}
+      <div style={{ margin: '20px 0', padding: '10px', border: '1px solid #000' }}>
+        <p style={{ fontWeight: 'bold', color: '#000' }}>
+          ESTIMADO PROVEEDOR, DE ACUERDO A SU COTIZACIÓN ENVIADA POR WS, FAVOR SUMINISTRAR LO ABAJO INDICADO
+        </p>
+      </div>
+
+      {/* Tabla de Productos */}
+      <table style={baseStyles.table}>
+        <thead>
+          <tr>
+            <th style={baseStyles.th}>REF</th>
+            <th style={baseStyles.th}>CANTIDAD</th>
+            <th style={baseStyles.th}>DESCRIPCIÓN</th>
+            <th style={baseStyles.th}>PRECIO UNITARIO</th>
+            <th style={baseStyles.th}>TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orden.productos?.map((item, index) => (
+            <tr key={index}>
+              <td style={baseStyles.td}>{item.producto_id}</td>
+              <td style={{ ...baseStyles.td, textAlign: 'center' }}>{item.cantidad}</td>
+              <td style={baseStyles.td}>{item.producto?.descripcion || 'N/A'}</td>
+              <td style={{ ...baseStyles.td, textAlign: 'right' }}>
+                {formatCurrency(item.precio_unitario, orden.unidad)}
+              </td>
+              <td style={{ ...baseStyles.td, textAlign: 'right' }}>
+                {formatCurrency(item.cantidad * item.precio_unitario, orden.unidad)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Totales */}
+      <div style={{ marginTop: '20px', textAlign: 'right' }}>
+        <p style={{ color: '#000' }}>
+          <strong>Subtotal:</strong> {formatCurrency(orden.sub_total, orden.unidad)}
+        </p>
+        <p style={{ color: '#000' }}>
+          <strong>IVA (16%):</strong> {formatCurrency(orden.iva, orden.unidad)}
+        </p>
+        <p style={{ color: '#000' }}>
+          <strong>Ret. IVA (75%):</strong> {formatCurrency(orden.ret_iva, orden.unidad)}
+        </p>
+        <p style={{ color: '#000', fontSize: '16px', fontWeight: 'bold' }}>
+          Neto a pagar: {formatCurrency(orden.neto_a_pagar, orden.unidad)}
+        </p>
+      </div>
+
+      {/* Firmas */}
+      <div style={{ 
+        display: 'flex',
+        justifyContent: 'space-between',
+        marginTop: '50px',
+        paddingTop: '20px',
+        borderTop: '1px solid #000'
+      }}>
+        <div style={{ width: '45%', textAlign: 'center' }}>
+          <div style={{ borderBottom: '1px solid #000', height: '50px', marginBottom: '10px' }}></div>
+          <p style={{ color: '#000', fontWeight: 'bold' }}>{orden.empleado?.nombre} {orden.empleado?.apellido}</p>
+          <p style={{ color: '#000' }}>Departamento de Compras</p>
+        </div>
+        
+        <div style={{ width: '45%', textAlign: 'center' }}>
+          <div style={{ borderBottom: '1px solid #000', height: '50px', marginBottom: '10px' }}></div>
+          <p style={{ color: '#000', fontWeight: 'bold' }}>Coordinación Financiera</p>
+          <p style={{ color: '#000' }}>Aprobado por</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PDFTemplate;
+
+OrderPDF.jsx
+
+import React, { useRef, useState } from 'react';
+import { Button } from 'react-bootstrap';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { supabase } from '../supabaseClient';
+import PDFTemplate from './PDFTemplate';
+
+const OrderPDF = ({ order }) => {
+  const contentRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [pdfData, setPdfData] = useState(null);
+
+  const handleGeneratePDF = async () => {
+    setLoading(true);
+    try {
+      // 1. Cargar datos necesarios
+      const [
+        { data: camara }, 
+        { data: ordenCompleta }
+      ] = await Promise.all([
+        supabase.from('camaraindustriales').select('*').single(),
+        supabase.from('ordencompra')
+          .select(`
+            *,
+            proveedor:proveedor_id(*),
+            productos:ordencompra_detalle(
+              *,
+              producto:producto_id(*)
+            ),
+            empleado:empleado_id(*)
+          `)
+          .eq('id', order.id)
+          .single()
+      ]);
+
+      // 2. Validar datos críticos
+      if (!ordenCompleta || !camara) {
+        throw new Error(`
+          Datos faltantes:
+          ${!ordenCompleta ? '- Orden no encontrada\n' : ''}
+          ${!camara ? '- Datos de la cámara no configurados' : ''}
+        `);
+      }
+
+      // 3. Actualizar estado con nuevos datos
+      setPdfData({ orden: ordenCompleta, camara });
+
+      // 4. Esperar ciclo de renderizado completo
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 5. Configurar elemento temporal visible
+      const originalStyle = contentRef.current.style.cssText;
+      contentRef.current.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 9999;
+        visibility: visible;
+      `;
+
+      // 6. Generar PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: true,
+        backgroundColor: '#FFFFFF'
+      });
+
+      // 7. Restaurar estilos originales
+      contentRef.current.style.cssText = originalStyle;
+
+      // 8. Validar canvas
+      if (canvas.width === 0 || canvas.height === 0) {
+        throw new Error('El canvas generado no tiene dimensiones válidas');
+      }
+
+      // 9. Guardar PDF
+      const imgProps = pdf.getImageProperties(canvas);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      pdf.addImage(canvas, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`orden_${order.id}.pdf`);
+
+    } catch (error) {
+      console.error("Error generando PDF:", error);
+      alert(`Error al generar PDF: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <Button 
+        variant="primary" 
+        onClick={handleGeneratePDF}
+        size="sm"
+        disabled={loading}
+      >
+        {loading ? 'Generando...' : 'Generar PDF'}
+      </Button>
+
+      {/* Contenedor PDF - Siempre presente en el DOM */}
+      <div ref={contentRef} style={{
+        width: '210mm',
+        minHeight: '297mm',
+        visibility: 'hidden',
+        position: 'absolute',
+        left: '-9999px',
+        backgroundColor: 'white'
+      }}>
+        {pdfData && <PDFTemplate orden={pdfData.orden} camara={pdfData.camara} />}
+      </div>
+    </>
+  );
+};
+
+export default OrderPDF;
+
+OrderForm.jsx
+import React, { useState, useEffect } from 'react';
+import { Modal, Form, Button, Table, InputGroup } from 'react-bootstrap';
+import { supabase } from '../supabaseClient';
+
+const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess }) => {
+  const [productos, setProductos] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
+  const [inicializado, setInicializado] = useState(false);
+  const [formData, setFormData] = useState({
+    sub_total: 0,
+    iva: 0,
+    ret_iva: 0,
+    retencion_porcentaje: 75,
+    neto_a_pagar: 0,
+    unidad: 'Bs',
+    empleado_id: userProfile?.empleado_id || null,
+    proveedor_id: ordenConsolidada?.proveedor_id || null
+  });
+
+  useEffect(() => {
+    const cargarDatos = async () => {
+      if (!userProfile?.empleado_id) {
+        alert("Error: El usuario no tiene un empleado asociado");
+        onHide();
+        return;
+      }
+
+      const { data: proveedoresData } = await supabase
+        .from('proveedor')
+        .select('id, nombre');
+      
+      if (proveedoresData) setProveedores(proveedoresData);
+
+      if (ordenConsolidada && !inicializado) {
+        const productosIniciales = ordenConsolidada.productos.map(p => ({
+          ...p,
+          cantidad: Number(p.cantidad) || 0, // Aseguramos valor numérico
+          precio_unitario: Number(p.precio_unitario) || 0
+        }));
+        
+        setProductos(productosIniciales);
+        calcularTotales(productosIniciales);
+        setInicializado(true);
+      }
+    };
+
+    if (show) {
+      cargarDatos();
+    } else {
+      setInicializado(false);
+      setProductos([]); // Limpiar productos al cerrar
+    }
+  }, [show, ordenConsolidada, userProfile, onHide, inicializado]);
+
+  const calcularTotales = (productosActualizados) => {
+    const productosValidos = productosActualizados.map(p => ({
+      ...p,
+      cantidad: Number(p.cantidad) || 0,
+      precio_unitario: Number(p.precio_unitario) || 0
+    }));
+
+    const subtotal = productosValidos.reduce(
+      (acc, p) => acc + (p.precio_unitario * p.cantidad),
+      0
+    );
+    
+    const iva = subtotal * 0.16;
+    const retencion = iva * (formData.retencion_porcentaje / 100);
+    const neto = subtotal + iva - retencion;
+
+    setFormData(prev => ({
+      ...prev,
+      sub_total: subtotal,
+      iva: iva,
+      ret_iva: retencion,
+      neto_a_pagar: neto
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      if (!formData.proveedor_id) throw new Error("¡Seleccione un proveedor!");
+      if (!userProfile?.empleado_id) throw new Error("Error de autenticación");
+      if (productos.length === 0) throw new Error("No hay productos");
+      console.log(ordenConsolidada);
+      
+      const solicitudesIds = ordenConsolidada?.solicitudes || [];
+      console.log(solicitudesIds);
+      if (solicitudesIds.length === 0) {
+        throw new Error("No hay solicitudes vinculadas a esta consolidación");
+      }
+
+      // Validar precios unitarios
+      const preciosInvalidos = productos.some(p => 
+        isNaN(p.precio_unitario) || p.precio_unitario <= 0
+      );
+      if (preciosInvalidos) throw new Error("Precios unitarios inválidos");
+      console.log(solicitudesIds[0]); 
+      const { data: orden, error } = await supabase
+        .from('ordencompra')
+        .insert([{
+          ...formData,
+          proveedor_id: Number(formData.proveedor_id),
+          empleado_id: userProfile.empleado_id,
+          estado: 'Pendiente',
+          fecha_orden: new Date().toISOString(),
+          solicitud_compra_id: Number(solicitudesIds[0])
+        }])
+        .select('*')
+        .single();
+        console.log("prueba2");
+      if (error) throw error;
+
+      const detalles = productos.map(p => ({
+        orden_compra_id: orden.id,
+        producto_id: p.producto_id,
+        cantidad: p.cantidad,
+        precio_unitario: p.precio_unitario
+      }));
+
+      await supabase.from('ordencompra_detalle').insert(detalles);
+
+   /**   await supabase.from('orden_solicitud').insert(
+        solicitudesIds.map(solicitudId => ({
+          orden_id: orden.id,
+          solicitud_id: solicitudId
+        }))
+      ); */
+
+      /*
+        solicitudesIds.map( async solicitudId => {
+          await supabase.from('orden_solicitud').insert(
+          {orden_id: orden.id,
+          solicitud_id: solicitudId})
+        })
+        */
+
+        /*
+for (let i = 0; i < solicitudesIds.length; i++) {
+  await supabase.from('orden_solicitud').insert(
+  {orden_id: orden.id,
+    solicitud_id: Number(solicitudesIds[i])})
+}*/
+
+console.log(orden.id, solicitudesIds[0]);
+await supabase.from('orden_solicitud').insert([{
+ 
+    ordencompra_id: Number(orden.id),
+    solicitud_id: Number(solicitudesIds[0])
+  }] ); 
+      await supabase
+        .from('solicitudcompra')
+        .update({ estado: 'Aprobada' })
+        .eq('id', solicitudesIds[0]);
+
+      onSuccess();
+      onHide();
+
+    } catch (error) {
+      alert('❌ Error: ' + error.message);
+    }
+  };
+
+  const simboloMoneda = formData.unidad === 'Bs' ? 'Bs' : '$';
+
+  return (
+    <Modal show={show} onHide={onHide} size="xl" centered>
+      <Modal.Header closeButton className="bg-dark text-light">
+        <Modal.Title>Crear Orden de Compra</Modal.Title>
+      </Modal.Header>
+      
+      <Modal.Body className="bg-dark text-light">
+        <Form onSubmit={handleSubmit}>
+          <div className="row mb-4">
+            <div className="col-md-6">
+              <Form.Group>
+                <Form.Label>Proveedor</Form.Label>
+                <Form.Select
+                  value={formData.proveedor_id || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    proveedor_id: Number(e.target.value)
+                  }))}
+                  required
+                  className="bg-secondary text-light"
+                >
+                  <option value="">Seleccionar proveedor...</option>
+                  {proveedores.map(proveedor => (
+                    <option key={proveedor.id} value={proveedor.id}>
+                      {proveedor.nombre}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </div>
+            
+            <div className="col-md-6">
+              <Form.Group>
+                <Form.Label>Unidad Monetaria</Form.Label>
+                <Form.Select
+                  value={formData.unidad}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    unidad: e.target.value
+                  }))}
+                  className="bg-secondary text-light"
+                >
+                  <option value="Bs">Bolívares (Bs)</option>
+                  <option value="USD">Dólares (USD)</option>
+                </Form.Select>
+              </Form.Group>
+            </div>
+          </div>
+
+          <Table striped bordered hover variant="dark">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad Consolidada</th>
+                <th>Precio Unitario ({simboloMoneda})</th>
+                <th>Total ({simboloMoneda})</th>
+              </tr>
+            </thead>
+            <tbody>
+              {productos.map((p, i) => (
+                <tr key={i}>
+                  <td>{p.descripcion}</td>
+                  <td>{p.cantidad}</td>
+                  <td>
+                    <InputGroup>
+                      <Form.Control
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={productos[i].precio_unitario === '' ? '' : productos[i].precio_unitario}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const numericValue = parseFloat(value);
+                          
+                          const nuevosProductos = [...productos];
+                          nuevosProductos[i].precio_unitario = value === '' ? '' : numericValue;
+                          
+                          setProductos(nuevosProductos);
+                          calcularTotales(nuevosProductos);
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === '') {
+                            const nuevosProductos = [...productos];
+                            nuevosProductos[i].precio_unitario = 0;
+                            setProductos(nuevosProductos);
+                            calcularTotales(nuevosProductos);
+                          }
+                        }}
+                      />
+                      <InputGroup.Text>{simboloMoneda}</InputGroup.Text>
+                    </InputGroup>
+                  </td>
+                  <td>
+                    {((p.precio_unitario || 0) * p.cantidad).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+
+          <div className="mt-4 p-3 bg-secondary rounded">
+            <h5>Totales</h5>
+            
+            <Form.Group className="mb-3">
+              <Form.Label>Porcentaje de Retención IVA</Form.Label>
+              <InputGroup>
+                <Form.Control
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value={formData.retencion_porcentaje}
+                  onChange={(e) => {
+                    const porcentaje = Math.min(100, Math.max(0, Number(e.target.value)));
+                    setFormData(prev => ({
+                      ...prev,
+                      retencion_porcentaje: porcentaje
+                    }));
+                    calcularTotales(productos);
+                  }}
+                />
+                <InputGroup.Text>%</InputGroup.Text>
+              </InputGroup>
+            </Form.Group>
+
+            <div className="d-flex justify-content-between">
+              <span>Subtotal:</span>
+              <span>{simboloMoneda} {formData.sub_total.toFixed(2)}</span>
+            </div>
+            <div className="d-flex justify-content-between">
+              <span>IVA (16%):</span>
+              <span>{simboloMoneda} {formData.iva.toFixed(2)}</span>
+            </div>
+            <div className="d-flex justify-content-between">
+              <span>Retención IVA ({formData.retencion_porcentaje}%):</span>
+              <span>{simboloMoneda} {formData.ret_iva.toFixed(2)}</span>
+            </div>
+            <div className="d-flex justify-content-between fw-bold">
+              <span>Neto a Pagar:</span>
+              <span>{simboloMoneda} {formData.neto_a_pagar.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="mt-4 d-grid gap-2">
+            <Button variant="success" type="submit" size="lg">
+              🚀 Crear Orden
+            </Button>
+            <Button variant="secondary" onClick={onHide} size="lg">
+              ❌ Cancelar
+            </Button>
+          </div>
+        </Form>
+      </Modal.Body>
+    </Modal>
+  );
+};
+
+export default OrderForm;
+
+OrderCompletionForm.jsx
+
+import React, { useState } from 'react';
+import { Modal, Form, Button, Table } from 'react-bootstrap';
+import { supabase } from '../supabaseClient';
+
+const OrderCompletionForm = ({ show, onHide, order }) => {
+  const [productosRecibidos, setProductosRecibidos] = useState({});
+  const [factura, setFactura] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Registrar productos faltantes
+    const faltantes = order.productos
+      .filter(p => productosRecibidos[p.producto_id] < p.cantidad)
+      .map(p => ({
+        orden_compra_id: order.id,
+        producto_id: p.producto_id,
+        cantidad_faltante: p.cantidad - (productosRecibidos[p.producto_id] || 0),
+        motivo: 'No entregado'
+      }));
+    
+    if (faltantes.length > 0) {
+      await supabase.from('productos_no_recibidos').insert(faltantes);
+    }
+
+    // Subir factura si existe
+    let facturaUrl = null;
+    if (factura) {
+      const { data, error } = await supabase.storage
+        .from('facturas')
+        .upload(`orden_${order.id}/${factura.name}`, factura);
+      
+      if (data) facturaUrl = data.path;
+    }
+
+    // Actualizar estado de la orden
+    await supabase
+      .from('ordencompra')
+      .update({ 
+        estado: 'Completada',
+        documento_factura: facturaUrl 
+      })
+      .eq('id', order.id);
+
+    onHide();
+  };
+
+  return (
+    <Modal show={show} onHide={onHide} size="xl" centered>
+      <Modal.Header closeButton className="bg-dark text-light">
+        <Modal.Title>Completar Orden #{order.id}</Modal.Title>
+      </Modal.Header>
+      
+      <Modal.Body className="bg-dark text-light">
+        <Form onSubmit={handleSubmit}>
+          <Table striped bordered hover variant="dark">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad Solicitada</th>
+                <th>Cantidad Recibida</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.productos.map((p, i) => (
+                <tr key={i}>
+                  <td>{p.producto.descripcion}</td>
+                  <td>{p.cantidad}</td>
+                  <td>
+                    <Form.Control
+                      type="number"
+                      min="0"
+                      max={p.cantidad}
+                      value={productosRecibidos[p.producto_id] || 0}
+                      onChange={(e) => setProductosRecibidos(prev => ({
+                        ...prev,
+                        [p.producto_id]: parseInt(e.target.value)
+                      }))}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+
+          <Form.Group className="mt-3">
+            <Form.Label>Documento de Factura</Form.Label>
+            <Form.Control
+              type="file"
+              accept=".pdf,.jpg,.png"
+              onChange={(e) => setFactura(e.target.files[0])}
+            />
+          </Form.Group>
+
+          <div className="mt-4 d-flex justify-content-end">
+            <Button variant="primary" type="submit">
+              Finalizar Recepción
+            </Button>
+          </div>
+        </Form>
+      </Modal.Body>
+    </Modal>
+  );
+};
+
+export default OrderCompletionForm;
+
+
+OrderActions.jsx
+
+import React from 'react';
+import { Button } from 'react-bootstrap';
+import { supabase } from '../supabaseClient';
+
+const OrderActions = ({ order, onUpdate }) => {
+  const handleStatusChange = async (newStatus) => {
+    const { error } = await supabase
+      .from('ordencompra')
+      .update({ estado: newStatus })
+      .eq('id', order.id);
+
+    if (!error) onUpdate();
+  };
+
+  return (
+    <div className="d-flex gap-2">
+      {order.estado === 'Pendiente' && (
+        <>
+          <Button 
+            variant="success" 
+            size="sm"
+            onClick={() => handleStatusChange('Completada')}
+          >
+            Marcar como Completada
+          </Button>
+          <Button 
+            variant="danger" 
+            size="sm"
+            onClick={() => handleStatusChange('Anulada')}
+          >
+            Anular Orden
+          </Button>
+        </>
+      )}
+      
+      {order.estado === 'Completada' && (
+        <Button 
+          variant="secondary" 
+          size="sm"
+          onClick={() => handleStatusChange('Anulada')}
+        >
+          Revertir a Anulada
+        </Button>
+      )}
+    </div>
+  );
+};
+
+export default OrderActions;
+
+Navbar.jsx
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Navbar, Nav, Container, Button, Overlay, Popover } from 'react-bootstrap';
+import { Bell, PersonCircle, Cart, List } from 'react-bootstrap-icons';
+import { NavLink } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+import { useNavigate } from 'react-router-dom';
+const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
+  const navigate = useNavigate();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef(null);
+  const [notifications, setNotifications] = useState([]);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileRef = useRef(null);
+  const handleNotificationClick = () => {
+    setShowNotifications(!showNotifications);
+  };
+  const handleProfileClick = () => {
+    setShowProfileMenu(!showProfileMenu);
+  };
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('userProfile');
+    localStorage.removeItem('sessionTime');
+    navigate('/login');
+  };
+  useEffect(() => {
+    if (userRole !== 'admin') {
+      const fetchUserNotifications = async () => {
+        const { data, error } = await supabase
+          .from('notificaciones')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          setNotifications(data);
+        }
+      };
+      fetchUserNotifications();
+    } else {
+      setNotifications([
+        {
+          id: 1,
+          title: 'Nueva solicitud de compra',
+          description: 'Departamento de IT requiere materiales',
+          date: '2024-01-20'
+        },
+        {
+          id: 2,
+          title: 'Solicitud pendiente',
+          description: 'Orden #123 requiere aprobación',
+          date: '2024-01-19'
+        }
+      ]);
+    }
+  }, [userRole, userId]);
+  return (
+    <Navbar bg="dark" variant="dark" expand="lg" className="shadow-sm fixed-top">
+      <Container fluid>
+        <Button variant="dark" onClick={onToggleSidebar} className="me-2">
+          <List size={20} />
+        </Button>
+        <Navbar.Brand href="#" className="ms-2">
+          Cámara de Industriales
+        </Navbar.Brand>
+        <Navbar.Toggle aria-controls="navbarSupportedContent" />
+        <Navbar.Collapse id="navbarSupportedContent">
+          {/* Uso de NavLink para navegación interna */}
+          <Nav className="me-auto mb-2 mb-lg-0">
+            <Nav.Link as={NavLink} to="/" end>
+              Home
+            </Nav.Link>
+            <Nav.Link as={NavLink} to="/solicitudes">
+              Solicitudes
+            </Nav.Link>
+          </Nav>
+          <Nav className="d-flex align-items-center">
+            <Nav.Link href="#" className="me-3">
+              <Cart size={20} />
+            </Nav.Link>
+            <Nav.Link
+              href="#"
+              className="me-3 position-relative"
+              onClick={handleNotificationClick}
+              ref={notificationRef}
+            >
+              <Bell size={20} />
+              <span
+                className="badge bg-danger rounded-pill position-absolute"
+                style={{ top: '-5px', right: '-5px' }}
+              >
+                {notifications.length}
+              </span>
+            </Nav.Link>
+            <Overlay
+              show={showNotifications}
+              target={notificationRef.current}
+              placement="bottom"
+              container={document.body}
+              rootClose
+              onHide={() => setShowNotifications(false)}
+            >
+              <Popover id="notifications-popover">
+                <Popover.Header as="h3">Notificaciones</Popover.Header>
+                <Popover.Body>
+                  {notifications.length > 0 ? (
+                    notifications.map((notification) => (
+                      <div key={notification.id} className="notification-item border-bottom p-2">
+                        <h6 className="mb-1">{notification.title}</h6>
+                        <p className="mb-1 text-muted small">{notification.description}</p>
+                        <small className="text-muted">
+                          {new Date(notification.created_at || notification.date).toLocaleDateString()}
+                        </small>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="m-0">No hay notificaciones</p>
+                  )}
+                </Popover.Body>
+              </Popover>
+            </Overlay>
+            <Nav.Link
+              href="#"
+              className="position-relative"
+              onClick={handleProfileClick}
+              ref={profileRef}
+            >
+              <PersonCircle size={20} />
+            </Nav.Link>
+            <Overlay
+              show={showProfileMenu}
+              target={profileRef.current}
+              placement="bottom"
+              container={document.body}
+              rootClose
+              onHide={() => setShowProfileMenu(false)}
+            >
+              <Popover id="profile-popover">
+                <Popover.Body>
+                  <Button variant="outline-danger" onClick={handleLogout} size="sm">
+                    Cerrar sesión
+                  </Button>
+                </Popover.Body>
+              </Popover>
+            </Overlay>
+          </Nav>
+        </Navbar.Collapse>
+      </Container>
+    </Navbar>
+  );
+};
+export default CustomNavbar;
+
+
+
+ModoOscuro.jsx
+
+import React, { useEffect, useState } from 'react';
+
+const ModoOscuro = () => {
+    const [modo, setModo] = useState("dark");
+
+    useEffect(() => {
+        const htmlElement = document.documentElement;
+        htmlElement.setAttribute("data-bs-theme", modo);
+        
+        // Aplicar el fondo según el tema
+        document.body.style.backgroundColor = modo === "dark" 
+            ? "#212529" 
+            : "#f8f9fa";
+            
+    }, [modo]); 
+
+    return (
+        <div className="btn-group" role="group">
+            <button 
+                className='btn btn-primary'
+                onClick={() => setModo("dark")}
+                title="Modo oscuro"
+            >
+                <i className="bi bi-moon-fill"></i>
+            </button>
+            <button 
+                className='btn btn-primary'
+                onClick={() => setModo("light")}
+                title="Modo claro"
+            >
+                <i className="bi bi-sun-fill"></i>
+            </button>
+        </div>
+    );
+};
+
+export default ModoOscuro;
+
+Home.jsx
+import React, { useState, useEffect } from 'react';
+import { Container, Table } from 'react-bootstrap';
+import { supabase } from '../supabaseClient';
+
+const Home = () => {
+  const [inventory, setInventory] = useState([]);
+
+  useEffect(() => {
+    const fetchInventory = async () => {
+      const { data, error } = await supabase
+        .from('inventario')
+        .select('*, producto:producto_id (descripcion)')
+        .order('fecha_actualizacion', { ascending: false });
+      
+      if (!error) {
+        setInventory(data);
+      } else {
+        console.error('Error al cargar el inventario:', error);
+      }
+    };
+    fetchInventory();
+  }, []);
+
+  return (
+    // Implementación: Cambiado text-black a text-light
+    <Container fluid className="mt-3">
+      <h3 className="text-light">📝Inventario</h3>
+      {/* Implementación: Añadida variante dark */}
+      <Table striped bordered hover responsive variant="dark">
+        <thead>
+          <tr>
+            <th>Nombre del Producto</th>
+            <th>Ubicación</th>
+            <th>Fecha de Actualización</th>
+          </tr>
+        </thead>
+        <tbody>
+          {inventory.length > 0 ? (
+            inventory.map((item) => (
+              <tr key={item.id}>
+                <td>{item.producto ? item.producto.descripcion : 'Sin nombre'}</td>
+                <td>{item.ubicacion}</td>
+                <td>{new Date(item.fecha_actualizacion).toLocaleDateString()}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="3" className="text-center text-light">
+                No hay registros en el inventario
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </Table>
+    </Container>
+  );
+};
+
+export default Home;
+
+ConsolidationModal.jsx
+
+import React, { useState, useEffect } from 'react';
+import { Modal, Form, Button, Table, Row, Col, InputGroup, Alert, Badge } from 'react-bootstrap';
+import { supabase } from '../supabaseClient';
+
+const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
+  const [selectedSolicitudes, setSelectedSolicitudes] = useState(new Set());
+  const [cantidades, setCantidades] = useState(new Map());
+  const [proveedorId, setProveedorId] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        const { data: solicitudesData } = await supabase
+          .from('solicitudcompra')
+          .select(`
+            id,
+            empleado:empleado_id(nombre, apellido),
+            detalles:solicitudcompra_detalle(
+              producto_id,
+              cantidad,
+              producto:producto_id(descripcion, categoria_id)
+            )
+          `)
+          .eq('estado', 'Pendiente');
+
+        const { data: proveedoresData } = await supabase
+          .from('proveedor')
+          .select(`
+            id,
+            nombre,
+            categorias:proveedor_categoria(
+              categoria:categoria_id(nombre)
+            )
+          `);
+
+        setSolicitudes(solicitudesData || []);
+        setProveedores(proveedoresData || []);
+      } catch (err) {
+        setError('Error cargando datos: ' + err.message);
+      }
+    };
+    if (show) cargarDatos();
+  }, [show]);
+
+  const productosConsolidados = Array.from(selectedSolicitudes)
+    .flatMap(solicitudId => {
+      const solicitud = solicitudes.find(s => s.id === solicitudId);
+      return solicitud?.detalles?.map(d => ({
+        ...d,
+        solicitudId: solicitud.id,
+      })) || [];
+    })
+    .reduce((acc, item) => {
+      const existente = acc.find(p => p.producto_id === item.producto_id);
+      if (existente) {
+        existente.cantidad += item.cantidad;
+        existente.solicitudes.add(item.solicitudId);
+      } else {
+        acc.push({
+          producto_id: item.producto_id,
+          descripcion: item.producto.descripcion,
+          cantidad: item.cantidad,
+          solicitudes: new Set([item.solicitudId]),
+          cantidadOrdenar: item.cantidad,
+        });
+      }
+      return acc;
+    }, []);
+
+  const handleCrearOrden = async () => {
+    try {
+      const todasSolicitudes = Array.from(selectedSolicitudes);
+
+      const ordenData = {
+        proveedor_id: Number(proveedorId),
+        productos: productosConsolidados.map(p => ({
+          producto_id: p.producto_id,
+          descripcion: p.descripcion,
+          cantidad: p.cantidadOrdenar,
+        })),
+        solicitudes: todasSolicitudes,
+        estado: 'Pendiente',
+        fecha_creacion: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('ordenes_consolidadas')
+        .insert([ordenData])
+        .select('id, proveedor_id, productos, solicitudes');
+
+      if (error) throw error;
+
+      onConsolidate(data[0]);
+      onHide();
+    } catch (err) {
+      setError('Error al crear consolidación: ' + err.message);
+    }
+  };
+
+  return (
+    <Modal show={show} onHide={onHide} size="xl" centered className="bg-dark text-light">
+      <Modal.Header closeButton className="bg-dark border-secondary">
+        <Modal.Title>Consolidar Solicitudes</Modal.Title>
+      </Modal.Header>
+
+      <Modal.Body>
+        <Row>
+          <Col md={7}>
+            <h5>Solicitudes Pendientes</h5>
+            <Table striped bordered hover variant="dark">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>ID</th>
+                  <th>Productos Solicitados</th>
+                </tr>
+              </thead>
+              <tbody>
+                {solicitudes.map(solicitud => (
+                  <tr key={solicitud.id}>
+                    <td>
+                      <Form.Check
+                        checked={selectedSolicitudes.has(solicitud.id)}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedSolicitudes);
+                          e.target.checked
+                            ? newSet.add(solicitud.id)
+                            : newSet.delete(solicitud.id);
+                          setSelectedSolicitudes(newSet);
+                        }}
+                      />
+                    </td>
+                    <td>#{solicitud.id}</td>
+                    <td>
+                      {solicitud.detalles?.map((d, i) => (
+                        <Badge key={i} bg="secondary" className="me-1">
+                          {d.producto.descripcion} (x{d.cantidad})
+                        </Badge>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Col>
+
+          <Col md={5} className="border-start">
+            <h5>Productos Consolidados</h5>
+            <Table striped bordered hover variant="dark">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Total</th>
+                  <th>A Ordenar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productosConsolidados.map((p, i) => (
+                  <tr key={i}>
+                    <td>{p.descripcion}</td>
+                    <td>{p.cantidad}</td>
+                    <td>
+                      <InputGroup>
+                        <Form.Control
+                          type="number"
+                          min="0"
+                          max={p.cantidad}
+                          value={cantidades.get(p.producto_id) || p.cantidad}
+                          onChange={(e) => {
+                            const newCantidades = new Map(cantidades);
+                            newCantidades.set(p.producto_id, Math.min(p.cantidad, Number(e.target.value)));
+                            setCantidades(newCantidades);
+                          }}
+                        />
+                      </InputGroup>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+
+            <h5 className="mt-4">Proveedor</h5>
+            <Form.Select
+              value={proveedorId}
+              onChange={(e) => setProveedorId(e.target.value)}
+              className="bg-secondary text-light"
+            >
+              <option value="">Seleccionar proveedor...</option>
+              {proveedores.map(proveedor => (
+                <option key={proveedor.id} value={proveedor.id}>
+                  {proveedor.nombre} -
+                  {proveedor.categorias?.map(c => c.categoria.nombre).join(', ') || 'Sin categorías'}
+                </option>
+              ))}
+            </Form.Select>
+
+            <Button
+              variant="success"
+              className="mt-3 w-100"
+              onClick={handleCrearOrden}
+              disabled={!proveedorId || productosConsolidados.length === 0}
+            >
+              Generar Orden Consolidada
+            </Button>
+          </Col>
+        </Row>
+      </Modal.Body>
+    </Modal>
+  );
+};
+
+export default ConsolidationModal;
+
+AdminDashboard.jsx
+
+import React, { useState, useEffect } from 'react';
+import { Button, Badge } from 'react-bootstrap';
+import OrderForm from './OrderForm';
+import RequestTable from './RequestTable';
+import { supabase } from '../supabaseClient';
+import OrderPDF from './OrderPDF';
+import OrderActions from './OrderActions';
+
+const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial, ordenesHistorial }) => {
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [solicitudesPendientesState, setSolicitudesPendientesState] = useState(solicitudesPendientes);
+  const [ordenesConsolidadas, setOrdenesConsolidadas] = useState([]);
+
+  useEffect(() => {
+    setSolicitudesPendientesState(solicitudesPendientes);
+  }, [solicitudesPendientes]);
+
+  useEffect(() => {
+    const fetchOrdenesConsolidadas = async () => {
+      const { data, error } = await supabase
+        .from('ordenes_consolidadas')
+        .select(`
+          *,
+          proveedor:proveedor_id(nombre),
+          productos,
+          solicitudes
+        `)
+        .order('fecha_creacion', { ascending: false });
+
+      if (!error) {
+        setOrdenesConsolidadas(data);
+      }
+    };
+
+    fetchOrdenesConsolidadas();
+  }, []);
+
+  const handleReject = async (id) => {
+    const { error } = await supabase
+      .from('solicitudcompra')
+      .update({ estado: 'Rechazada' })
+      .eq('id', id);
+  
+    if (!error) {
+      const updatedRequests = solicitudesPendientesState.filter(req => req.id !== id);
+      setSolicitudesPendientesState(updatedRequests);
+    }
+  };
+
+  const handleEliminarConsolidacion = async (id) => {
+    try {
+      await supabase
+        .from('ordenes_consolidadas')
+        .delete()
+        .eq('id', id);
+      setOrdenesConsolidadas(prev => prev.filter(oc => oc.id !== id));
+    } catch (err) {
+      console.error('Error eliminando consolidación:', err);
+    }
+  };
+
+  return (
+    <>
+      {activeTab === 'solicitudes' && (
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">🔄 Solicitudes Pendientes</h4>
+          <RequestTable
+            requests={solicitudesPendientesState}
+            withActions={true}
+            onApprove={(request) => {
+              setSelectedRequest(request);
+              setShowOrderForm(true);
+            }}
+            onReject={handleReject}
+          />
+        </div>
+      )}
+
+      {activeTab === 'historial-solicitudes' && (
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">📚 Historial de Solicitudes</h4>
+          <RequestTable
+            requests={solicitudesHistorial}
+            showStatus={true}
+          />
+        </div>
+      )}
+
+      {activeTab === 'ordenes-consolidadas' && (
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">📦 Historial de Órdenes Consolidadas</h4>
+          <div className="table-responsive">
+            <table className="table table-dark table-hover align-middle">
+              <thead className="table-dark">
+                <tr>
+                  <th>ID</th>
+                  <th>Proveedor</th>
+                  <th>Productos</th>
+                  <th>Fecha</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ordenesConsolidadas?.map(orden => {
+                  const statusColor = {
+                    'Pendiente': 'warning',
+                    'Completada': 'success',
+                    'Anulada': 'secondary'
+                  }[orden.estado];
+
+                  return (
+                    <tr key={orden.id}>
+                      <td>{orden.id}</td>
+                      <td>{orden.proveedor?.nombre || 'N/A'}</td>
+                      <td>
+                        {orden.productos?.map((p, i) => (
+                          <Badge key={i} bg="info" className="me-1">
+                            {p.descripcion} (x{p.cantidad})
+                          </Badge>
+                        ))}
+                      </td>
+                      <td>{new Date(orden.fecha_creacion).toLocaleDateString()}</td>
+                      <td>
+                        <span className={`badge bg-${statusColor}`}>{orden.estado}</span>
+                      </td>
+                      <td>
+                        <div className="d-flex gap-2">
+                          <Button
+                            variant="success"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(orden);
+                              setShowOrderForm(true);
+                            }}
+                          >
+                            Crear Orden
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleEliminarConsolidacion(orden.id)}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {ordenesConsolidadas?.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="text-center text-muted py-4">
+                      No hay órdenes consolidadas registradas
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'ordenes' && (
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">📦 Historial de Órdenes</h4>
+          <div className="table-responsive">
+            <table className="table table-dark table-hover align-middle">
+              <thead className="table-dark">
+                <tr>
+                  <th>ID</th><th>Proveedor</th><th>Solicitud Relacionada</th>
+                  <th>Fecha</th><th>Total</th><th>Estado</th><th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ordenesHistorial?.map(orden => {
+                  const statusColor = {
+                    'Pendiente': 'warning',
+                    'Completada': 'success',
+                    'Anulada': 'secondary'
+                  }[orden.estado];
+
+                  return (
+                    <tr key={orden.id}>
+                      <td>{orden.id}</td>
+                      <td>{orden.proveedor?.nombre || 'N/A'}</td>
+                      <td>{orden.solicitud_compra?.descripcion || 'N/A'}</td>
+                      <td>{new Date(orden.fecha_orden).toLocaleDateString()}</td>
+                      <td>{orden.neto_a_pagar?.toFixed(2)} {orden.unidad}</td>
+                      <td>
+                        <span className={`badge bg-${statusColor}`}>{orden.estado}</span>
+                      </td>
+                      <td>
+                        <div className="d-flex gap-2">
+                          <OrderPDF order={orden} key={orden.id} />
+                          <OrderActions 
+                            order={orden}
+                            onUpdate={() => window.location.reload()}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {ordenesHistorial?.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="text-center text-muted py-4">
+                      No hay órdenes registradas
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {showOrderForm && (
+        <OrderForm
+          show={showOrderForm}
+          onHide={() => setShowOrderForm(false)}
+          request={selectedRequest}
+          onSuccess={() => window.location.reload()}
+        />
+      )}
+    </>
+  );
+};
+
+export default AdminDashboard;

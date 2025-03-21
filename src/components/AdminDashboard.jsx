@@ -5,9 +5,11 @@ import RequestTable from './RequestTable';
 import { supabase } from '../supabaseClient';
 import OrderPDF from './OrderPDF';
 import OrderActions from './OrderActions';
+import ConsolidationModal from './ConsolidationModal';
 
-const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial, ordenesHistorial }) => {
+const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial, ordenesHistorial, userProfile }) => {
   const [showOrderForm, setShowOrderForm] = useState(false);
+  const [showConsolidationModal, setShowConsolidationModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [solicitudesPendientesState, setSolicitudesPendientesState] = useState(solicitudesPendientes);
   const [ordenesConsolidadas, setOrdenesConsolidadas] = useState([]);
@@ -62,20 +64,47 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
 
   return (
     <>
-      {activeTab === 'solicitudes' && (
-        <div className="bg-dark rounded-3 p-4 border border-secondary">
-          <h4 className="mb-4 text-light">🔄 Solicitudes Pendientes</h4>
-          <RequestTable
-            requests={solicitudesPendientesState}
-            withActions={true}
-            onApprove={(request) => {
-              setSelectedRequest(request);
-              setShowOrderForm(true);
-            }}
-            onReject={handleReject}
-          />
-        </div>
-      )}
+   {activeTab === 'solicitudes' && (
+    <div className="bg-dark rounded-3 p-4 border border-secondary">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h4 className="text-light mb-0">🔄 Solicitudes Pendientes</h4>
+        <Button 
+          variant="primary"
+          onClick={() => setShowConsolidationModal(true)}
+        >
+          <i className="bi bi-archive me-2"></i>
+          Consolidar Solicitudes
+        </Button>
+      </div>
+      <RequestTable
+        requests={solicitudesPendientesState}
+        withActions={true}
+        onApprove={(request) => {
+          setSelectedRequest({
+            productos: request.detalles.map(d => ({
+              producto_id: d.producto_id,
+              descripcion: d.producto?.descripcion || 'Producto sin nombre',
+              cantidad: d.cantidad
+            })),
+            solicitudes: [request.id] // Enviamos la solicitud como array
+          });
+          setShowOrderForm(true);
+        }}
+      />
+    </div>
+  )}
+
+  {showConsolidationModal && (
+    <ConsolidationModal
+      show={showConsolidationModal}
+      onHide={() => setShowConsolidationModal(false)}
+      onConsolidate={(consolidatedOrder) => {
+        setOrdenesConsolidadas(prev => [consolidatedOrder, ...prev]);
+        setShowConsolidationModal(false);
+      }}
+      solicitudes={solicitudesPendientesState} 
+    />
+  )}
 
       {activeTab === 'historial-solicitudes' && (
         <div className="bg-dark rounded-3 p-4 border border-secondary">
@@ -220,7 +249,8 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
         <OrderForm
           show={showOrderForm}
           onHide={() => setShowOrderForm(false)}
-          request={selectedRequest}
+          ordenConsolidada={selectedRequest}
+          userProfile={userProfile} 
           onSuccess={() => window.location.reload()}
         />
       )}
