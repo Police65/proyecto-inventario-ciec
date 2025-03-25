@@ -1,0 +1,499 @@
+El archivo de texto que te di es un prompt para ti, debes leerlo COMPLETO para entender las instrucciones 
+
+
+
+Ok, dejare que lo leas 
+
+¿Lo estas leyendo? 
+
+
+Bien
+
+Ahora que ya lo leiste como te habras dado cuenta necesito que redactes el capitulo IV basandote en ese fragmento, supongo que debido al limite de palabras que puedes generar no vas a poder hacerlo todo de la manera que yo quiero asi que te pido que redactes por partes, por ahora quiero que hagas a partir de este fragmento de referencia y has todo eso para mi tesis 
+Toda la informacion de ese fragmento es de la tesis de referencia, es de esos autores, no tiene nada que ver con mi tesis solo es para que sepas como se redacta y veas la estructura, la base de datos de ellos tampoco tiene que ver con la mia etc
+Fragmento de referencia: 
+
+
+Cuadro N° 19: Diccionario de Datos, tabla auth_group
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	auth_group
+Descripción	Almacena los datos relacionados a los grupos de permisos
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	int(11)	No	
+name	varchar(150)	No	
+Fuente: Los autores (2022)
+ 
+Cuadro N° 20: Diccionario de Datos, tabla auth_group_permissions
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	auth_group_permissions
+Descripción	Tabla que realiza la conexión entre la tabla de permisos, y la tabla de grupos
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+group_id	int(11)	No	auth_group -> id
+permission_id	int(11)	No	auth_permission -> id
+Fuente: Los autores (2022)
+
+Cuadro N° 21: Diccionario de Datos, tabla auth_permissions
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	auth_permissions
+Descripción	Almacena los datos relacionados a los permisos dentro de la aplicación
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+name	varchar(255)	No	
+content_type_id	int(11)	No	django_content_type -> id
+codename	varchar(100)	No	
+Fuente: Los autores (2022)
+ 
+Cuadro N° 22: Diccionario de Datos, tabla auth_user
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	auth_user
+Descripción	Almacena los datos relacionados al ingreso al sistema por parte del usuario
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	int(11)	No	
+password	varchar(128)	No	
+last_login	datetime(6)	Sí	
+is_superuser	tinyint(1)	No	
+username	varchar(150)	No	
+first_name	varchar(150)	No	
+last_name	varchar(150)	No	
+email	varchar(254)	No	
+is_staff	tinyint(1)	No	
+is_active	tinyint(1)	No	
+date_joined	datetime(6)	No	
+Fuente: Los autores (2022)
+
+Cuadro N° 23: Diccionario de Datos, tabla auth_user_groups
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	auth_user_groups
+Descripción	Realiza la conexión entre la tabla de usuarios con la tabla de grupos
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+user_id	int(11)	No	auth_user -> id
+group_id	int(11)	No	auth_group -> id
+ 
+Fuente: Los autores (2022)
+
+Cuadro N° 24: Diccionario de Datos, tabla auth_user_user_permissions
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	auth_user_user_permissions
+Descripción	Realiza la conexión entre la tabla de usuarios con la tabla de permisos
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+user_id	int(11)	No	auth_user -> id
+permission_id	int(11)	No	auth_permission -> id
+Fuente: Los autores (2022)
+
+Cuadro N° 25: Diccionario de Datos, tabla django_admin_log
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	django_admin_log
+Descripción	almacena las acciones de los usuarios administradores
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	int(11)	No	
+action_time	datetime(6)	No	
+object_id	longtext	Sí	
+object_repr	varchar(200)	No	
+action_flag	smallint(5)	No	
+change_message	longtext	No	
+content_type_id	int(11)	Sí	django_content_type -> id
+user_id	int(11)	No	auth_user -> id
+Fuente: Los autores (2022)
+ 
+Cuadro N° 26: Diccionario de Datos, tabla django_content_type
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	django_content_type
+Descripción	Almacena los datos relacionados a los modelos para generar los nombres de las tablas en la base de datos
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	int(11)	No	
+app_label	varchar(100)	No	
+model	varchar(100)	No	
+Fuente: Los autores (2022)
+
+Cuadro N° 27: Diccionario de Datos, tabla django_migrations
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	django_migrations
+Descripción	Almacena los datos relacionados a las migraciones hechas del código de los modelos
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+app	varchar(255)	No	
+name	varchar(255)	No	
+applied	datetime(6)	No	
+Fuente: Los autores (2022)
+ 
+Cuadro N° 28: Diccionario de Datos, tabla django_session
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	django_session
+Descripción	Almacena los datos relacionados a las sesiones de los usuarios al abrir la aplicación
+Columna	Tipo	Nulo	Enlaces a
+session_key
+(Primaria)	varchar(40)	No	
+session_data	longtext	No	
+expire_date	datetime(6)	No	
+Fuente: Los autores (2022)
+
+Cuadro N° 29: Diccionario de Datos, tabla marcaje_cargo
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	marcaje_cargo
+Descripción	Almacena los datos relacionados a los cargos que hay disponibles en la empresa
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+descripcion	varchar(40)	No	
+Fuente: Los autores (2022)
+ 
+Cuadro N° 30: Diccionario de Datos, tabla marcaje_departamento
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	marcaje_departamento
+Descripción	Almacena los datos relacionados a los departamentos que existen en la empresa
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+nombre	varchar(100)	No	
+Fuente: Los autores (2022)
+
+Cuadro N° 31: Diccionario de Datos, tabla marcaje_departamento_usuario
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	marcaje_departamento_usuario
+Descripción	Realiza la conexión entre la tabla de departamento con la tabla de usuarios
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+departamento_id	bigint(20)	No	marcaje_departamento -> id
+user_id	int(11)	No	auth_user -> id
+Fuente: Los autores (2022)
+ 
+Cuadro N° 32: Diccionario de Datos, tabla marcaje_empleado
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	marcaje_empleado
+Descripción	Almacena los datos relacionados a los empleados que trabajan en la empresa
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+ficha	varchar(8)	No	
+cedula	varchar(8)	No	
+primer_nombre	varchar(80)	No	
+segundo_nombre	varchar(80)	No	
+primer_apellido	varchar(80)	No	
+segundo_apellido	varchar(80)	No	
+telefono	varchar(11)	Sí	
+direccion	varchar(250)	No	
+fecha_nacimiento	date	No	
+fecha_ingreso	date	No	
+foto	varchar(100)	Sí	
+sexo	varchar(15)	No	
+cargo_id	bigint(20)	No	marcaje_cargo -> id
+departamento_id	bigint(20)	No	marcaje_departamento -> id
+estatus_id	bigint(20)	No	marcaje_estado -> id
+horario_id	bigint(20)	No	marcaje_horario -> id
+Fuente: Los autores (2022)
+ 
+Cuadro N° 33: Diccionario de Datos, tabla marcaje_estado
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	marcaje_estado
+Descripción	Almacena los datos de los posibles estados que puede tener un empleado dentro de la empresa
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+descripcion	varchar(40)	No	
+Fuente: Los autores (2022)
+
+Cuadro N° 34: Diccionario de Datos, tabla marcaje_evento
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	marcaje_evento
+Descripción	Almacena los datos relacionados a días feriados o no laborales
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+descripcion	varchar(40)	No	
+fecha_inicio	date	No	
+fecha_final	date	Sí	
+tipo	varchar(1)	No	
+Fuente: Los autores (2022)
+ 
+Cuadro N° 35: Diccionario de Datos, tabla marcaje_horario
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	marcaje_horario
+Descripción	Almacena los datos relacionados a los horarios de trabajo que puede tener un empleado
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+descripcion	varchar(20)	No	
+turno	varchar(15)	No	
+hora_entrada	time(6)	No	
+hora_salida	time(6)	No	
+hora_receso	time(6)	No	
+hora_fin_receso	time(6)	No	
+
+Fuente: Los autores (2022)
+
+Cuadro N° 36: Diccionario de Datos, tabla marcaje_movimiento
+
+Nombre de la base de datos	marcaje
+Nombre de la tabla	marcaje_movimiento
+Descripción	Almacena los datos relacionados a los movimientos de entrada, salida o ausencia de un empleado
+Columna	Tipo	Nulo	Enlaces a
+id (Primaria)	bigint(20)	No	
+movimiento	varchar(40)	No	
+fecha	datetime(6)	No	
+empleado_id	bigint(20)	No	marcaje_empleado -> id
+Fuente: Los autores (2022)
+ 
+ARQUITECTURA DE CONEXIONES
+
+Figura N° 1: Modelo Vista Plantilla
+
+Django utiliza como patrón de arquitectura de software el Modelo, Vista, Plantilla, cuyo funcionamiento consiste en utilizar el todo el framework como controlador para procesar peticiones provenientes de un navegador web, las cuales son enviadas a través de una URL mediante peticiones HTTP, el cual estará asociado a una Vista, la cual, en caso de ser necesario, solicitará datos al Modelo que a su vez genera una consulta a la base de datos, con los datos recibidos serán enviados a la Plantilla para ser mostrada al usuario a través de su navegador web.
+
+DESCRIPCIÓN DE PANTALLAS
+Figura N° 2: Inicio De Sesión
+
+Abrir el navegador e ingresar en la barra de búsqueda la dirección url en la que el servidor esta hosteado, se mostrará la pantalla de inicio de sesión en la cual se introduce el usuario y contraseña asignado en su campo correspondiente, según los permisos tendrá habilitadas ciertas funciones dentro de la página principal del marcaje
+Pantalla Principal
+La vista de esta pantalla varía según el tipo de usuario que haya iniciado sesión:
+1.	Súper Usuarios
+Los súper usuarios tienen todos los permisos dentro del sistema, pueden acceder a realizar reportes, acceder al panel de administrador con todos los permisos posibles, y realizar marcaje.
+ 
+Figura N° 3: Pantalla Principal
+
+2.	Usuario Supervisor
+Los supervisores pueden ver únicamente los empleados que le corresponden a sus departamentos asignados, pueden acceder a la pantalla de reportes y a la pantalla de panel de administrador, pero no tienen permisos de realizar marcaje.
+
+
+3.	Seguridad
+Los Usuarios de Seguridad, no poseen permisos para acceder a las pantallas de Reportes, ni al panel de administrador, sin embargo sí pueden realizar marcaje, además no cuentan con el cerrado de sesión automático por inactividad
+
+Figura N° 5: Pantalla principal del Personal de Seguridad
+
+Fuente: Los autores (2022)
+Este usuario en la barra superior tiene restringida la entrada al administrador del marcaje y a generar reportes, solo teniendo permitido registrar los movimientos con el escáner
+Figura N° 6: Botones de la pantalla principal
+
+Fuente: Los autores (2022)
+1.	Entrada al panel de administrador
+2.	Entrada a la pantalla de generador de reportes
+3.	Cerrar Sesión
+
+
+Figura N° 7: Entrada de datos para el escáner (cédula de empleados)
+Panel administrativo
+Súper usuarios
+ 
+Los super usuarios tienen todos los permisos permitidos dentro del sistema, desde poder administrar la creación de permisos y otros usuarios en el sistema, hasta la administración de los registros de la base de datos, cuentan con la capacidad de agregar, modificar, eliminar y visualizar.
+
+Figura N° 8: Panel de Administrador del Súper Usuario
+
+
+Fuente: Los autores (2022)
+
+Figura N° 9: Botones de la barra de navegación superior
+
+
+Fuente: Los autores (2022)
+ 
+1.	Página principal del Panel de administrador
+2.	Página principal de Marcaje
+3.	Página de generador de reportes
+4.	Página de cambio de contraseña
+5.	Cerrar sesión
+Modelos
+
+
+Figura N° 10: Modelo de Cargos
+
+
+Fuente: Los autores (2022)
+ 
+Figura N° 11: Pantalla de Modelo de Departamentos
+
+
+Fuente: Los autores (2022)
+
+Figura N° 12: Pantalla de Modelo de Empleados
+
+ 
+Fuente: Los autores (2022)
+
+Figura N° 13: Pantalla de Modelo de Estados
+
+
+
+Figura N° 14: Pantalla de Modelo de Eventos
+
+ 
+Figura N° 15: Pantalla de Modelo de Horarios
+
+
+Figura N° 16: Pantalla de Modelo de Movimientos
+
+ 
+Asimismo, al ingresar a la pantalla de agregar usuarios nuevos, estos deben ingresar el nombre de usuario y una contraseña segura, que cumpla con los requisitos que se muestra en la siguiente captura:
+
+Figura N° 17: Pantalla de Agregar usuario
+
+Una vez que un usuario nuevo es agregado, inmediatamente se envia a la pantalla de gestión de usuario, en la cual se pueden agregar y alterar los permisos y datos relacionados al usuario en cuestión:
+ 
+Figura N° 18: Pantalla de Modificar usuario (1)
+
+
+Se pueden agregar un correo electrónico, así como un nombre y apellido, y los permisos y el estado del usuario, si se encuentra activo o inactivo, la pantalla de gestión de permisos es la siguiente:
+ 
+Figura N° 19: Pantalla de Modificar Usuario (2)
+
+
+Figura N° 20: Pantalla de Modificar Usuario (3)
+
+ 
+Al darle el permiso de staff a un usuario, este podrá tener acceso al panel de administrador, de otra manera no podrá entrar, luego los demás permisos se pueden observar que se pueden añadir permisos especiales para un usuario en concreto, y a su vez, se le puede añadir un grupo de permisos creado previamente a un usuario, esos grupos de permisos pueden ser compartidos con otros usuarios además del actual.
+Los permisos se dividen entre los permisos genéricos de gestión de datos de las bases de datos, que constan en permisos de “puede añadir”, “puede cambiar”, “puede eliminar”, “puede ver”, cada tipo de permiso asociado a cada Modelo diferente para la alteración de registros de la base de datos.
+
+Figura N° 21: Pantalla de gestión de permisos
+
+
+Fuente: Los autores (2022)
+por otro lado, se encuentran permisos especiales, los cuales son los siguientes:
+●	Puede cambiar estatus de empleados: Es un permiso que permite a los usuarios el poder cambiar al campo de “Estatus” de los empleados, está diseñado para aquellos usuarios que NO tienen permitido cambiar los datos de los empleados, pero que sí pueden cambiar su Estatus actual (Activo, Inactivo, Vacaciones, Reposo), como por ejemplo un supervisor de departamento.
+●	Puede ver todos los empleados: Es un permiso que permite al usuario poder visualizar todos los empleados y todos los movimientos, mientras que los usuarios que NO cuentan con este permiso, únicamente verán los empleados asociados a su departamento.
+ 
+●	Puede realizar Marcaje: Este permiso está diseñado para habilitar la entrada de datos en la pantalla de marcaje, es decir, permite al usuario poder crear movimientos mediante la pantalla principal de marcaje, mientras que aquellos que no cuenten con este permiso, no podrán.
+
+Figura N° 22: Permisos de usuario para el personal de seguridad
+
+
+finalmente, una vez terminado de configurar los permisos de un usuario y sus datos correspondientes, se hace click en el botón de “Guardar”
+ 
+Figura N° 23: Permisos de supervisor genérico
+
+Fuente: Los autores (2022)
+A continuación se explica el funcionamiento de las pantallas de los modelos, el funcionamiento es exactamente igual para cada Modelo:
+
+Figura N° 24: Señalización de botones para administradores
+
+ 
+1.	Permite expandir y contraer la barra de navegación lateral
+2.	Nombre de los Modelos, se le puede dar click para acceder a la gestión de registros que posee ese Modelo.
+3.	Nombre y datos del registro, puede ser clickeado para ser visualizado más a detalle, en caso de tener permisos de modificación, podrán ser modificados los datos.
+4.	Información de la cantidad de empleados asociados a dicho departamento, se le puede dar click, y mostrará a los empleados relacionados.
+5.	Selector de acciones, la única acción disponible es la de eliminación de registros, cuando se le da al botón ejecutar que tiene al lado del selector, eliminará los registros que hayan sido seleccionados mediante el marcador a la izquierda de cada registro.
+6.	Barra de búsqueda que filtra los resultado de búsqueda de los registros en base a los datos asociados al registro, en el caso de departamento sólo puede filtrarlos por nombre, sin embargo en el modelo de Empleados, se pueden filtrar por ficha, cédula, primer nombre, primer apellido, departamento, horarios, estatus.
+7.	Permite entrar a la pantalla de agregar un nuevo registro.
+8.	permite ir mostrando el resto de registros mediante los botones de paginación.
+Al darle click al nombre de un departamento (3), se abrirá la pantalla de Visualización o Modificación de datos del respectivo registro.
+
+Figura N° 25: Señalización de gestión de usuarios para Gerentes
+
+ 
+1.	Usuarios Disponibles: es el recuadro que contiene a todos los usuarios registrados en el sistema, y que NO están relacionados al departamento que está siendo visualizado.
+2.	Usuarios seleccionados: es la lista de usuarios asociados al departamento, los usuarios que estén relacionados al departamento, podrán ver los empleados y movimientos del departamento.
+3.	Los usuarios disponibles, pueden ser seleccionados con un click, y en caso de hacer doble click, serán asociados al departamento.
+4.	Botón de agregar usuario, es un atajo que envía a la pantalla de añadir nuevo usuario, sólo disponible para aquellos que tengan el permiso de agregar usuarios.
+5.	Seleccionar todos: permite seleccionar todos los usuarios con un solo click y asociarlos al departamento.
+6.	Permite eliminar la asociación de todos los usuarios que estén presentes en el recuadro de usuarios seleccionados.
+7.	Botones que permiten el movimiento de los usuarios seleccionados.
+Usuarios supervisor
+Los supervisores sólo tienen acceso a visualizar los empleados y departamentos a los que fue asociado el usuario, además sólo pueden visualizar, sin embargo no pueden modificar nada más allá que el estatus de los empleados de su departamento.
+
+Figura N° 26: Pantalla de panel de administrador para un gerente
+
+ 
+Al darle click a la ficha del empleado, el supervisor podrá acceder al registro del empleado, y podrá alterar el estatus de sus empleados.
+
+Figura N° 27: Modificación de un estatus de empleado con usuario de gerente
+
+
+Panel de Reportes
+Pantalla de Reportes: Este es el lugar principal para generar los reportes, aquí se encuentran las opciones para determinar el tipo de reporte, el periodo de fecha, un botón de “visualizar todo” que muestra el reporte de todos los departamentos y empleados en la fecha especificada, y por último, una tabla de datos, la cual se activa cuando se escoja el tipo de reporte.
+
+Figura N° 28: Pantalla de panel de reportes
+
+Fuente: Los autores (2022)
+ 
+Figura N° 29: Botones pantalla de reporte
+
+
+Fuente: Los autores (2022)
+1.	Página principal del Panel de administrador
+2.	Página principal de Marcaje
+3.	Cerrar Sesión
+
+Figura N° 30: Señalización de botones en panel de reportes
+
+
+Fuente: Los autores (2022)
+Filtro para el reporte: Aquí se encuentran las distintas opciones para sacar un reporte, las cuales son:
+1.	Tipo de reporte: Es una lista desplegable la cual contiene dos opciones funcionales:
+Empleados: Muestra la tabla de datos de todos los empleados, incluyendo Cédula, Ficha, Apellidos y Nombres y Acción.
+
+Figura N° 31: Tabla de datos de empleados para reportes individuales
+
+Fuente: Los autores (2022)
+ 
+Departamento: Muestra la tabla de datos de los departamentos, incluyendo el ID, Nombre y acción.
+
+Figura N° 32: Tabla de datos de departamentos para reportes por departamento
+
+
+Fuente: Los autores (2022)
+2.	“Desde”: Esta es la fecha más anterior en la que se quieran mostrar los movimientos.
+3.	“Hasta”: Esta es la fecha más próxima en la que se quieran mostrar los movimientos, aquí una imagen de ejemplo de las dos fechas introducidas para su correcto funcionamiento:
+
+Figura N° 33: Selectores de rangos de fechas
+
+Fuente: Los autores (2022)
+4.	 Empleados Activos: Botón por el cual se muestra la cantidad de empleados activos en la clínica, cabe destacar que para que este botón funcione se necesitan tener la fecha “Desde” y “Hasta” ingresadas.
+5.	Reporte General: Botón por el cual se muestra la cantidad de empleados activos en la clínica junto con sus horas trabajadas, horas extras diurnas y horas extras nocturnas, cabe destacar que para que este botón funcione se necesitan tener la fecha “Desde” y “Hasta” ingresadas, además de que los mismos influyen en los cálculos de las horas.
+ 
+Figura N° 34: Reporte general de los empleados y sus horarios
+
+Fuente: Los autores (2022)
+
+Figura N° 35: Reporte general con el resumen de cada empleado
+
+Fuente: Los autores (2022)
+
+Figura N° 36: Reporte de empleado individual
+
+
+
+
+
+
+
+
+
+
+Fuente: Los autores (2022)
+ 
+Figura N° 37: Reporte por departamento
+
+Fuente: Los autores (2022)
+Seguridad del Sistema
+
+Hasta el momento se ha presentado una aplicación web que ofrece el acceso a un conjunto de información que es de suma importancia para la empresa, sin embargo en determinadas circunstancias es interesante poder limitar el acceso a la modificación o eliminación de registros de las diferentes tablas de la base de datos, para que pueda acceder únicamente los usuarios autorizados a realizar dichas acciones.
+
+Asimismo, se maneja un concepto fundamental, la autenticación (garantizar que el usuario esté registrado en el sistema y tenga acceso al mismo). Se establece la restricción de acceso a aquellos que no tengan un usuario registrado, que a su vez las contraseñas contenidas en la base de datos, se encontrarán encriptadas para reforzar la seguridad, además los usuarios de tipo “staff” tendrán un periodo de expiración para su sesión por inactividad, en caso que un usuario se olvide de cerrar sesión, la misma se cerrará automáticamente luego de pasados 15 minutos de inactividad.
+ 
+Por otro lado, la aplicación también cuenta con una protección token CSRF la cual mejora la seguridad porque permite validar que las solicitudes son generadas desde el sitio web autorizado y no desde otras fuentes.
+
+Además, el sistema también cuenta con una protección frente al SQL injection, para proteger la base de datos de posibles ataques externos que utilicen este método de infiltración de código.
+
+RECOMENDACIONES
+
+Para el mejor funcionamiento de la aplicación y Proteger la información en ella, se recomienda lo siguiente:
+
+●	Asegurarse que los empleados lleven consigo su carnet de identificación con el código de barras para realizar el marcaje en la aplicación.
+●	Realizar copias de la información periódicamente y resguardo en un lugar seguro hasta que pierda validez, para poder recuperar la información en caso de pérdida.
+●	Es conveniente que la clave de acceso se modifique con frecuencia para de esta forma reforzar la seguridad de la aplicación y minimizar el riesgo de acceso no autorizado.
+●	Capacitar a los usuarios de la empresa para que puedan utilizar cada uno de los componentes de la aplicación.
+●	Los usuarios que tengan acceso al panel de administrador se les recomienda cambiar sus contraseñas por lo mínimo cada 180 días, para mantener la seguridad e integridad del sistema
+●	Se recomienda que las contraseñas tengan combinaciones de mayúsculas, minúsculas, números y caracteres especiales, con longitudes mayores a 8 caracteres
+
+Dejémoslo hasta acá hasta que te de mas instrucciones para terminar la tesis
