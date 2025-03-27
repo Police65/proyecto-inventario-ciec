@@ -9,7 +9,13 @@ const Home = () => {
     const fetchInventory = async () => {
       const { data, error } = await supabase
         .from('inventario')
-        .select('*, producto:producto_id (descripcion)')
+        .select(`
+          *,
+          producto:producto_id (
+            descripcion,
+            categoria:categoria_id (nombre)
+          )
+        `)
         .order('fecha_actualizacion', { ascending: false });
       
       if (!error) {
@@ -22,15 +28,15 @@ const Home = () => {
   }, []);
 
   return (
-    // Implementación: Cambiado text-black a text-light
     <Container fluid className="mt-3">
-      <h3 className="text-light">📝Inventario</h3>
-      {/* Implementación: Añadida variante dark */}
+      <h3 className="text-light">📝 Inventario</h3>
       <Table striped bordered hover responsive variant="dark">
         <thead>
           <tr>
             <th>Nombre del Producto</th>
+            <th>Categoría</th>
             <th>Ubicación</th>
+            <th>Existencias</th>
             <th>Fecha de Actualización</th>
           </tr>
         </thead>
@@ -38,14 +44,16 @@ const Home = () => {
           {inventory.length > 0 ? (
             inventory.map((item) => (
               <tr key={item.id}>
-                <td>{item.producto ? item.producto.descripcion : 'Sin nombre'}</td>
-                <td>{item.ubicacion}</td>
-                <td>{new Date(item.fecha_actualizacion).toLocaleDateString()}</td>
+                <td>{item.producto?.descripcion || 'Sin nombre'}</td>
+                <td>{item.producto?.categoria?.nombre || 'Sin categoría'}</td>
+                <td>{item.ubicacion || 'N/A'}</td>
+                <td>{item.existencias !== null ? item.existencias : '0'}</td>
+                <td>{new Date(item.fecha_actualizacion).toLocaleString()}</td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan="3" className="text-center text-light">
+              <td colSpan="5" className="text-center text-light">
                 No hay registros en el inventario
               </td>
             </tr>

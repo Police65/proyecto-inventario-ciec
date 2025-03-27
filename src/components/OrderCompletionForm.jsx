@@ -8,17 +8,17 @@ const OrderCompletionForm = ({ show, onHide, order }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Registrar productos faltantes
     const faltantes = order.productos
-      .filter(p => productosRecibidos[p.producto_id] < p.cantidad)
+      .filter(p => (productosRecibidos[p.producto_id] || 0) < p.cantidad)
       .map(p => ({
         orden_compra_id: order.id,
         producto_id: p.producto_id,
         cantidad_faltante: p.cantidad - (productosRecibidos[p.producto_id] || 0),
         motivo: 'No entregado'
       }));
-    
+
     if (faltantes.length > 0) {
       await supabase.from('productos_no_recibidos').insert(faltantes);
     }
@@ -29,7 +29,7 @@ const OrderCompletionForm = ({ show, onHide, order }) => {
       const { data, error } = await supabase.storage
         .from('facturas')
         .upload(`orden_${order.id}/${factura.name}`, factura);
-      
+
       if (data) facturaUrl = data.path;
     }
 
@@ -41,6 +41,41 @@ const OrderCompletionForm = ({ show, onHide, order }) => {
         documento_factura: facturaUrl 
       })
       .eq('id', order.id);
+
+    // Actualizar inventario
+    const updates = order.productos.map(async (p) => {
+      const cantidadRecibida = productosRecibidos[p.producto_id] || 0;
+      if (cantidadRecibida > 0) {
+        const { data: inventarioItem } = await supabase
+          .from('inventario')
+          .select('id, existencias')
+          .eq('producto_id', p.producto_id)
+          .single();
+
+        if (inventarioItem) {
+          // Si el producto ya existe en inventario, incrementar existencias
+          await supabase
+            .from('inventario')
+            .update({
+              existencias: inventarioItem.existencias + cantidadRecibida,
+              fecha_actualizacion: new Date().toISOString()
+            })
+            .eq('id', inventarioItem.id);
+        } else {
+          // Si no existe, crear un nuevo registro en inventario
+          await supabase
+            .from('inventario')
+            .insert({
+              producto_id: p.producto_id,
+              ubicacion: 'Almacén principal', // Ajusta según tu lógica
+              existencias: cantidadRecibida,
+              fecha_actualizacion: new Date().toISOString()
+            });
+        }
+      }
+    });
+
+    await Promise.all(updates);
 
     onHide();
   };
