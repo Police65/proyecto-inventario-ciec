@@ -247,7 +247,6 @@ function App() {
 
   return (
     <BrowserRouter>
-      <ModoOscuro />
       <Routes>
         <Route
           path="/login"

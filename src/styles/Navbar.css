@@ -1,0 +1,97 @@
+:root {
+  --color1: #001c51;
+  --color2: #004f7d;
+  --color3: #4990b2;
+  --color4: #a7d6eb;
+  --color5: #faffff;
+}
+
+/* General Navbar styles */
+.navbar {
+  background-color: var(--color1); /* Dark background */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+  z-index: 1030; /* Ensure it stays on top */
+}
+
+/* Brand styling */
+.navbar-brand {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: var(--color5);
+}
+
+.navbar-brand:hover {
+  color: var(--color4); /* Light blue on hover */
+}
+
+/* Button styling */
+.navbar .btn-dark {
+  background-color: var(--color2);
+  border: none;
+}
+
+.navbar .btn-dark:hover {
+  background-color: var(--color3); /* Slightly lighter on hover */
+}
+
+/* NavLink styling */
+.navbar .nav-link {
+  color: var(--color5);
+  font-size: 0.95rem;
+  transition: color 0.3s ease;
+}
+
+.navbar .nav-link:hover {
+  color: var(--color4); /* Light blue on hover */
+}
+
+/* Badge styling */
+.navbar .badge {
+  font-size: 0.75rem;
+  padding: 0.25em 0.5em;
+  border-radius: 50%;
+  background-color: var(--color3);
+  color: var(--color5);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+}
+
+/* Popover styling */
+.popover {
+  border: none;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+}
+
+.popover-header {
+  background-color: var(--color2);
+  color: var(--color5);
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.popover-body {
+  font-size: 0.9rem;
+  color: var(--color1);
+}
+
+/* Notification item styling */
+.notification-item {
+  background-color: var(--color4);
+  border-radius: 0.25rem;
+  transition: background-color 0.3s ease;
+}
+
+.notification-item:hover {
+  background-color: var(--color3); /* Slightly darker on hover */
+}
+
+/* Logout button styling */
+.popover .btn-outline-danger {
+  font-size: 0.85rem;
+  border-color: var(--color3);
+  color: var(--color3);
+}
+
+.popover .btn-outline-danger:hover {
+  background-color: var(--color3);
+  color: var(--color5);
+}

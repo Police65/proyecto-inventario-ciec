@@ -5,6 +5,7 @@ import RequestTable from './RequestTable';
 import { supabase } from '../supabaseClient';
 import OrderPDF from './OrderPDF';
 import OrderActions from './OrderActions';
+import UserManagement from './UserManagement';
 import ConsolidationModal from './ConsolidationModal';
 
 const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial, ordenesHistorial, userProfile }) => {
@@ -93,6 +94,12 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
       />
     </div>
   )}
+
+{activeTab === 'usuarios' && (
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <UserManagement />
+        </div>
+      )} 
 
   {showConsolidationModal && (
     <ConsolidationModal

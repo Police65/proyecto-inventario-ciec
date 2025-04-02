@@ -1,91 +1,88 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Button } from 'react-bootstrap';
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Button } from "react-bootstrap";
+import "../styles/sidebar.css";
 
-const Sidebar = ({ isVisible, onNewRequest, onSelectTab, userProfile, pendingRequests = [] }) => {
+const Sidebar = ({
+  isVisible,
+  onNewRequest,
+  onSelectTab,
+  userProfile,
+  pendingRequests = [],
+}) => {
   const location = useLocation();
+  
   return (
-    <aside
-      className={`bg-primary text-white min-vh-100 p-4 ${isVisible ? 'visible' : 'hidden'}`}
-      style={{
-        width: '250px',
-        position: 'fixed',
-        top: '56px',
-        left: isVisible ? '0' : '-250px',
-        transition: 'left 0.3s',
-        zIndex: 1000,
-      }}
-    >
-      <h1 className="h4 mb-4">Cámara de Industriales</h1>
+    <aside className={`sidebar ${isVisible ? "visible" : ""}`}>
+      <h1>Cámara de Industriales</h1>
       <nav>
-        <ul className="list-unstyled">
-          <li className="mb-2">
+        <ul>
+          <li>
             <Link
               to="/solicitudes"
-              className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
-              style={{ whiteSpace: 'nowrap' }}
-              onClick={() => onSelectTab('solicitudes')}
+              className="btn"
+              onClick={() => onSelectTab("solicitudes")}
             >
               <i className="bi bi-list-task me-2"></i>
-              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <span>
                 Solicitudes
-                <span
-                  className="bg-danger d-flex justify-content-center align-items-center"
-                  style={{
-                    display: 'inline-flex',
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    marginLeft: '8px',
-                    fontSize: '12px',
-                    color: 'white',
-                    verticalAlign: 'middle',
-                    marginTop: '-10%',
-                  }}
-                >
-                  {pendingRequests.length}
-                </span>
+                <span className="badge">{pendingRequests.length}</span>
               </span>
             </Link>
           </li>
-          <li className="mb-2">
+          <li>
             <Link
               to="/solicitudes"
-              className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
-              onClick={() => onSelectTab('historial-solicitudes')}
+              className="btn"
+              onClick={() => onSelectTab("historial-solicitudes")}
             >
               <i className="bi bi-clock-history me-2"></i>
               Historial Solicitudes
             </Link>
           </li>
-          {userProfile?.rol === 'admin' && (
+          {userProfile?.rol === "admin" && (
             <>
-              <li className="mb-2">
+              <li>
                 <Link
                   to="/solicitudes"
-                  className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
-                  onClick={() => onSelectTab('ordenes')}
+                  className="btn"
+                  onClick={() => onSelectTab("ordenes")}
                 >
                   <i className="bi bi-file-earmark-text me-2"></i>
                   Historial de Órdenes
                 </Link>
               </li>
-              <li className="mb-2">
+              <li>
                 <Link
                   to="/solicitudes"
-                  className="btn btn-link text-white w-100 text-start p-2 hover-bg-blue"
-                  onClick={() => onSelectTab('ordenes-consolidadas')}
+                  className="btn"
+                  onClick={() => onSelectTab("ordenes-consolidadas")}
                 >
                   <i className="bi bi-archive me-2"></i>
                   Órdenes Consolidadas
+                </Link>
+              </li>
+              {/* Nueva opción de gestión de usuarios */}
+              <li>
+                <Link
+                  to="/solicitudes"
+                  className="btn"
+                  onClick={() => onSelectTab("usuarios")}
+                >
+                  <i className="bi bi-people me-2"></i>
+                  Gestión de Usuarios
                 </Link>
               </li>
             </>
           )}
         </ul>
       </nav>
-      {userProfile?.rol === 'usuario' && (
-        <Button variant="light" className="w-100 mt-4" onClick={onNewRequest}>
+      {userProfile?.rol === "usuario" && (
+        <Button
+          variant="light"
+          className="new-request-btn"
+          onClick={onNewRequest}
+        >
           <i className="bi bi-plus-circle me-2"></i>
           Nueva Solicitud
         </Button>
