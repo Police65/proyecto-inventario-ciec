@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Badge } from 'react-bootstrap';
+import { Button, Badge, Modal, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import OrderForm from './OrderForm';
 import RequestTable from './RequestTable';
 import { supabase } from '../supabaseClient';
@@ -7,6 +7,8 @@ import OrderPDF from './OrderPDF';
 import OrderActions from './OrderActions';
 import UserManagement from './UserManagement';
 import ConsolidationModal from './ConsolidationModal';
+import OrderDetailsModal from './OrderDetailsModal';
+import RequestDetailsModal from './RequestDetailsModal';
 
 const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial, ordenesHistorial, userProfile }) => {
   const [showOrderForm, setShowOrderForm] = useState(false);
@@ -14,6 +16,12 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [solicitudesPendientesState, setSolicitudesPendientesState] = useState(solicitudesPendientes);
   const [ordenesConsolidadas, setOrdenesConsolidadas] = useState([]);
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showPDFConfirmation, setShowPDFConfirmation] = useState(false);
+  const [newOrder, setNewOrder] = useState(null);
+  const [showRequestDetails, setShowRequestDetails] = useState(false);
+  const [selectedRequestDetails, setSelectedRequestDetails] = useState(null);
 
   useEffect(() => {
     setSolicitudesPendientesState(solicitudesPendientes);
@@ -63,55 +71,73 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
     }
   };
 
+  const handleOrderClick = (order) => {
+    setSelectedOrder(order);
+    setShowOrderDetails(true);
+  };
+
+  const handleRequestClick = (request) => {
+    setSelectedRequestDetails(request);
+    setShowRequestDetails(true);
+  };
+
+  const handleOrderCreated = (createdOrder) => {
+    setNewOrder(createdOrder);
+    setShowPDFConfirmation(true);
+    setShowOrderForm(false);
+  };
+
   return (
     <>
-   {activeTab === 'solicitudes' && (
-    <div className="bg-dark rounded-3 p-4 border border-secondary">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h4 className="text-light mb-0">🔄 Solicitudes Pendientes</h4>
-        <Button 
-          variant="primary"
-          onClick={() => setShowConsolidationModal(true)}
-        >
-          <i className="bi bi-archive me-2"></i>
-          Consolidar Solicitudes
-        </Button>
-      </div>
-      <RequestTable
-        requests={solicitudesPendientesState}
-        withActions={true}
-        onApprove={(request) => {
-          setSelectedRequest({
-            productos: request.detalles.map(d => ({
-              producto_id: d.producto_id,
-              descripcion: d.producto?.descripcion || 'Producto sin nombre',
-              cantidad: d.cantidad
-            })),
-            solicitudes: [request.id] // Enviamos la solicitud como array
-          });
-          setShowOrderForm(true);
-        }}
-      />
-    </div>
-  )}
-
-{activeTab === 'usuarios' && (
+      {activeTab === 'solicitudes' && (
         <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h4 className="text-light mb-0">🔄 Solicitudes Pendientes</h4>
+            <Button 
+              variant="primary"
+              onClick={() => setShowConsolidationModal(true)}
+            >
+              <i className="bi bi-archive me-2"></i>
+              Consolidar Solicitudes
+            </Button>
+          </div>
+          <RequestTable
+            requests={solicitudesPendientesState}
+            withActions={true}
+            onApprove={(request) => {
+              setSelectedRequest({
+                productos: request.detalles.map(d => ({
+                  producto_id: d.producto_id,
+                  descripcion: d.producto?.descripcion || 'Producto sin nombre',
+                  cantidad: d.cantidad
+                })),
+                solicitudes: [request.id]
+              });
+              setShowOrderForm(true);
+            }}
+            onReject={handleReject}
+          />
+        </div>
+      )}
+
+      {activeTab === 'usuarios' && (
+        <div className="bg-dark rounded-3 p-4 border border-secondary">
+          <h4 className="mb-4 text-light">👥 Gestión de Usuarios</h4>
           <UserManagement />
         </div>
-      )} 
+      )}
 
-  {showConsolidationModal && (
-    <ConsolidationModal
-      show={showConsolidationModal}
-      onHide={() => setShowConsolidationModal(false)}
-      onConsolidate={(consolidatedOrder) => {
-        setOrdenesConsolidadas(prev => [consolidatedOrder, ...prev]);
-        setShowConsolidationModal(false);
-      }}
-      solicitudes={solicitudesPendientesState} 
-    />
-  )}
+      {showConsolidationModal && (
+        <ConsolidationModal
+          show={showConsolidationModal}
+          onHide={() => setShowConsolidationModal(false)}
+          onConsolidate={(consolidatedOrder) => {
+            setOrdenesConsolidadas(prev => [consolidatedOrder, ...prev]);
+            setShowConsolidationModal(false);
+          }}
+          solicitudes={solicitudesPendientesState} 
+        />
+      )}
 
       {activeTab === 'historial-solicitudes' && (
         <div className="bg-dark rounded-3 p-4 border border-secondary">
@@ -119,6 +145,7 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
           <RequestTable
             requests={solicitudesHistorial}
             showStatus={true}
+            onRowClick={handleRequestClick}
           />
         </div>
       )}
@@ -205,8 +232,13 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
             <table className="table table-dark table-hover align-middle">
               <thead className="table-dark">
                 <tr>
-                  <th>ID</th><th>Proveedor</th><th>Solicitud Relacionada</th>
-                  <th>Fecha</th><th>Total</th><th>Estado</th><th>Acciones</th>
+                  <th>ID</th>
+                  <th>Proveedor</th>
+                  <th>Solicitud Relacionada</th>
+                  <th>Fecha</th>
+                  <th>Total</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -218,8 +250,15 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
                   }[orden.estado];
 
                   return (
-                    <tr key={orden.id}>
-                      <td>{orden.id}</td>
+                    <tr key={orden.id} onClick={() => handleOrderClick(orden)} style={{ cursor: 'pointer' }}>
+                      <td>
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>Ver detalles de la orden</Tooltip>}
+                        >
+                          <span>{orden.id}</span>
+                        </OverlayTrigger>
+                      </td>
                       <td>{orden.proveedor?.nombre || 'N/A'}</td>
                       <td>{orden.solicitud_compra?.descripcion || 'N/A'}</td>
                       <td>{new Date(orden.fecha_orden).toLocaleDateString()}</td>
@@ -227,7 +266,7 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
                       <td>
                         <span className={`badge bg-${statusColor}`}>{orden.estado}</span>
                       </td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <div className="d-flex gap-2">
                           <OrderPDF order={orden} key={orden.id} />
                           <OrderActions 
@@ -258,8 +297,51 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
           onHide={() => setShowOrderForm(false)}
           ordenConsolidada={selectedRequest}
           userProfile={userProfile} 
-          onSuccess={() => window.location.reload()}
+          onSuccess={handleOrderCreated}
+          selectedRequest={selectedRequest}
         />
+      )}
+
+      {showOrderDetails && (
+        <OrderDetailsModal
+          show={showOrderDetails}
+          onHide={() => setShowOrderDetails(false)}
+          order={selectedOrder}
+        />
+      )}
+
+      {showRequestDetails && (
+        <RequestDetailsModal
+          show={showRequestDetails}
+          onHide={() => setShowRequestDetails(false)}
+          request={selectedRequestDetails}
+        />
+      )}
+
+      {showPDFConfirmation && (
+        <Modal show={showPDFConfirmation} onHide={() => setShowPDFConfirmation(false)} centered>
+          <Modal.Header closeButton className="bg-dark text-light">
+            <Modal.Title>Orden Creada</Modal.Title>
+          </Modal.Header>
+          <Modal.Body className="bg-dark text-light">
+            <p>La orden #{newOrder.id} ha sido creada exitosamente.</p>
+            <p>¿Desea generar el PDF de la orden?</p>
+            <div className="d-flex justify-content-end">
+              <Button variant="secondary" onClick={() => {
+                setShowPDFConfirmation(false);
+                window.location.reload();
+              }} className="me-2">
+                No
+              </Button>
+              <Button variant="primary" onClick={() => {
+                setShowPDFConfirmation(false);
+                handleOrderClick(newOrder);
+              }}>
+                Sí
+              </Button>
+            </div>
+          </Modal.Body>
+        </Modal>
       )}
     </>
   );

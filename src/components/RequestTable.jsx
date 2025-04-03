@@ -1,7 +1,7 @@
 import React from 'react';
 import { Table, Button } from 'react-bootstrap';
 
-const RequestTable = ({ requests, withActions, onApprove, onReject, showStatus = true }) => {
+const RequestTable = ({ requests, withActions, onApprove, onReject, showStatus = true, onRowClick }) => {
   const getStatusBadge = (estado) => {
     const variants = {
       Pendiente: 'warning',
@@ -18,38 +18,43 @@ const RequestTable = ({ requests, withActions, onApprove, onReject, showStatus =
 
   return (
     <div className="table-responsive">
-    {/* Implementación: Variante dark y texto claro */}
-    <Table striped hover className="align-middle" variant="dark">
-      <thead className="table-dark">
-        <tr>
-          <th>ID</th>
-          <th>Descripción</th>
-          <th>Productos</th>
-          {showStatus && <th>Estado</th>}
-          {withActions && <th>Acciones</th>}
-        </tr>
-      </thead>
-      <tbody>
+      <Table striped hover className="align-middle" variant="dark">
+        <thead className="table-dark">
+          <tr>
+            <th>ID</th>
+            <th>Descripción</th>
+            <th>Productos</th>
+            {showStatus && <th>Estado</th>}
+            {withActions && <th>Acciones</th>}
+          </tr>
+        </thead>
+        <tbody>
           {requests?.map(request => (
-            <tr key={request.id} className="text-light">
+            <tr 
+              key={request.id} 
+              className="text-light" 
+              onClick={() => onRowClick && onRowClick(request)}
+              style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+            >
               <td>{request.id}</td>
               <td>{request.descripcion || 'N/A'}</td>
               <td>
                 {request.detalles?.map((detalle, i) => (
                   <div key={i} className="mb-1 small">
-                    {detalle.producto_id ? (
+                    {detalle.producto && detalle.producto.descripcion ? (
                       <>
-                        <strong>Producto {i + 1}:</strong> ID {detalle.producto_id}
+                        <strong>{detalle.producto.descripcion}</strong>
                         <span className="ms-2">(Cantidad: {detalle.cantidad})</span>
                       </>
-                    ) : 'Producto no especificado'}
+                    ) : (
+                      'Producto no especificado'
+                    )}
                   </div>
                 )) || 'N/A'}
               </td>
               {showStatus && <td>{getStatusBadge(request.estado)}</td>}
-              
               {withActions && (
-                <td>
+                <td onClick={(e) => e.stopPropagation()}>
                   <Button 
                     variant="success" 
                     size="sm" 

@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Container } from 'react-bootstrap';
-import Sidebar from './components/Sidebar';
-import CustomNavbar from './components/Navbar';
-import RequestForm from './components/RequestForm';
-import RequestTable from './components/RequestTable';
-import AdminDashboard from './components/AdminDashboard';
-import Home from './components/Home';
-import Login from './Login';
-import { supabase } from './supabaseClient';
-import ModoOscuro from './components/ModoOscuro';
+import React, { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Container } from "react-bootstrap";
+import Sidebar from "./components/Sidebar";
+import CustomNavbar from "./components/Navbar";
+import RequestForm from "./components/RequestForm";
+import RequestTable from "./components/RequestTable";
+import AdminDashboard from "./components/AdminDashboard";
+import Home from "./components/Home";
+import Login from "./Login";
+import { supabase } from "./supabaseClient";
+import ModoOscuro from "./components/ModoOscuro";
 
 const checkStoredSession = () => {
-  const storedUser = localStorage.getItem('userProfile');
-  const storedTime = localStorage.getItem('sessionTime');
-  
+  const storedUser = localStorage.getItem("userProfile");
+  const storedTime = localStorage.getItem("sessionTime");
+
   if (storedUser && storedTime) {
     const timeElapsed = Date.now() - parseInt(storedTime);
     if (timeElapsed < 900000) {
@@ -38,7 +38,7 @@ function AuthenticatedLayout({
   activeTab,
   setActiveTab,
   handleSubmitRequest,
-  getFilteredRequests
+  getFilteredRequests,
 }) {
   return (
     <>
@@ -52,16 +52,16 @@ function AuthenticatedLayout({
         onNewRequest={() => setShowForm(true)}
         onSelectTab={setActiveTab}
         userProfile={userProfile}
-        pendingRequests={getFilteredRequests(['Pendiente'])}
+        pendingRequests={getFilteredRequests(["Pendiente"])}
       />
       <div
         style={{
-          marginLeft: isSidebarVisible ? '250px' : '0',
-          marginTop: '56px',
-          padding: '20px',
-          transition: 'margin-left 0.3s',
-          minHeight: 'calc(100vh - 56px)',
-          backgroundColor: '#212529'
+          marginLeft: isSidebarVisible ? "250px" : "0",
+          marginTop: "56px",
+          padding: "20px",
+          transition: "margin-left 0.3s",
+          minHeight: "calc(100vh - 56px)",
+          backgroundColor: "#212529",
         }}
       >
         <Container fluid>
@@ -70,22 +70,27 @@ function AuthenticatedLayout({
             <Route
               path="/solicitudes"
               element={
-                userProfile.rol === 'admin' ? (
+                userProfile.rol === "admin" ? (
                   <AdminDashboard
                     activeTab={activeTab}
-                    solicitudesPendientes={getFilteredRequests(['Pendiente'])}
-                    solicitudesHistorial={getFilteredRequests(['Aprobada', 'Rechazada'])}
+                    solicitudesPendientes={getFilteredRequests(["Pendiente"])}
+                    solicitudesHistorial={getFilteredRequests([
+                      "Aprobada",
+                      "Rechazada",
+                    ])}
                     ordenesHistorial={orders}
                     userProfile={userProfile}
                   />
                 ) : (
                   <>
-                    {activeTab === 'solicitudes' && (
-                      <RequestTable requests={getFilteredRequests(['Pendiente'])} />
-                    )}
-                    {activeTab === 'historial' && (
+                    {activeTab === "solicitudes" && (
                       <RequestTable
-                        requests={getFilteredRequests(['Aprobada', 'Rechazada'])}
+                        requests={getFilteredRequests(["Pendiente"])}
+                      />
+                    )}
+                    {activeTab === "historial" && (
+                      <RequestTable
+                        requests={getFilteredRequests(["Aprobada", "Rechazada"])}
                       />
                     )}
                   </>
@@ -97,7 +102,7 @@ function AuthenticatedLayout({
           </Routes>
         </Container>
       </div>
-      {userProfile.rol === 'usuario' && (
+      {userProfile.rol === "usuario" && (
         <RequestForm
           show={showForm}
           onHide={() => setShowForm(false)}
@@ -113,30 +118,36 @@ function App() {
   const [requests, setRequests] = useState([]);
   const [orders, setOrders] = useState([]);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState('solicitudes');
+  const [activeTab, setActiveTab] = useState("solicitudes");
   const [userProfile, setUserProfile] = useState(checkStoredSession());
   const [inactivityTimer, setInactivityTimer] = useState(null);
 
   const fetchRequests = async () => {
     try {
       const baseQuery = supabase
-        .from('solicitudcompra')
-        .select(`
+        .from("solicitudcompra")
+        .select(
+          `
           *,
-          detalles:solicitudcompra_detalle(producto_id, cantidad),
+          detalles:solicitudcompra_detalle(
+            *,
+            producto:producto_id(*)
+          ),
           empleado:empleado_id(nombre, apellido)
-        `)
-        .order('fecha_solicitud', { ascending: false });
+        `
+        )
+        .order("fecha_solicitud", { ascending: false });
 
-      let queryResult = userProfile?.rol === 'admin' 
-        ? await baseQuery 
-        : await baseQuery.eq('empleado_id', userProfile?.empleado_id);
+      let queryResult =
+        userProfile?.rol === "admin"
+          ? await baseQuery
+          : await baseQuery.eq("empleado_id", userProfile?.empleado_id);
 
       if (queryResult.error) throw queryResult.error;
       setRequests(queryResult.data || []);
     } catch (error) {
-      console.error('Error cargando solicitudes:', error);
-      alert('Error al cargar las solicitudes');
+      console.error("Error cargando solicitudes:", error);
+      alert("Error al cargar las solicitudes");
     }
   };
 
@@ -150,36 +161,41 @@ function App() {
     clearTimeout(inactivityTimer);
     setInactivityTimer(
       setTimeout(() => {
-        localStorage.removeItem('userProfile');
-        localStorage.removeItem('sessionTime');
+        localStorage.removeItem("userProfile");
+        localStorage.removeItem("sessionTime");
         setUserProfile(null);
       }, 300000)
     );
   };
 
-  const toggleSidebar = () => setIsSidebarVisible(prev => !prev);
+  const toggleSidebar = () => setIsSidebarVisible((prev) => !prev);
 
   useEffect(() => {
     if (userProfile) {
-      const events = ['mousemove', 'keydown', 'click'];
-      events.forEach(e => window.addEventListener(e, resetInactivityTimer));
-      return () => events.forEach(e => window.removeEventListener(e, resetInactivityTimer));
+      const events = ["mousemove", "keydown", "click"];
+      events.forEach((e) => window.addEventListener(e, resetInactivityTimer));
+      return () =>
+        events.forEach((e) =>
+          window.removeEventListener(e, resetInactivityTimer)
+        );
     }
   }, [userProfile]);
 
   useEffect(() => {
     if (userProfile) {
-      localStorage.setItem('userProfile', JSON.stringify(userProfile));
-      localStorage.setItem('sessionTime', Date.now().toString());
+      localStorage.setItem("userProfile", JSON.stringify(userProfile));
+      localStorage.setItem("sessionTime", Date.now().toString());
       fetchRequests();
       fetchOrders();
     }
   }, [userProfile]);
 
   const getFilteredRequests = (estados) => {
-    return requests.filter(request => 
-      estados.includes(request.estado) &&
-      (userProfile?.rol === 'admin' || request.empleado_id === userProfile?.empleado_id)
+    return requests.filter(
+      (request) =>
+        estados.includes(request.estado) &&
+        (userProfile?.rol === "admin" ||
+          request.empleado_id === userProfile?.empleado_id)
     );
   };
 
@@ -190,43 +206,69 @@ function App() {
       }
 
       const { data: solicitud, error } = await supabase
-        .from('solicitudcompra')
-        .insert([{
-          descripcion: requestData.description || 'Solicitud múltiple',
-          estado: 'Pendiente',
-          empleado_id: userProfile.empleado_id,
-          departamento_id: userProfile.departamento_id
-        }])
-        .select('id');
+        .from("solicitudcompra")
+        .insert([
+          {
+            descripcion: requestData.description || "Solicitud múltiple",
+            estado: "Pendiente",
+            empleado_id: userProfile.empleado_id,
+            departamento_id: userProfile.departamento_id,
+          },
+        ])
+        .select("id");
 
       if (error) throw error;
 
       if (!requestData.customRequest && requestData.products) {
-        const inserts = requestData.products.map(product => ({
+        const inserts = requestData.products.map((product) => ({
           solicitud_compra_id: solicitud[0].id,
           producto_id: product.productId,
-          cantidad: product.quantity
+          cantidad: product.quantity,
         }));
-        
+
         const { error: detalleError } = await supabase
-          .from('solicitudcompra_detalle')
+          .from("solicitudcompra_detalle")
           .insert(inserts);
-          
+
         if (detalleError) throw detalleError;
       }
+
+      // Generar notificaciones para administradores
+      const { data: admins, error: adminsError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("rol", "admin");
+
+      if (adminsError) throw adminsError;
+
+      const notificationInserts = admins.map((admin) => ({
+        user_id: admin.id,
+        title: "Nueva Solicitud de Compra",
+        description: `Se ha creado una nueva solicitud de compra con ID ${solicitud[0].id}`,
+        created_at: new Date().toISOString(),
+        type: "solicitud_compra",
+        read: false,
+      }));
+
+      const { error: notificationError } = await supabase
+        .from("notificaciones")
+        .insert(notificationInserts);
+
+      if (notificationError) throw notificationError;
 
       await fetchRequests();
       setShowForm(false);
     } catch (error) {
-      alert('Error: ' + error.message);
+      alert("Error: " + error.message);
     }
   };
 
   const fetchOrders = async () => {
     try {
       const { data, error } = await supabase
-        .from('ordencompra')
-        .select(`
+        .from("ordencompra")
+        .select(
+          `
           *,
           proveedor:proveedor_id(*),
           productos:ordencompra_detalle(
@@ -235,13 +277,14 @@ function App() {
           ),
           empleado:empleado_id(*),
           solicitud_compra:solicitud_compra_id(*)
-        `)
-        .order('fecha_orden', { ascending: false });
+        `
+        )
+        .order("fecha_orden", { ascending: false });
 
       if (error) throw error;
       setOrders(data || []);
     } catch (error) {
-      console.error('Error cargando órdenes:', error);
+      console.error("Error cargando órdenes:", error);
     }
   };
 
@@ -252,15 +295,17 @@ function App() {
           path="/login"
           element={
             !userProfile ? (
-              <Login 
+              <Login
                 onLogin={(profile) => {
                   if (!profile.empleado_id) {
-                    alert("Tu usuario no está asociado a un empleado. Contacta al administrador.");
+                    alert(
+                      "Tu usuario no está asociado a un empleado. Contacta al administrador."
+                    );
                     return;
                   }
                   setUserProfile({
                     ...profile,
-                    empleado_id: profile.empleado_id
+                    empleado_id: profile.empleado_id,
                   });
                   resetInactivityTimer();
                 }}

@@ -33,9 +33,7 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess, sel
       
       if (proveedoresData) setProveedores(proveedoresData);
 
-      // Cargar productos según el tipo de solicitud
       if (ordenConsolidada && !inicializado) {
-        // Caso: Orden consolidada
         const productosIniciales = ordenConsolidada.productos.map(p => ({
           ...p,
           cantidad: Number(p.cantidad) || 0,
@@ -45,7 +43,6 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess, sel
         calcularTotales(productosIniciales);
         setInicializado(true);
       } else if (selectedRequest?.detalles && !inicializado) {
-        // Caso: Aprobación individual
         const productosIniciales = selectedRequest.detalles.map(d => ({
           producto_id: d.producto_id,
           descripcion: d.producto?.descripcion || 'Producto sin nombre',
@@ -99,7 +96,6 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess, sel
       if (!userProfile?.empleado_id) throw new Error("Error de autenticación");
       if (productos.length === 0) throw new Error("No hay productos");
 
-      // Obtener IDs de solicitudes según el tipo
       const solicitudesIds = ordenConsolidada?.solicitudes || 
         (selectedRequest?.id ? [selectedRequest.id] : []);
       
@@ -109,13 +105,11 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess, sel
         throw new Error("No hay solicitudes vinculadas");
       }
 
-      // Validar precios unitarios
       const preciosInvalidos = productos.some(p => 
         isNaN(p.precio_unitario) || p.precio_unitario <= 0
       );
       if (preciosInvalidos) throw new Error("Precios unitarios inválidos");
 
-      // Crear la orden de compra
       const { data: orden, error } = await supabase
         .from('ordencompra')
         .insert([{
@@ -126,12 +120,20 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess, sel
           fecha_orden: new Date().toISOString(),
           solicitud_compra_id: Number(solicitudesIds[0])
         }])
-        .select('*')
+        .select(`
+          *,
+          proveedor:proveedor_id(*),
+          productos:ordencompra_detalle(
+            *,
+            producto:producto_id(*)
+          ),
+          empleado:empleado_id(*),
+          solicitud_compra:solicitud_compra_id(*)
+        `)
         .single();
 
       if (error) throw error;
 
-      // Insertar detalles de la orden
       const detalles = productos.map(p => ({
         orden_compra_id: orden.id,
         producto_id: p.producto_id,
@@ -141,51 +143,25 @@ const OrderForm = ({ show, onHide, ordenConsolidada, userProfile, onSuccess, sel
 
       await supabase.from('ordencompra_detalle').insert(detalles);
 
-   /**   await supabase.from('orden_solicitud').insert(
-        solicitudesIds.map(solicitudId => ({
-          orden_id: orden.id,
-          solicitud_id: solicitudId
-        }))
-      ); */
-
-      /*
-        solicitudesIds.map( async solicitudId => {
-          await supabase.from('orden_solicitud').insert(
-          {orden_id: orden.id,
-          solicitud_id: solicitudId})
-        })
-        */
-
-        /*
-for (let i = 0; i < solicitudesIds.length; i++) {
-  await supabase.from('orden_solicitud').insert(
-  {orden_id: orden.id,
-    solicitud_id: Number(solicitudesIds[i])})
-}*/
-
-console.log(orden.id, solicitudesIds[0]);
-      // Vincular con solicitudes
       await supabase.from('orden_solicitud').insert(
         solicitudesIds.map(solicitudId => ({
           ordencompra_id: Number(orden.id),
           solicitud_id: Number(solicitudId)
-        })
-      ));
+        }))
+      );
 
-      // Actualizar estado de las solicitudes
       await supabase
         .from('solicitudcompra')
         .update({ estado: 'Aprobada' })
         .in('id', solicitudesIds);
 
-      onSuccess();
+      onSuccess(orden); // Pasamos la orden creada
       onHide();
 
     } catch (error) {
       alert('❌ Error: ' + error.message);
     }
   };
-
 
   const simboloMoneda = formData.unidad === 'Bs' ? 'Bs' : '$';
 

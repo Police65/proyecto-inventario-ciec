@@ -7,11 +7,12 @@ import {
   Overlay,
   Popover,
 } from "react-bootstrap";
-import { Bell, PersonCircle, Cart, List } from "react-bootstrap-icons";
+import { Bell, PersonCircle, List } from "react-bootstrap-icons";
 import { NavLink } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import "../styles/Navbar.css";
+
 const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -19,48 +20,58 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
   const [notifications, setNotifications] = useState([]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef(null);
+
   const handleNotificationClick = () => {
     setShowNotifications(!showNotifications);
   };
+
   const handleProfileClick = () => {
     setShowProfileMenu(!showProfileMenu);
   };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem("userProfile");
     localStorage.removeItem("sessionTime");
     navigate("/login");
   };
+
   useEffect(() => {
-    if (userRole !== "admin") {
-      const fetchUserNotifications = async () => {
-        const { data, error } = await supabase
-          .from("notificaciones")
-          .select("*")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false });
-        if (!error && data) {
-          setNotifications(data);
+    const fetchUserNotifications = async () => {
+      const { data, error } = await supabase
+        .from("notificaciones")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("read", false) // Solo notificaciones no leídas
+        .order("created_at", { ascending: false });
+      if (!error && data) {
+        setNotifications(data);
+      }
+    };
+    fetchUserNotifications();
+
+    // Suscripción en tiempo real para nuevas notificaciones
+    const subscription = supabase
+      .channel("notificaciones")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notificaciones",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          setNotifications((prev) => [payload.new, ...prev]);
         }
-      };
-      fetchUserNotifications();
-    } else {
-      setNotifications([
-        {
-          id: 1,
-          title: "Nueva solicitud de compra",
-          description: "Departamento de IT requiere materiales",
-          date: "2024-01-20",
-        },
-        {
-          id: 2,
-          title: "Solicitud pendiente",
-          description: "Orden #123 requiere aprobación",
-          date: "2024-01-19",
-        },
-      ]);
-    }
-  }, [userRole, userId]);
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [userId]);
+
   return (
     <Navbar
       bg="dark"
@@ -77,7 +88,6 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="navbarSupportedContent" />
         <Navbar.Collapse id="navbarSupportedContent">
-          {/* Uso de NavLink para navegación interna */}
           <Nav className="me-auto mb-2 mb-lg-0">
             <Nav.Link as={NavLink} to="/" end>
               Home
@@ -87,9 +97,6 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
             </Nav.Link>
           </Nav>
           <Nav className="d-flex align-items-center">
-            <Nav.Link href="#" className="me-3">
-              <Cart size={20} />
-            </Nav.Link>
             <Nav.Link
               href="#"
               className="me-3 position-relative"
@@ -127,7 +134,7 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
                         </p>
                         <small className="text-muted">
                           {new Date(
-                            notification.created_at || notification.date
+                            notification.created_at
                           ).toLocaleDateString()}
                         </small>
                       </div>
@@ -172,4 +179,5 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
     </Navbar>
   );
 };
+
 export default CustomNavbar;
