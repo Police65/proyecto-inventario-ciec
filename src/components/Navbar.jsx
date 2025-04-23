@@ -37,22 +37,28 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
   };
 
   useEffect(() => {
+    if (!userId) return;
+
     const fetchUserNotifications = async () => {
-      const { data, error } = await supabase
-        .from("notificaciones")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("read", false) // Solo notificaciones no leídas
-        .order("created_at", { ascending: false });
-      if (!error && data) {
-        setNotifications(data);
+      try {
+        const { data, error } = await supabase
+          .from("notificaciones")
+          .select("*")
+          .eq("user_id", userId) // userId es el ID de autenticación
+          .eq("read", false)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setNotifications(data || []);
+      } catch (error) {
+        console.error("Error fetching notifications:", error.message);
       }
     };
+
     fetchUserNotifications();
 
-    // Suscripción en tiempo real para nuevas notificaciones
     const subscription = supabase
-      .channel("notificaciones")
+      .channel(`notificaciones:user_${userId}`)
       .on(
         "postgres_changes",
         {
@@ -62,7 +68,9 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          setNotifications((prev) => [payload.new, ...prev]);
+          if (!payload.new.read) {
+            setNotifications((prev) => [payload.new, ...prev]);
+          }
         }
       )
       .subscribe();

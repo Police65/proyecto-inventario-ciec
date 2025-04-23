@@ -7,6 +7,7 @@ import RequestForm from "./components/RequestForm";
 import RequestTable from "./components/RequestTable";
 import AdminDashboard from "./components/AdminDashboard";
 import Home from "./components/Home";
+import AdminHome from "./components/AdminHome";
 import Login from "./Login";
 import { supabase } from "./supabaseClient";
 import ModoOscuro from "./components/ModoOscuro";
@@ -52,7 +53,7 @@ function AuthenticatedLayout({
         onNewRequest={() => setShowForm(true)}
         onSelectTab={setActiveTab}
         userProfile={userProfile}
-        pendingRequests={getFilteredRequests(["Pendiente"])}
+        pendingRequests={getFilteredRequests(["Pendiente"], true)}
       />
       <div
         style={{
@@ -66,7 +67,7 @@ function AuthenticatedLayout({
       >
         <Container fluid>
           <Routes>
-            <Route path="/home" element={<Home />} />
+            <Route path="/home" element={userProfile.rol === 'admin' ? <AdminHome userProfile={userProfile} /> : <Home userProfile={userProfile} />} />
             <Route
               path="/solicitudes"
               element={
@@ -74,24 +75,17 @@ function AuthenticatedLayout({
                   <AdminDashboard
                     activeTab={activeTab}
                     solicitudesPendientes={getFilteredRequests(["Pendiente"])}
-                    solicitudesHistorial={getFilteredRequests([
-                      "Aprobada",
-                      "Rechazada",
-                    ])}
+                    solicitudesHistorial={getFilteredRequests(["Aprobada", "Rechazada"])}
                     ordenesHistorial={orders}
                     userProfile={userProfile}
                   />
                 ) : (
                   <>
                     {activeTab === "solicitudes" && (
-                      <RequestTable
-                        requests={getFilteredRequests(["Pendiente"])}
-                      />
+                      <RequestTable requests={getFilteredRequests(["Pendiente"], true)} />
                     )}
                     {activeTab === "historial" && (
-                      <RequestTable
-                        requests={getFilteredRequests(["Aprobada", "Rechazada"])}
-                      />
+                      <RequestTable requests={getFilteredRequests(["Aprobada", "Rechazada"], true)} />
                     )}
                   </>
                 )
@@ -190,12 +184,13 @@ function App() {
     }
   }, [userProfile]);
 
-  const getFilteredRequests = (estados) => {
+  const getFilteredRequests = (estados, deptFilter = false) => {
     return requests.filter(
       (request) =>
         estados.includes(request.estado) &&
         (userProfile?.rol === "admin" ||
-          request.empleado_id === userProfile?.empleado_id)
+          request.empleado_id === userProfile?.empleado_id ||
+          (deptFilter && request.departamento_id === userProfile?.departamento_id))
     );
   };
 
@@ -233,16 +228,16 @@ function App() {
         if (detalleError) throw detalleError;
       }
 
-      // Generar notificaciones para administradores
+      // Obtener IDs de usuarios administradores desde user_profile
       const { data: admins, error: adminsError } = await supabase
-        .from("users")
-        .select("id")
+        .from("user_profile")
+        .select("id") // ID de autenticación
         .eq("rol", "admin");
 
       if (adminsError) throw adminsError;
 
       const notificationInserts = admins.map((admin) => ({
-        user_id: admin.id,
+        user_id: admin.id, // ID de autenticación del admin
         title: "Nueva Solicitud de Compra",
         description: `Se ha creado una nueva solicitud de compra con ID ${solicitud[0].id}`,
         created_at: new Date().toISOString(),
