@@ -1,9 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Navbar, Nav, Container, Button, Overlay, Popover } from 'react-bootstrap';
-import { Bell, PersonCircle, Cart, List } from 'react-bootstrap-icons';
-import { NavLink } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from "react";
+import {
+  Navbar,
+  Nav,
+  Container,
+  Button,
+  Overlay,
+  Popover,
+} from "react-bootstrap";
+import { Bell, PersonCircle, List } from "react-bootstrap-icons";
+import { NavLink } from "react-router-dom";
+import { supabase } from "../supabaseClient";
+import { useNavigate } from "react-router-dom";
+import "../styles/Navbar.css";
+
 const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -11,50 +20,73 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
   const [notifications, setNotifications] = useState([]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileRef = useRef(null);
+
   const handleNotificationClick = () => {
     setShowNotifications(!showNotifications);
   };
+
   const handleProfileClick = () => {
     setShowProfileMenu(!showProfileMenu);
   };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('userProfile');
-    localStorage.removeItem('sessionTime');
-    navigate('/login');
+    localStorage.removeItem("userProfile");
+    localStorage.removeItem("sessionTime");
+    navigate("/login");
   };
+
   useEffect(() => {
-    if (userRole !== 'admin') {
-      const fetchUserNotifications = async () => {
+    if (!userId) return;
+
+    const fetchUserNotifications = async () => {
+      try {
         const { data, error } = await supabase
-          .from('notificaciones')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
-        if (!error && data) {
-          setNotifications(data);
-        }
-      };
-      fetchUserNotifications();
-    } else {
-      setNotifications([
+          .from("notificaciones")
+          .select("*")
+          .eq("user_id", userId) // userId es el ID de autenticación
+          .eq("read", false)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setNotifications(data || []);
+      } catch (error) {
+        console.error("Error fetching notifications:", error.message);
+      }
+    };
+
+    fetchUserNotifications();
+
+    const subscription = supabase
+      .channel(`notificaciones:user_${userId}`)
+      .on(
+        "postgres_changes",
         {
-          id: 1,
-          title: 'Nueva solicitud de compra',
-          description: 'Departamento de IT requiere materiales',
-          date: '2024-01-20'
+          event: "INSERT",
+          schema: "public",
+          table: "notificaciones",
+          filter: `user_id=eq.${userId}`,
         },
-        {
-          id: 2,
-          title: 'Solicitud pendiente',
-          description: 'Orden #123 requiere aprobación',
-          date: '2024-01-19'
+        (payload) => {
+          if (!payload.new.read) {
+            setNotifications((prev) => [payload.new, ...prev]);
+          }
         }
-      ]);
-    }
-  }, [userRole, userId]);
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [userId]);
+
   return (
-    <Navbar bg="dark" variant="dark" expand="lg" className="shadow-sm fixed-top">
+    <Navbar
+      bg="dark"
+      variant="dark"
+      expand="lg"
+      className="shadow-sm fixed-top"
+    >
       <Container fluid>
         <Button variant="dark" onClick={onToggleSidebar} className="me-2">
           <List size={20} />
@@ -64,7 +96,6 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="navbarSupportedContent" />
         <Navbar.Collapse id="navbarSupportedContent">
-          {/* Uso de NavLink para navegación interna */}
           <Nav className="me-auto mb-2 mb-lg-0">
             <Nav.Link as={NavLink} to="/" end>
               Home
@@ -74,9 +105,6 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
             </Nav.Link>
           </Nav>
           <Nav className="d-flex align-items-center">
-            <Nav.Link href="#" className="me-3">
-              <Cart size={20} />
-            </Nav.Link>
             <Nav.Link
               href="#"
               className="me-3 position-relative"
@@ -86,7 +114,7 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
               <Bell size={20} />
               <span
                 className="badge bg-danger rounded-pill position-absolute"
-                style={{ top: '-5px', right: '-5px' }}
+                style={{ top: "-5px", right: "-5px" }}
               >
                 {notifications.length}
               </span>
@@ -104,11 +132,18 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
                 <Popover.Body>
                   {notifications.length > 0 ? (
                     notifications.map((notification) => (
-                      <div key={notification.id} className="notification-item border-bottom p-2">
+                      <div
+                        key={notification.id}
+                        className="notification-item border-bottom p-2"
+                      >
                         <h6 className="mb-1">{notification.title}</h6>
-                        <p className="mb-1 text-muted small">{notification.description}</p>
+                        <p className="mb-1 text-muted small">
+                          {notification.description}
+                        </p>
                         <small className="text-muted">
-                          {new Date(notification.created_at || notification.date).toLocaleDateString()}
+                          {new Date(
+                            notification.created_at
+                          ).toLocaleDateString()}
                         </small>
                       </div>
                     ))
@@ -136,7 +171,11 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
             >
               <Popover id="profile-popover">
                 <Popover.Body>
-                  <Button variant="outline-danger" onClick={handleLogout} size="sm">
+                  <Button
+                    variant="outline-danger"
+                    onClick={handleLogout}
+                    size="sm"
+                  >
                     Cerrar sesión
                   </Button>
                 </Popover.Body>
@@ -148,4 +187,5 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
     </Navbar>
   );
 };
+
 export default CustomNavbar;

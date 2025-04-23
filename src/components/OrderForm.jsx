@@ -1,267 +1,321 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Button } from 'react-bootstrap';
+import { Modal, Form, Button, Table, InputGroup } from 'react-bootstrap';
 import { supabase } from '../supabaseClient';
-import { useNavigate } from 'react-router-dom';
 
-const OrderForm = ({ show, onHide, request, onSuccess }) => {
-  const [proveedores, setProveedores] = useState([]);
+const OrderForm = ({ 
+  show, 
+  onHide, 
+  userProfile, 
+  onSuccess,
+  initialProducts = [],
+  proveedorId = null,
+  solicitudesIds = [],
+  isDirectOrder = false
+}) => {
   const [productos, setProductos] = useState([]);
-  const [items, setItems] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
+  const [fetchedProducts, setFetchedProducts] = useState([]);
   const [formData, setFormData] = useState({
-    proveedor_id: '',
+    sub_total: 0,
+    iva: 0,
+    ret_iva: 0,
+    retencion_porcentaje: 75,
+    neto_a_pagar: 0,
     unidad: 'Bs',
-    observaciones: ''
+    empleado_id: userProfile?.empleado_id || null,
+    proveedor_id: proveedorId || null
   });
-  
-  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: provData } = await supabase.from('proveedor').select('*');
-      const { data: prodData } = await supabase.from('producto').select('*');
-      setProveedores(provData || []);
-      setProductos(prodData || []);
+    const cargarDatos = async () => {
+      const { data: proveedoresData } = await supabase.from('proveedor').select('id, nombre');
+      const { data: productsData } = await supabase.from('producto').select('*');
       
-      if (request) {
-        const { data: detalles } = await supabase
-          .from('solicitudcompra_detalle')
-          .select('producto_id, cantidad')
-          .eq('solicitud_compra_id', request.id);
-          
-        const initialItems = detalles?.map(detalle => ({
-          producto_id: detalle.producto_id,
-          cantidad_solicitada: detalle.cantidad,
-          cantidad: detalle.cantidad,
-          precio_unitario: 0
-        })) || [];
-        
-        setItems(initialItems);
+      setProveedores(proveedoresData || []);
+      setFetchedProducts(productsData || []);
+
+      if (!isDirectOrder && initialProducts.length > 0) {
+        const formattedProducts = initialProducts.map(p => ({
+          id: p.producto_id || Date.now(),
+          productId: p.producto_id,
+          descripcion: p.descripcion,
+          quantity: Number(p.cantidad) || 0,
+          precio_unitario: Number(p.precio_unitario) || 0
+        }));
+        setProductos(formattedProducts);
+        calcularTotales(formattedProducts);
+      } else if (isDirectOrder) {
+        setProductos([{ id: Date.now(), productId: '', quantity: 1, precio_unitario: 0 }]);
       }
     };
-    fetchData();
-  }, [request]);
 
-  const calcularTotales = () => {
-    const subtotal = items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
+    if (show) cargarDatos();
+  }, [show, initialProducts, isDirectOrder]);
+
+  const handleAddProduct = () => {
+    setProductos([...productos, { 
+      id: Date.now(), 
+      productId: '', 
+      quantity: 1, 
+      precio_unitario: 0 
+    }]);
+  };
+
+  const calcularTotales = (productosActualizados) => {
+    const subtotal = productosActualizados.reduce(
+      (acc, p) => acc + (Number(p.quantity || 0) * Number(p.precio_unitario || 0)),
+      0
+    );
     const iva = subtotal * 0.16;
-    const ret_iva = iva * 0.75;
-    const neto = subtotal + iva - ret_iva;
-    return { subtotal, iva, ret_iva, neto };
+    const retencion = iva * (Number(formData.retencion_porcentaje) / 100);
+    const neto = subtotal + iva - retencion;
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      sub_total: Number(subtotal),
+      iva: Number(iva),
+      ret_iva: Number(retencion),
+      neto_a_pagar: Number(neto)
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { subtotal, iva, ret_iva, neto } = calcularTotales();
-    
     try {
-      if (items.some(item => item.precio_unitario <= 0)) {
-        throw new Error('Todos los productos deben tener un precio unitario válido');
+      if (!formData.proveedor_id) throw new Error("¡Seleccione un proveedor!");
+      if (productos.some(p => !p.productId || p.quantity <= 0 || p.precio_unitario <= 0)) {
+        throw new Error("Complete todos los campos de productos correctamente");
       }
 
-      const { data: orden, error } = await supabase.from('ordencompra').insert([{
-        solicitud_compra_id: request.id,
-        proveedor_id: formData.proveedor_id,
-        sub_total: subtotal,
-        iva: iva,
-        ret_iva: ret_iva,
-        neto_a_pagar: neto,
-        estado: 'Pendiente',
-        empleado_id: request.empleado_id,
-        unidad: formData.unidad,
-        observaciones: formData.observaciones
-      }]).select('id');
+      const { data: orden, error } = await supabase
+        .from('ordencompra')
+        .insert([{
+          ...formData,
+          sub_total: Number(formData.sub_total),
+          iva: Number(formData.iva),
+          ret_iva: Number(formData.ret_iva),
+          neto_a_pagar: Number(formData.neto_a_pagar),
+          proveedor_id: Number(formData.proveedor_id),
+          empleado_id: userProfile.empleado_id,
+          estado: 'Pendiente',
+          fecha_orden: new Date().toISOString(),
+          solicitud_compra_id: isDirectOrder ? null : solicitudesIds?.[0]
+        }])
+        .single();
 
       if (error) throw error;
 
-      const detallesInsert = items.map(item => {
-        if (!item.producto_id || item.precio_unitario <= 0) {
-          throw new Error('Datos incompletos en los productos');
-        }
-        return {
-          orden_compra_id: orden[0].id,
-          producto_id: item.producto_id,
-          cantidad: item.cantidad,
-          precio_unitario: item.precio_unitario
-        };
-      });
+      const detalles = productos.map(p => ({
+        orden_compra_id: orden.id,
+        producto_id: p.productId,
+        cantidad: Number(p.quantity),
+        precio_unitario: Number(p.precio_unitario)
+      }));
+      await supabase.from('ordencompra_detalle').insert(detalles);
 
-      const { error: detalleError } = await supabase.from('ordencompra_detalle').insert(detallesInsert);
-      if (detalleError) throw detalleError;
+      if (solicitudesIds?.length > 0) {
+        await supabase.from('orden_solicitud').insert(
+          solicitudesIds.map(solicitudId => ({
+            ordencompra_id: orden.id,
+            solicitud_id: solicitudId
+          }))
+        );
+        
+        await supabase
+          .from('solicitudcompra')
+          .update({ estado: 'Aprobada' })
+          .in('id', solicitudesIds);
+      }
 
-      await supabase.from('solicitudcompra').update({ estado: 'Aprobada' }).eq('id', request.id);
-      onSuccess(orden[0]);
-      navigate('/');
+      onSuccess(orden);
+      onHide();
     } catch (error) {
-      alert('Error al crear la orden: ' + error.message);
+      alert('Error: ' + error.message);
     }
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg" contentClassName="bg-dark text-light">
-      <Modal.Header closeButton className="bg-dark border-secondary">
-        <Modal.Title className="text-light">Crear Orden de Compra</Modal.Title>
+    <Modal show={show} onHide={onHide} size="xl" centered>
+      <Modal.Header closeButton className="bg-dark text-light">
+        <Modal.Title>
+          {isDirectOrder ? 'Crear Orden Directa' : 'Crear Orden de Compra'}
+        </Modal.Title>
       </Modal.Header>
       
-      <Modal.Body className="bg-dark">
+      <Modal.Body className="bg-dark text-light">
         <Form onSubmit={handleSubmit}>
-          {/* Campo para seleccionar proveedor */}
-          <Form.Group className="mb-3">
-            <Form.Label className="text-light">Proveedor</Form.Label>
-            <Form.Select
-              value={formData.proveedor_id}
-              onChange={e => setFormData({ ...formData, proveedor_id: e.target.value })}
-              required
-              className="bg-secondary text-light border-dark"
-            >
-              <option value="">Seleccionar proveedor</option>
-              {proveedores.map(proveedor => (
-                <option key={proveedor.id} value={proveedor.id}>
-                  {proveedor.nombre}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-
-          {/* Campo para observaciones */}
-          <Form.Group className="mb-3">
-            <Form.Label className="text-light">Observaciones</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={2}
-              value={formData.observaciones}
-              onChange={e => setFormData({ ...formData, observaciones: e.target.value })}
-              className="bg-secondary text-light border-dark"
-            />
-          </Form.Group>
-
-          {/* Lista de productos */}
-          {items.map((item, index) => (
-            <div key={index} className="border border-secondary p-3 mb-3 rounded">
-              {/* Selección de producto */}
-              <Form.Group className="mb-3">
-                <Form.Label className="text-light">Producto</Form.Label>
+          <div className="row mb-4">
+            <div className="col-md-6">
+              <Form.Group>
+                <Form.Label>Proveedor</Form.Label>
                 <Form.Select
-                  value={item.producto_id}
-                  onChange={e => {
-                    const newItems = [...items];
-                    newItems[index].producto_id = e.target.value;
-                    setItems(newItems);
-                  }}
+                  value={formData.proveedor_id || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, proveedor_id: e.target.value }))}
                   required
-                  className="bg-secondary text-light border-dark"
+                  className="bg-secondary text-light"
                 >
-                  <option value="">Seleccionar producto</option>
-                  {productos.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.descripcion}
-                    </option>
+                  <option value="">Seleccionar proveedor...</option>
+                  {proveedores.map(proveedor => (
+                    <option key={proveedor.id} value={proveedor.id}>{proveedor.nombre}</option>
                   ))}
                 </Form.Select>
               </Form.Group>
-
-              {/* Cantidad solicitada */}
-              <Form.Group className="mb-3">
-                <Form.Label className="text-light">Cantidad Solicitada</Form.Label>
-                <Form.Control
-                  type="number"
-                  value={item.cantidad_solicitada}
-                  readOnly
-                  className="bg-secondary text-light border-dark"
-                />
-              </Form.Group>
-
-              {/* Cantidad a ordenar */}
-              <Form.Group className="mb-3">
-                <Form.Label className="text-light">Cantidad a Ordenar</Form.Label>
-                <Form.Control
-                  type="number"
-                  value={item.cantidad}
-                  onChange={e => {
-                    const newItems = [...items];
-                    newItems[index].cantidad = e.target.value;
-                    setItems(newItems);
-                  }}
-                  min="1"
-                  required
-                  className="bg-secondary text-light border-dark"
-                />
-              </Form.Group>
-
-              {/* Precio unitario */}
-              <Form.Group className="mb-3">
-                <Form.Label className="text-light">Precio Unitario</Form.Label>
-                <Form.Control
-                  type="number"
-                  step="0.01"
-                  value={item.precio_unitario}
-                  onChange={e => {
-                    const newItems = [...items];
-                    newItems[index].precio_unitario = parseFloat(e.target.value || 0);
-                    setItems(newItems);
-                  }}
-                  required
-                  className="bg-secondary text-light border-dark"
-                />
-              </Form.Group>
-
-              {/* Botón para eliminar producto */}
-              {items.length > 1 && (
-                <Button
-                  variant="danger"
-                  onClick={() => setItems(items.filter((_, i) => i !== index))}
-                >
-                  Eliminar
-                </Button>
-              )}
             </div>
-          ))}
-
-          {/* Botón para añadir más productos */}
-          <Form.Group className="mb-3">
-            <Button
-              variant="outline-primary"
-              onClick={() => setItems([...items, {
-                producto_id: '',
-                cantidad_solicitada: 0,
-                cantidad: 1,
-                precio_unitario: 0
-              }])}
-              className="mb-3"
-            >
-              Añadir Producto
-            </Button>
-          </Form.Group>
-
-          {/* Selector de moneda */}
-          <Form.Group className="mb-3">
-            <Form.Label className="text-light">Moneda</Form.Label>
-            <Form.Select
-              value={formData.unidad}
-              onChange={e => setFormData({ ...formData, unidad: e.target.value })}
-              required
-              className="bg-secondary text-light border-dark"
-            >
-              <option value="Bs">Bolívares (Bs)</option>
-              <option value="USD">Dólares (USD)</option>
-            </Form.Select>
-          </Form.Group>
-
-          {/* Resumen financiero con tema oscuro */}
-          <div className="mt-4 p-3 bg-secondary text-light rounded">
-            <h5>Resumen ({formData.unidad})</h5>
-            <p>Subtotal: {formData.unidad} {calcularTotales().subtotal.toFixed(2)}</p>
-            <p>IVA (16%): {formData.unidad} {calcularTotales().iva.toFixed(2)}</p>
-            <p>Ret. IVA (75%): {formData.unidad} {calcularTotales().ret_iva.toFixed(2)}</p>
-            <p>Neto a Pagar: {formData.unidad} {calcularTotales().neto.toFixed(2)}</p>
+            
+            <div className="col-md-6">
+              <Form.Group>
+                <Form.Label>Unidad Monetaria</Form.Label>
+                <Form.Select
+                  value={formData.unidad}
+                  onChange={(e) => setFormData(prev => ({ ...prev, unidad: e.target.value }))}
+                  className="bg-secondary text-light"
+                >
+                  <option value="Bs">Bolívares (Bs)</option>
+                  <option value="USD">Dólares (USD)</option>
+                </Form.Select>
+              </Form.Group>
+            </div>
           </div>
 
-          {/* Botones de acción */}
-          <div className="d-flex justify-content-end gap-2 mt-4">
-            <Button variant="secondary" onClick={onHide}>
-              Cancelar
+          <Table striped bordered hover variant="dark">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Precio Unitario</th>
+                <th>Total</th>
+                {isDirectOrder && <th>Acción</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {productos.map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    {isDirectOrder ? (
+                      <Form.Select
+                        value={p.productId}
+                        onChange={(e) => {
+                          const product = fetchedProducts.find(prod => prod.id === e.target.value);
+                          const updated = productos.map(item => 
+                            item.id === p.id ? { 
+                              ...item, 
+                              productId: e.target.value,
+                              descripcion: product?.descripcion 
+                            } : item
+                          );
+                          setProductos(updated);
+                          calcularTotales(updated);
+                        }}
+                      >
+                        <option value="">Seleccionar</option>
+                        {fetchedProducts.map(prod => (
+                          <option key={prod.id} value={prod.id}>{prod.descripcion}</option>
+                        ))}
+                      </Form.Select>
+                    ) : (
+                      p.descripcion || 'Producto no disponible'
+                    )}
+                  </td>
+                  <td>
+                    <Form.Control
+                      type="number"
+                      min="1"
+                      value={p.quantity}
+                      onChange={(e) => {
+                        const updated = productos.map(item => 
+                          item.id === p.id ? { ...item, quantity: Number(e.target.value) } : item
+                        );
+                        setProductos(updated);
+                        calcularTotales(updated);
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <InputGroup>
+                      <Form.Control
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={p.precio_unitario}
+                        onChange={(e) => {
+                          const updated = productos.map(item => 
+                            item.id === p.id ? { ...item, precio_unitario: Number(e.target.value) } : item
+                          );
+                          setProductos(updated);
+                          calcularTotales(updated);
+                        }}
+                      />
+                      <InputGroup.Text>{formData.unidad}</InputGroup.Text>
+                    </InputGroup>
+                  </td>
+                  <td>
+                    {(Number(p.quantity) * Number(p.precio_unitario)).toFixed(2)}
+                  </td>
+                  {isDirectOrder && (
+                    <td>
+                      <Button 
+                        variant="danger" 
+                        size="sm" 
+                        onClick={() => setProductos(productos.filter(item => item.id !== p.id))}
+                      >
+                        Eliminar
+                      </Button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+
+          {isDirectOrder && (
+            <Button variant="outline-primary" onClick={handleAddProduct} className="mb-3">
+              Añadir Producto
             </Button>
-            <Button variant="primary" type="submit">
+          )}
+
+          <div className="mt-4 p-3 bg-secondary rounded">
+            <h5>Totales</h5>
+            <Form.Group className="mb-3">
+              <Form.Label>Porcentaje de Retención IVA</Form.Label>
+              <InputGroup>
+                <Form.Control
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.retencion_porcentaje}
+                  onChange={(e) => {
+                    const value = Math.min(100, Math.max(0, Number(e.target.value)));
+                    setFormData(prev => ({ ...prev, retencion_porcentaje: value }));
+                    calcularTotales(productos);
+                  }}
+                />
+                <InputGroup.Text>%</InputGroup.Text>
+              </InputGroup>
+            </Form.Group>
+            <div className="d-flex justify-content-between">
+              <span>Subtotal:</span>
+              <span>{formData.unidad} {Number(formData.sub_total).toFixed(2)}</span>
+            </div>
+            <div className="d-flex justify-content-between">
+              <span>IVA (16%):</span>
+              <span>{formData.unidad} {Number(formData.iva).toFixed(2)}</span>
+            </div>
+            <div className="d-flex justify-content-between">
+              <span>Retención IVA ({formData.retencion_porcentaje}%):</span>
+              <span>{formData.unidad} {Number(formData.ret_iva).toFixed(2)}</span>
+            </div>
+            <div className="d-flex justify-content-between fw-bold">
+              <span>Neto a Pagar:</span>
+              <span>{formData.unidad} {Number(formData.neto_a_pagar).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="mt-4 d-grid gap-2">
+            <Button variant="success" type="submit" size="lg">
               Crear Orden
+            </Button>
+            <Button variant="secondary" onClick={onHide} size="lg">
+              Cancelar
             </Button>
           </div>
         </Form>

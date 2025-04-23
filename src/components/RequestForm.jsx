@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Button } from 'react-bootstrap';
+import { Modal, Form, Button, Table } from 'react-bootstrap';
 import { supabase } from '../supabaseClient.js';
-import { v4 as uuidv4 } from 'uuid'; // Añadir esta importación
+import { v4 as uuidv4 } from 'uuid';
 
 const RequestForm = ({ show, onHide, onSubmit }) => {
   const [products, setProducts] = useState([{ id: uuidv4(), productId: '', quantity: 1 }]);
   const [customRequest, setCustomRequest] = useState(false);
   const [description, setDescription] = useState('');
-  const [fetchedProducts, setFetchedProducts] = useState([]); // Renombrado para evitar conflicto
+  const [fetchedProducts, setFetchedProducts] = useState([]);
 
   useEffect(() => {
     fetchProducts();
@@ -23,28 +23,23 @@ const RequestForm = ({ show, onHide, onSubmit }) => {
   };
 
   const handleRemoveProduct = (id) => {
-    if (products.length > 1) {
-      setProducts(products.filter(product => product.id !== id));
-    }
+    if (products.length > 1) setProducts(products.filter(p => p.id !== id));
+  };
+
+  const handleProductChange = (id, field, value) => {
+    setProducts(products.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Validaciones
     if (customRequest && !description.trim()) {
       alert('Ingrese una descripción para la requisición especial');
       return;
     }
-    
-    if (!customRequest) {
-      const hasEmptyFields = products.some(p => !p.productId || p.quantity < 1);
-      if (hasEmptyFields) {
-        alert('Complete todos los campos de productos');
-        return;
-      }
+    if (!customRequest && products.some(p => !p.productId || p.quantity < 1)) {
+      alert('Complete todos los campos de productos');
+      return;
     }
-
     onSubmit({
       products: customRequest ? null : products,
       description: customRequest ? description : null
@@ -53,65 +48,58 @@ const RequestForm = ({ show, onHide, onSubmit }) => {
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered contentClassName="bg-dark text-light">
-    <Modal.Header closeButton className="bg-dark border-secondary">
-      <Modal.Title className="text-light">Nueva Solicitud</Modal.Title>
-    </Modal.Header>
-    <Modal.Body className="bg-dark">
-      <Form onSubmit={handleSubmit}>
-          {!customRequest && products.map((product, index) => (
-             <div key={product.id} className="mb-3 border border-secondary p-2 rounded">
-              <Form.Group className="mb-3">
-                <Form.Label>Producto:</Form.Label>
-                <Form.Select
-                  value={product.productId}
-                  onChange={(e) => {
-                    const newProducts = [...products];
-                    newProducts[index].productId = e.target.value;
-                    setProducts(newProducts);
-                  }}
-                >
-                  <option value="">Seleccionar producto</option>
-                  {fetchedProducts.map((prod) => (
-                    <option key={prod.id} value={prod.id}>
-                      {prod.descripcion}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-              <Form.Group className="mb-3">
-                <Form.Label>Cantidad:</Form.Label>
-                <Form.Control
-                  type="number"
-                  value={product.quantity}
-                  onChange={(e) => {
-                    const newProducts = [...products];
-                    newProducts[index].quantity = e.target.value;
-                    setProducts(newProducts);
-                  }}
-                  min="1"
-                />
-              </Form.Group>
-              {products.length > 1 && (
-                <Button 
-                  variant="danger" 
-                  size="sm" 
-                  onClick={() => handleRemoveProduct(product.id)}
-                  className="mb-2"
-                >
-                  Eliminar producto
-                </Button>
-              )}
-            </div>
-          ))}
+    <Modal show={show} onHide={onHide} centered contentClassName="bg-dark text-light" size="lg">
+      <Modal.Header closeButton className="bg-dark border-secondary">
+        <Modal.Title className="text-light">Nueva Solicitud</Modal.Title>
+      </Modal.Header>
+      <Modal.Body className="bg-dark">
+        <Form onSubmit={handleSubmit}>
+          {!customRequest && (
+            <Table striped bordered hover variant="dark">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Cantidad</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((product) => (
+                  <tr key={product.id}>
+                    <td>
+                      <Form.Select
+                        value={product.productId}
+                        onChange={(e) => handleProductChange(product.id, 'productId', e.target.value)}
+                      >
+                        <option value="">Seleccionar producto</option>
+                        {fetchedProducts.map((prod) => (
+                          <option key={prod.id} value={prod.id}>{prod.descripcion}</option>
+                        ))}
+                      </Form.Select>
+                    </td>
+                    <td>
+                      <Form.Control
+                        type="number"
+                        value={product.quantity}
+                        onChange={(e) => handleProductChange(product.id, 'quantity', e.target.value)}
+                        min="1"
+                      />
+                    </td>
+                    <td>
+                      {products.length > 1 && (
+                        <Button variant="danger" size="sm" onClick={() => handleRemoveProduct(product.id)}>
+                          Eliminar
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
 
-          <Button 
-            variant="outline-primary" 
-            onClick={handleAddProduct} 
-            className="mb-3"
-            disabled={customRequest}
-          >
-            Añadir otro producto
+          <Button variant="outline-primary" onClick={handleAddProduct} className="mb-3" disabled={customRequest}>
+            Añadir Producto
           </Button>
 
           <Form.Group className="mb-3">
@@ -126,22 +114,13 @@ const RequestForm = ({ show, onHide, onSubmit }) => {
           {customRequest && (
             <Form.Group className="mb-3">
               <Form.Label>Descripción:</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
+              <Form.Control as="textarea" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
             </Form.Group>
           )}
 
           <div className="d-flex justify-content-between">
-            <Button variant="secondary" onClick={onHide}>
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit">
-              Enviar
-            </Button>
+            <Button variant="secondary" onClick={onHide}>Cancelar</Button>
+            <Button variant="primary" type="submit">Enviar</Button>
           </div>
         </Form>
       </Modal.Body>
