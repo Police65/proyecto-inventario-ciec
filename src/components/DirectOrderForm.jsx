@@ -2,17 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Form, Button, Table, InputGroup } from 'react-bootstrap';
 import { supabase } from '../supabaseClient';
 
-const OrderForm = ({ 
-  show, 
-  onHide, 
-  userProfile, 
-  onSuccess,
-  initialProducts = [],
-  proveedorId = null,
-  solicitudesIds = []
-}) => {
-  const [productos, setProductos] = useState([]);
+const DirectOrderForm = ({ show, onHide, userProfile, onSuccess }) => {
+  const [productos, setProductos] = useState([{ id: Date.now(), productId: '', quantity: 1, precio_unitario: 0 }]);
   const [proveedores, setProveedores] = useState([]);
+  const [fetchedProducts, setFetchedProducts] = useState([]);
   const [formData, setFormData] = useState({
     sub_total: 0,
     iva: 0,
@@ -21,29 +14,29 @@ const OrderForm = ({
     neto_a_pagar: 0,
     unidad: 'Bs',
     empleado_id: userProfile?.empleado_id || null,
-    proveedor_id: proveedorId || null
+    proveedor_id: null
   });
 
   useEffect(() => {
     const cargarDatos = async () => {
       const { data: proveedoresData } = await supabase.from('proveedor').select('id, nombre');
+      const { data: productsData } = await supabase.from('producto').select('*');
+      
       setProveedores(proveedoresData || []);
-
-      if (initialProducts.length > 0) {
-        const formattedProducts = initialProducts.map(p => ({
-          id: p.producto_id || Date.now(),
-          productId: p.producto_id,
-          descripcion: p.descripcion,
-          quantity: Number(p.cantidad) || 0,
-          precio_unitario: Number(p.precio_unitario) || 0
-        }));
-        setProductos(formattedProducts);
-        calcularTotales(formattedProducts);
-      }
+      setFetchedProducts(productsData || []);
     };
 
     if (show) cargarDatos();
-  }, [show, initialProducts]);
+  }, [show]);
+
+  const handleAddProduct = () => {
+    setProductos(prev => [...prev, { 
+      id: Date.now(), 
+      productId: '', 
+      quantity: 1, 
+      precio_unitario: 0 
+    }]);
+  };
 
   const calcularTotales = useCallback((productosActualizados) => {
     const subtotal = productosActualizados.reduce(
@@ -73,6 +66,14 @@ const OrderForm = ({
     });
   }, [calcularTotales]);
 
+  const handleRemoveProduct = (id) => {
+    setProductos(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      calcularTotales(updated);
+      return updated;
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -81,6 +82,35 @@ const OrderForm = ({
         throw new Error("Complete todos los campos de productos correctamente");
       }
 
+      // Crear solicitud de compra dummy
+      const { data: solicitud, error: solicitudError } = await supabase
+        .from('solicitudcompra')
+        .insert([{
+          descripcion: 'Orden de compra directa',
+          estado: 'Aprobada',
+          empleado_id: userProfile.empleado_id,
+          departamento_id: userProfile.departamento_id,
+          fecha_solicitud: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+
+      if (solicitudError) throw solicitudError;
+
+      // Insertar detalles de la solicitud
+      const detallesSolicitud = productos.map(p => ({
+        solicitud_compra_id: solicitud.id,
+        producto_id: p.productId,
+        cantidad: p.quantity,
+      }));
+
+      const { error: detallesError } = await supabase
+        .from('solicitudcompra_detalle')
+        .insert(detallesSolicitud);
+
+      if (detallesError) throw detallesError;
+
+      // Crear la orden de compra con el ID de la solicitud
       const { data: orden, error } = await supabase
         .from('ordencompra')
         .insert([{
@@ -93,34 +123,27 @@ const OrderForm = ({
           empleado_id: userProfile.empleado_id,
           estado: 'Pendiente',
           fecha_orden: new Date().toISOString(),
-          solicitud_compra_id: solicitudesIds?.[0]
+          solicitud_compra_id: solicitud.id,
         }])
         .select()
         .single();
 
       if (error) throw error;
 
-      const detalles = productos.map(p => ({
+      // Insertar detalles de la orden
+      const detallesOrden = productos.map(p => ({
         orden_compra_id: orden.id,
         producto_id: p.productId,
         cantidad: Number(p.quantity),
-        precio_unitario: Number(p.precio_unitario)
+        precio_unitario: Number(p.precio_unitario),
       }));
-      await supabase.from('ordencompra_detalle').insert(detalles);
+      await supabase.from('ordencompra_detalle').insert(detallesOrden);
 
-      if (solicitudesIds?.length > 0) {
-        await supabase.from('orden_solicitud').insert(
-          solicitudesIds.map(solicitudId => ({
-            ordencompra_id: orden.id,
-            solicitud_id: solicitudId
-          }))
-        );
-        
-        await supabase
-          .from('solicitudcompra')
-          .update({ estado: 'Aprobada' })
-          .in('id', solicitudesIds);
-      }
+      // Vincular la orden y la solicitud en orden_solicitud
+      await supabase.from('orden_solicitud').insert([{
+        ordencompra_id: orden.id,
+        solicitud_id: solicitud.id,
+      }]);
 
       onSuccess(orden);
       onHide();
@@ -132,11 +155,11 @@ const OrderForm = ({
   return (
     <Modal show={show} onHide={onHide} size="xl" centered>
       <Modal.Header closeButton className="bg-dark text-light">
-        <Modal.Title>Crear Orden de Compra</Modal.Title>
+        <Modal.Title>Crear Orden Directa</Modal.Title>
       </Modal.Header>
       
       <Modal.Body className="bg-dark text-light">
-        <Form onSubmit={handleSubmit}>
+        <Form>
           <div className="row mb-4">
             <div className="col-md-6">
               <Form.Group>
@@ -177,18 +200,36 @@ const OrderForm = ({
                 <th>Cantidad</th>
                 <th>Precio Unitario</th>
                 <th>Total</th>
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody>
               {productos.map((p) => (
                 <tr key={p.id}>
-                  <td>{p.descripcion || 'Producto no disponible'}</td>
+                  <td>
+                    <Form.Select
+                      value={p.productId || ''}
+                      onChange={(e) => {
+                        const product = fetchedProducts.find(prod => prod.id === e.target.value);
+                        handleProductChange(p.id, 'productId', e.target.value);
+                        if (product) handleProductChange(p.id, 'descripcion', product.descripcion);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      <option value="">Seleccionar</option>
+                      {fetchedProducts.map(prod => (
+                        <option key={prod.id} value={prod.id}>{prod.descripcion}</option>
+                      ))}
+                    </Form.Select>
+                  </td>
                   <td>
                     <Form.Control
                       type="number"
                       min="1"
                       value={p.quantity}
-                      onChange={(e) => handleProductChange(p.id, 'quantity', Number(e.target.value) || 1)}
+                      onChange={(e) => handleProductChange(p.id, 'quantity', Number(e.target.value))}
+                      onClick={(e) => e.stopPropagation()}
                     />
                   </td>
                   <td>
@@ -198,7 +239,8 @@ const OrderForm = ({
                         step="0.01"
                         min="0"
                         value={p.precio_unitario}
-                        onChange={(e) => handleProductChange(p.id, 'precio_unitario', Number(e.target.value) || 0)}
+                        onChange={(e) => handleProductChange(p.id, 'precio_unitario', Number(e.target.value))}
+                        onClick={(e) => e.stopPropagation()}
                       />
                       <InputGroup.Text>{formData.unidad}</InputGroup.Text>
                     </InputGroup>
@@ -206,10 +248,23 @@ const OrderForm = ({
                   <td>
                     {(Number(p.quantity || 0) * Number(p.precio_unitario || 0)).toFixed(2)}
                   </td>
+                  <td>
+                    <Button 
+                      variant="danger" 
+                      size="sm" 
+                      onClick={() => handleRemoveProduct(p.id)}
+                    >
+                      Eliminar
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </Table>
+
+          <Button variant="outline-primary" onClick={handleAddProduct} className="mb-3">
+            Añadir Producto
+          </Button>
 
           <div className="mt-4 p-3 bg-secondary rounded">
             <h5>Totales</h5>
@@ -249,7 +304,7 @@ const OrderForm = ({
           </div>
 
           <div className="mt-4 d-grid gap-2">
-            <Button variant="success" type="submit" size="lg">
+            <Button variant="success" onClick={handleSubmit} size="lg">
               Crear Orden
             </Button>
             <Button variant="secondary" onClick={onHide} size="lg">
@@ -262,4 +317,4 @@ const OrderForm = ({
   );
 };
 
-export default OrderForm;
+export default DirectOrderForm;

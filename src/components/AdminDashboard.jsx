@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Badge, Modal, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import OrderForm from './OrderForm';
+import DirectOrderForm from './DirectOrderForm';
 import RequestTable from './RequestTable';
 import { supabase } from '../supabaseClient';
 import OrderPDF from './OrderPDF';
@@ -13,6 +14,7 @@ import ConsolidatedOrderDetailsModal from './ConsolidatedOrderDetailsModal';
 
 const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial, ordenesHistorial, userProfile }) => {
   const [showOrderForm, setShowOrderForm] = useState(false);
+  const [isDirectOrder, setIsDirectOrder] = useState(false);
   const [showConsolidationModal, setShowConsolidationModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [solicitudesPendientesState, setSolicitudesPendientesState] = useState(solicitudesPendientes);
@@ -118,6 +120,13 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
       read: false
     }]);
     
+    setIsDirectOrder(false);
+    setShowOrderForm(true);
+  };
+
+  const handleCreateDirectOrder = () => {
+    setSelectedRequest(null);
+    setIsDirectOrder(true);
     setShowOrderForm(true);
   };
 
@@ -131,10 +140,7 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
               <Button variant="primary" onClick={() => setShowConsolidationModal(true)} className="me-2">
                 <i className="bi bi-archive me-2"></i>Consolidar Solicitudes
               </Button>
-              <Button variant="success" onClick={() => {
-                setSelectedRequest(null);
-                setShowOrderForm(true);
-              }}>
+              <Button variant="success" onClick={handleCreateDirectOrder}>
                 <i className="bi bi-plus-circle me-2"></i>Crear Orden Directa
               </Button>
             </div>
@@ -238,6 +244,7 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
                                 solicitudes: orden.solicitudes,
                                 proveedor_id: orden.proveedor_id
                               });
+                              setIsDirectOrder(false);
                               setShowOrderForm(true);
                             }}
                           >
@@ -310,7 +317,14 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
         </div>
       )}
 
-      {showOrderForm && (
+      {showOrderForm && isDirectOrder ? (
+        <DirectOrderForm
+          show={showOrderForm}
+          onHide={() => setShowOrderForm(false)}
+          userProfile={userProfile}
+          onSuccess={handleOrderCreated}
+        />
+      ) : (
         <OrderForm
           show={showOrderForm}
           onHide={() => setShowOrderForm(false)}
@@ -319,7 +333,6 @@ const AdminDashboard = ({ activeTab, solicitudesPendientes, solicitudesHistorial
           initialProducts={selectedRequest?.initialProducts || []}
           proveedorId={selectedRequest?.proveedor_id}
           solicitudesIds={selectedRequest?.solicitudes}
-          isDirectOrder={!selectedRequest?.solicitudes}
         />
       )}
 
