@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Container } from "react-bootstrap";
+import { Container, Modal, Button } from "react-bootstrap";
 import Sidebar from "./components/Sidebar";
 import CustomNavbar from "./components/Navbar";
 import RequestForm from "./components/RequestForm";
@@ -12,13 +12,17 @@ import Login from "./Login";
 import { supabase } from "./supabaseClient";
 import ModoOscuro from "./components/ModoOscuro";
 
+const INACTIVITY_WARNING_TIME = 10 * 60 * 1000; // 10 minutos en milisegundos
+const INACTIVITY_LOGOUT_TIME = 15 * 60 * 1000; // 15 minutos en milisegundos
+const COUNTDOWN_INTERVAL = 1000; // 1 segundo
+
 const checkStoredSession = () => {
   const storedUser = localStorage.getItem("userProfile");
   const storedTime = localStorage.getItem("sessionTime");
 
   if (storedUser && storedTime) {
     const timeElapsed = Date.now() - parseInt(storedTime);
-    if (timeElapsed < 900000) {
+    if (timeElapsed < INACTIVITY_LOGOUT_TIME) {
       const parsedUser = JSON.parse(storedUser);
       if (parsedUser.empleado_id && parsedUser.rol) {
         return parsedUser;
@@ -114,7 +118,12 @@ function App() {
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [activeTab, setActiveTab] = useState("solicitudes");
   const [userProfile, setUserProfile] = useState(checkStoredSession());
-  const [inactivityTimer, setInactivityTimer] = useState(null);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(5 * 60); // 5 minutos en segundos
+
+  const inactivityWarningTimer = useRef(null);
+  const inactivityLogoutTimer = useRef(null);
+  const countdownTimer = useRef(null);
 
   const fetchRequests = async () => {
     try {
@@ -151,27 +160,49 @@ function App() {
     }
   }, [userProfile]);
 
-  const resetInactivityTimer = () => {
-    clearTimeout(inactivityTimer);
-    setInactivityTimer(
-      setTimeout(() => {
-        localStorage.removeItem("userProfile");
-        localStorage.removeItem("sessionTime");
-        setUserProfile(null);
-      }, 300000)
-    );
+  const resetInactivityTimers = () => {
+    clearTimeout(inactivityWarningTimer.current);
+    clearTimeout(inactivityLogoutTimer.current);
+    clearInterval(countdownTimer.current);
+    setShowWarningModal(false);
+    setTimeLeft(5 * 60);
+
+    inactivityWarningTimer.current = setTimeout(() => {
+      setShowWarningModal(true);
+      countdownTimer.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownTimer.current);
+            handleLogout();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, COUNTDOWN_INTERVAL);
+    }, INACTIVITY_WARNING_TIME);
+
+    inactivityLogoutTimer.current = setTimeout(() => {
+      handleLogout();
+    }, INACTIVITY_LOGOUT_TIME);
   };
 
-  const toggleSidebar = () => setIsSidebarVisible((prev) => !prev);
+  const handleActivity = () => {
+    if (userProfile) {
+      resetInactivityTimers();
+    }
+  };
 
   useEffect(() => {
     if (userProfile) {
       const events = ["mousemove", "keydown", "click"];
-      events.forEach((e) => window.addEventListener(e, resetInactivityTimer));
-      return () =>
-        events.forEach((e) =>
-          window.removeEventListener(e, resetInactivityTimer)
-        );
+      events.forEach((e) => window.addEventListener(e, handleActivity));
+      resetInactivityTimers();
+      return () => {
+        events.forEach((e) => window.removeEventListener(e, handleActivity));
+        clearTimeout(inactivityWarningTimer.current);
+        clearTimeout(inactivityLogoutTimer.current);
+        clearInterval(countdownTimer.current);
+      };
     }
   }, [userProfile]);
 
@@ -228,16 +259,15 @@ function App() {
         if (detalleError) throw detalleError;
       }
 
-      // Obtener IDs de usuarios administradores desde user_profile
       const { data: admins, error: adminsError } = await supabase
         .from("user_profile")
-        .select("id") // ID de autenticación
+        .select("id")
         .eq("rol", "admin");
 
       if (adminsError) throw adminsError;
 
       const notificationInserts = admins.map((admin) => ({
-        user_id: admin.id, // ID de autenticación del admin
+        user_id: admin.id,
         title: "Nueva Solicitud de Compra",
         description: `Se ha creado una nueva solicitud de compra con ID ${solicitud[0].id}`,
         created_at: new Date().toISOString(),
@@ -283,6 +313,16 @@ function App() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem("userProfile");
+    localStorage.removeItem("sessionTime");
+    setUserProfile(null);
+    clearTimeout(inactivityWarningTimer.current);
+    clearTimeout(inactivityLogoutTimer.current);
+    clearInterval(countdownTimer.current);
+  };
+
   return (
     <BrowserRouter>
       <Routes>
@@ -302,7 +342,6 @@ function App() {
                     ...profile,
                     empleado_id: profile.empleado_id,
                   });
-                  resetInactivityTimer();
                 }}
               />
             ) : (
@@ -314,19 +353,38 @@ function App() {
           path="/*"
           element={
             userProfile ? (
-              <AuthenticatedLayout
-                userProfile={userProfile}
-                showForm={showForm}
-                setShowForm={setShowForm}
-                requests={requests}
-                orders={orders}
-                isSidebarVisible={isSidebarVisible}
-                toggleSidebar={toggleSidebar}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                handleSubmitRequest={handleSubmitRequest}
-                getFilteredRequests={getFilteredRequests}
-              />
+              <>
+                <AuthenticatedLayout
+                  userProfile={userProfile}
+                  showForm={showForm}
+                  setShowForm={setShowForm}
+                  requests={requests}
+                  orders={orders}
+                  isSidebarVisible={isSidebarVisible}
+                  toggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)}
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  handleSubmitRequest={handleSubmitRequest}
+                  getFilteredRequests={getFilteredRequests}
+                />
+                <Modal show={showWarningModal} onHide={() => {}} backdrop="static" keyboard={false}>
+                  <Modal.Header>
+                    <Modal.Title>Sesión a punto de expirar</Modal.Title>
+                  </Modal.Header>
+                  <Modal.Body>
+                    <p>Tu sesión se cerrará en {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')} debido a inactividad.</p>
+                    <p>¿Deseas mantener la sesión abierta?</p>
+                  </Modal.Body>
+                  <Modal.Footer>
+                    <Button variant="secondary" onClick={handleLogout}>
+                      Cerrar sesión ahora
+                    </Button>
+                    <Button variant="primary" onClick={handleActivity}>
+                      Mantener sesión
+                    </Button>
+                  </Modal.Footer>
+                </Modal>
+              </>
             ) : (
               <Navigate to="/login" replace />
             )
