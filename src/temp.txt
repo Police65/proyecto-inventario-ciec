@@ -1,0 +1,43 @@
+Muy bien los cambios que realizaste, alguien reviso mi codigo completo y reviso el programa, me hizo observaciones acerca de cosas que quiere cambiar, te enviare el texto resumen de que es lo que busca la persona que esta corrigiendome, a continuacion te presento el resumen de las cosas que necesito que cambies, punto por punto 
+
+ Observaciones y Puntos Clave Identificados:
+    • Durante la revisión, se detallaron los roles de usuario (Normal y Administrador) y las funcionalidades existentes. Se identificaron varias áreas críticas de mejora y observaciones que requieren atención:
+Se necesita mejorar la visualización general de solicitudes para el administrador, haciendo más visible el departamento de origen. Es decir, en las tablas de las solicitudes debe siempre verse el departamento de origen, y por su puesto la informacion completa de todo al dar click para ver detalles 
+ 
+    • Es importante añadir un campo de descripción a cada solicitud para facilitar su identificación. Generalmente todas las solicitudes solo tienen como descripcion "Solicitud multiple" 
+Con respecto a la descripcion me gustaria que fuera una descripcion corta de no mas de 4 palabras, quizas maximo 5 dependiendo de la longitud lo estoy haciendo con open router, una web que me permite obtener una api para acceder a diferentes modelos de IA que puedo implementar en mi software quiero usar el modelo llama 3-70b, esta es mi clave de api "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"
+
+quiero que se le pase a la IA la lista de productos de las solicitudes y la IA en base a eso interprete cual deberia ser la descripcion, por ejemplo si hay escobas, jabon, detergentes la descripcion deberia ser productos para limpieza, o si la lista de productos es algo como boligrafos, papeles etc, deberia ser la descripcion algo como productos de papeleria 
+
+Se propone cambiar el formato del ID de solicitud para incluir la fecha y reiniciarlo anualmente.
+
+Es decir los ID de las solicitudes y las ordenes de compra que se emitan deberia ser la fecha y hora en la que sean emitidos, por ejemplo "o13.5.25-11.33am" la letra del inicio es una o por orden de compra, con las ordenes consolidadas podria ser oc, y con las solicitudes de compra podria ser s 
+
+Es fundamental automatizar la consolidación de productos iguales de diferentes solicitudes. Se podria automatizar teniendo en cuenta las caracteristicas del producto y se podria dar proveedores sugeridos acorde a los productos, claro, el usuario deberia poder cambiar las cosas del formulario si no le parece 
+
+    • .
+    • Se requiere implementar filtros por categoría (ej. electrónica, limpieza) durante el proceso de consolidación.
+
+Es necesario crear un mecanismo para gestionar productos que no se consolidan de inmediato ("productos rezagados"), con opción a eliminarlos.
+
+Esos productos rezagados deberian en su lista asociarse a las solicitudes de donde provienen, y la orden de compra de la que fueron rezagados, el usuario administrador deberia escribir el porque fue rezagado el producto, y el usuario normal deberia tener un apartado de notificaciones donde la IA le explique lo que sucedio y le diga textualmente lo que escribio el usuario administrador 
+
+Se debe permitir al administrador aprobar o rechazar ítems individuales dentro de una solicitud, no solo la solicitud completa. Esto podria ser dentro del formulario para crear las ordenes de compra con las solicitudes de los usuarios al dar click en aprobar o en consolidar solicitudes, en ese formulario se podria seleccionar que productos van y cuales no van y de ahi que queden los que quedaran rezagados 
+
+La funcionalidad completa de gestión de proveedores y productos (añadir, editar) está pendiente de desarrollo, incluyendo la configuración automática del porcentaje de retención. No existe manera de añadir proveedores y productos a la base de datos, esto podria estar en el apartado de inventario, en esa misma ventana 
+
+
+    • Los siguientes puntos representan las tareas prioritarias a abordar en el desarrollo futuro:
+    • Implementar la visualización del departamento en la lista general de solicitudes para el administrador.
+    • Añadir el campo de descripción a las solicitudes.
+    • Desarrollar la automatización de la consolidación de productos iguales de diferentes solicitudes.
+    • Incorporar la funcionalidad de filtro por categoría durante la consolidación.
+    • Implementar el sistema de productos rezagados con su gestión correspondiente (visualizar, eliminar).
+    • Modificar la lógica de aprobación para permitir rechazo o aprobación por ítem individual.
+    • Programar la funcionalidad completa de gestión de proveedores y productos (CRUD), incluyendo la gestión de retenciones.
+
+
+
+
+
+Recuerda darme el codigo completo de cada archivo sin omitir nada 
