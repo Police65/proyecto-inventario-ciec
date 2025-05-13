@@ -11,7 +11,13 @@ const OrderForm = ({
   proveedorId = null,
   solicitudesIds = []
 }) => {
-  const [productos, setProductos] = useState([]);
+  const [productosSeleccionados, setProductosSeleccionados] = useState(
+    initialProducts.map(p => ({ 
+      ...p, 
+      seleccionado: true, 
+      motivo: '' 
+    }))
+  );
   const [proveedores, setProveedores] = useState([]);
   const [formData, setFormData] = useState({
     sub_total: 0,
@@ -35,9 +41,11 @@ const OrderForm = ({
           productId: p.producto_id,
           descripcion: p.descripcion,
           quantity: Number(p.cantidad) || 0,
-          precio_unitario: Number(p.precio_unitario) || 0
+          precio_unitario: Number(p.precio_unitario) || 0,
+          seleccionado: true,
+          motivo: ''
         }));
-        setProductos(formattedProducts);
+        setProductosSeleccionados(formattedProducts);
         calcularTotales(formattedProducts);
       }
     };
@@ -46,10 +54,12 @@ const OrderForm = ({
   }, [show, initialProducts]);
 
   const calcularTotales = useCallback((productosActualizados) => {
-    const subtotal = productosActualizados.reduce(
-      (acc, p) => acc + (Number(p.quantity || 0) * Number(p.precio_unitario || 0)),
-      0
-    );
+    const subtotal = productosActualizados
+      .filter(p => p.seleccionado)
+      .reduce(
+        (acc, p) => acc + (Number(p.quantity || 0) * Number(p.precio_unitario || 0)),
+        0
+      );
     const iva = subtotal * 0.16;
     const retencion = iva * (Number(formData.retencion_porcentaje) / 100);
     const neto = subtotal + iva - retencion;
@@ -64,7 +74,7 @@ const OrderForm = ({
   }, [formData.retencion_porcentaje]);
 
   const handleProductChange = useCallback((id, field, value) => {
-    setProductos(prev => {
+    setProductosSeleccionados(prev => {
       const updated = prev.map(item => 
         item.id === id ? { ...item, [field]: value } : item
       );
@@ -77,8 +87,9 @@ const OrderForm = ({
     e.preventDefault();
     try {
       if (!formData.proveedor_id) throw new Error("¡Seleccione un proveedor!");
-      if (productos.some(p => !p.productId || p.quantity <= 0 || p.precio_unitario <= 0)) {
-        throw new Error("Complete todos los campos de productos correctamente");
+      const productosAOrdenar = productosSeleccionados.filter(p => p.seleccionado);
+      if (productosAOrdenar.some(p => !p.productId || p.quantity <= 0 || p.precio_unitario <= 0)) {
+        throw new Error("Complete todos los campos de productos seleccionados correctamente");
       }
 
       const { data: orden, error } = await supabase
@@ -100,13 +111,41 @@ const OrderForm = ({
 
       if (error) throw error;
 
-      const detalles = productos.map(p => ({
+      const detalles = productosAOrdenar.map(p => ({
         orden_compra_id: orden.id,
         producto_id: p.productId,
         cantidad: Number(p.quantity),
         precio_unitario: Number(p.precio_unitario)
       }));
       await supabase.from('ordencompra_detalle').insert(detalles);
+
+      const productosRezagados = productosSeleccionados.filter(p => !p.seleccionado);
+      if (productosRezagados.length > 0) {
+        const rezagadosInserts = productosRezagados.map(p => ({
+          orden_compra_id: orden.id,
+          producto_id: p.productId,
+          cantidad: p.quantity,
+          motivo: p.motivo || 'No especificado',
+          solicitud_id: solicitudesIds[0]
+        }));
+        await supabase.from('productos_rezagados').insert(rezagadosInserts);
+
+        const { data: empleadoSolicitud } = await supabase
+          .from('solicitudcompra')
+          .select('empleado_id')
+          .eq('id', solicitudesIds[0])
+          .single();
+
+        await supabase.from('notificaciones').insert(
+          productosRezagados.map(p => ({
+            user_id: empleadoSolicitud.empleado_id,
+            title: 'Producto Rezagado',
+            description: `El producto ${p.descripcion} de tu solicitud #${solicitudesIds[0]} fue rezagado. Motivo: ${p.motivo || 'No especificado'}`,
+            created_at: new Date().toISOString(),
+            read: false
+          }))
+        );
+      }
 
       if (solicitudesIds?.length > 0) {
         await supabase.from('orden_solicitud').insert(
@@ -118,7 +157,7 @@ const OrderForm = ({
         
         await supabase
           .from('solicitudcompra')
-          .update({ estado: 'Aprobada' })
+          .update({ estado: productosRezagados.length > 0 && productosAOrdenar.length === 0 ? 'Rechazada' : 'Aprobada' })
           .in('id', solicitudesIds);
       }
 
@@ -173,15 +212,29 @@ const OrderForm = ({
           <Table striped bordered hover variant="dark">
             <thead>
               <tr>
+                <th>Seleccionar</th>
                 <th>Producto</th>
                 <th>Cantidad</th>
                 <th>Precio Unitario</th>
                 <th>Total</th>
+                <th>Motivo (si no seleccionado)</th>
               </tr>
             </thead>
             <tbody>
-              {productos.map((p) => (
+              {productosSeleccionados.map((p) => (
                 <tr key={p.id}>
+                  <td>
+                    <Form.Check
+                      checked={p.seleccionado}
+                      onChange={(e) => {
+                        const updated = [...productosSeleccionados];
+                        const index = updated.findIndex(item => item.id === p.id);
+                        updated[index].seleccionado = e.target.checked;
+                        setProductosSeleccionados(updated);
+                        calcularTotales(updated);
+                      }}
+                    />
+                  </td>
                   <td>{p.descripcion || 'Producto no disponible'}</td>
                   <td>
                     <Form.Control
@@ -204,7 +257,17 @@ const OrderForm = ({
                     </InputGroup>
                   </td>
                   <td>
-                    {(Number(p.quantity || 0) * Number(p.precio_unitario || 0)).toFixed(2)}
+                    {p.seleccionado ? (Number(p.quantity || 0) * Number(p.precio_unitario || 0)).toFixed(2) : 'N/A'}
+                  </td>
+                  <td>
+                    {!p.seleccionado && (
+                      <Form.Control
+                        type="text"
+                        value={p.motivo}
+                        onChange={(e) => handleProductChange(p.id, 'motivo', e.target.value)}
+                        placeholder="Motivo del rechazo"
+                      />
+                    )}
                   </td>
                 </tr>
               ))}
@@ -224,7 +287,7 @@ const OrderForm = ({
                   onChange={(e) => {
                     const value = Math.min(100, Math.max(0, Number(e.target.value)));
                     setFormData(prev => ({ ...prev, retencion_porcentaje: value }));
-                    calcularTotales(productos);
+                    calcularTotales(productosSeleccionados);
                   }}
                 />
                 <InputGroup.Text>%</InputGroup.Text>

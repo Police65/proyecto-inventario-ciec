@@ -9,6 +9,8 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
   const [cantidades, setCantidades] = useState(new Map());
   const [proveedorId, setProveedorId] = useState('');
   const [error, setError] = useState('');
+  const [categorias, setCategorias] = useState([]);
+  const [selectedCategoria, setSelectedCategoria] = useState('');
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -32,12 +34,18 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
             id,
             nombre,
             categorias:proveedor_categoria(
+              categoria_id,
               categoria:categoria_id(nombre)
             )
           `);
 
+        const { data: categoriasData } = await supabase
+          .from('categoria_producto')
+          .select('id, nombre');
+
         setSolicitudes(solicitudesData || []);
         setProveedores(proveedoresData || []);
+        setCategorias(categoriasData || []);
       } catch (err) {
         setError('Error cargando datos: ' + err.message);
       }
@@ -65,10 +73,29 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
           cantidad: item.cantidad,
           solicitudes: new Set([item.solicitudId]),
           cantidadOrdenar: item.cantidad,
+          categoria_id: item.producto.categoria_id,
         });
       }
       return acc;
     }, []);
+
+  const [suggestedProviders, setSuggestedProviders] = useState([]);
+
+  useEffect(() => {
+    if (selectedSolicitudes.size > 0) {
+      const categoriasIds = new Set(productosConsolidados.map(p => p.categoria_id));
+      const providersWithCategories = proveedores.filter(p =>
+        p.categorias?.some(c => categoriasIds.has(c.categoria_id))
+      );
+      setSuggestedProviders(providersWithCategories);
+    } else {
+      setSuggestedProviders([]);
+    }
+  }, [selectedSolicitudes, proveedores]);
+
+  const solicitudesFiltradas = selectedCategoria
+    ? solicitudes.filter(s => s.detalles.some(d => d.producto.categoria_id === selectedCategoria))
+    : solicitudes;
 
   const handleCrearOrden = async () => {
     try {
@@ -109,6 +136,18 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
       <Modal.Body>
         <Row>
           <Col md={7}>
+            <Form.Group className="mb-3">
+              <Form.Label>Filtrar por Categoría</Form.Label>
+              <Form.Select
+                value={selectedCategoria}
+                onChange={(e) => setSelectedCategoria(e.target.value)}
+              >
+                <option value="">Todas las categorías</option>
+                {categorias.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                ))}
+              </Form.Select>
+            </Form.Group>
             <h5>Solicitudes Pendientes</h5>
             <Table striped bordered hover variant="dark">
               <thead>
@@ -119,7 +158,7 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
                 </tr>
               </thead>
               <tbody>
-                {solicitudes.map(solicitud => (
+                {solicitudesFiltradas.map(solicitud => (
                   <tr key={solicitud.id}>
                     <td>
                       <Form.Check
@@ -189,12 +228,30 @@ const ConsolidationModal = ({ show, onHide, onConsolidate }) => {
               className="bg-secondary text-light"
             >
               <option value="">Seleccionar proveedor...</option>
-              {proveedores.map(proveedor => (
-                <option key={proveedor.id} value={proveedor.id}>
-                  {proveedor.nombre} -
-                  {proveedor.categorias?.map(c => c.categoria.nombre).join(', ') || 'Sin categorías'}
-                </option>
-              ))}
+              {suggestedProviders.length > 0 ? (
+                <>
+                  <optgroup label="Sugeridos">
+                    {suggestedProviders.map(proveedor => (
+                      <option key={proveedor.id} value={proveedor.id}>
+                        {proveedor.nombre} - {proveedor.categorias?.map(c => c.categoria.nombre).join(', ')}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Otros">
+                    {proveedores.map(proveedor => (
+                      <option key={proveedor.id} value={proveedor.id}>
+                        {proveedor.nombre} - {proveedor.categorias?.map(c => c.categoria.nombre).join(', ') || 'Sin categorías'}
+                      </option>
+                    ))}
+                  </optgroup>
+                </>
+              ) : (
+                proveedores.map(proveedor => (
+                  <option key={proveedor.id} value={proveedor.id}>
+                    {proveedor.nombre} - {proveedor.categorias?.map(c => c.categoria.nombre).join(', ') || 'Sin categorías'}
+                  </option>
+                ))
+              )}
             </Form.Select>
 
             <Button

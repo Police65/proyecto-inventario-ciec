@@ -23,6 +23,7 @@ const RequestTable = ({ requests, withActions, onApprove, onReject, showStatus =
           <tr>
             <th>ID</th>
             <th>Descripción</th>
+            <th>Departamento</th>
             <th>Productos</th>
             {showStatus && <th>Estado</th>}
             {withActions && <th>Acciones</th>}
@@ -38,6 +39,7 @@ const RequestTable = ({ requests, withActions, onApprove, onReject, showStatus =
             >
               <td>{request.id}</td>
               <td>{request.descripcion || 'N/A'}</td>
+              <td>{request.departamento?.nombre || 'N/A'}</td>
               <td>
                 {request.detalles?.map((detalle, i) => (
                   <div key={i} className="mb-1 small">
@@ -76,7 +78,7 @@ const RequestTable = ({ requests, withActions, onApprove, onReject, showStatus =
           ))}
           {requests?.length === 0 && (
             <tr>
-              <td colSpan={showStatus ? 5 : 4} className="text-center text-muted py-4">
+              <td colSpan={showStatus ? 6 : 5} className="text-center text-muted py-4">
                 No hay registros para mostrar
               </td>
             </tr>

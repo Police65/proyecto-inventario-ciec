@@ -11,6 +11,7 @@ import AdminHome from "./components/AdminHome";
 import Login from "./Login";
 import { supabase } from "./supabaseClient";
 import ModoOscuro from "./components/ModoOscuro";
+import { generateDescription } from "./components/generateDescription.js";
 
 const INACTIVITY_WARNING_TIME = 10 * 60 * 1000; // 10 minutos en milisegundos
 const INACTIVITY_LOGOUT_TIME = 15 * 60 * 1000; // 15 minutos en milisegundos
@@ -136,7 +137,8 @@ function App() {
             *,
             producto:producto_id(*)
           ),
-          empleado:empleado_id(nombre, apellido)
+          empleado:empleado_id(nombre, apellido),
+          departamento:departamento_id(nombre)
         `
         )
         .order("fecha_solicitud", { ascending: false });
@@ -231,11 +233,19 @@ function App() {
         throw new Error("Usuario no tiene empleado asociado");
       }
 
+      let descripcion = "Solicitud múltiple";
+      if (!requestData.customRequest && requestData.products) {
+        console.log("Generando descripción para:", requestData.products);
+        descripcion = await generateDescription(requestData.products);
+      } else if (requestData.description) {
+        descripcion = requestData.description;
+      }
+
       const { data: solicitud, error } = await supabase
         .from("solicitudcompra")
         .insert([
           {
-            descripcion: requestData.description || "Solicitud múltiple",
+            descripcion: descripcion,
             estado: "Pendiente",
             empleado_id: userProfile.empleado_id,
             departamento_id: userProfile.departamento_id,
