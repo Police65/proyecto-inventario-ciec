@@ -103,4 +103,27 @@
 .sidebar .new-request-btn:hover {
     background-color: var(--color3);
     transform: scale(1.05); /* Efecto de agrandamiento */
+    
 }
+
+.sidebar .btn {
+    width: 100%;
+    text-align: left;
+    color: #fff;
+    background-color: transparent;
+    border: none;
+  }
+  
+  .sidebar .btn:hover {
+    background-color: #495057;
+  }
+  
+  .sub-menu {
+    list-style: none;
+    padding-left: 20px;
+    margin-top: 5px;
+  }
+  
+  .sub-menu li {
+    margin-bottom: 5px;
+  }

@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "react-bootstrap";
@@ -11,7 +12,7 @@ const Sidebar = ({
   pendingRequests = [],
 }) => {
   const location = useLocation();
-  
+
   return (
     <aside className={`sidebar ${isVisible ? "visible" : ""}`}>
       <h1>Cámara de Industriales</h1>
@@ -62,7 +63,6 @@ const Sidebar = ({
                   Órdenes Consolidadas
                 </Link>
               </li>
-              {/* Nueva opción de gestión de usuarios */}
               <li>
                 <Link
                   to="/solicitudes"
@@ -71,6 +71,13 @@ const Sidebar = ({
                 >
                   <i className="bi bi-people me-2"></i>
                   Gestión de Usuarios
+                </Link>
+              </li>
+              {/* Nuevo enlace para Gestión de Inventario */}
+              <li>
+                <Link to="/inventory" className="btn">
+                  <i className="bi bi-box-seam me-2"></i>
+                  Gestión de Inventario
                 </Link>
               </li>
             </>

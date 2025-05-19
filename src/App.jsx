@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Container, Modal, Button } from "react-bootstrap";
@@ -12,6 +13,10 @@ import Login from "./Login";
 import { supabase } from "./supabaseClient";
 import ModoOscuro from "./components/ModoOscuro";
 import { generateDescription } from "./components/generateDescription.js";
+import InventoryManagement from "./components/InventoryManagement";
+import ViewInventory from "./components/ViewInventory"; // Nuevo componente
+import ProductManagement from "./components/ProductManagement"; // Nuevo componente
+import ProviderManagement from "./components/ProviderManagement"; // Nuevo componente
 
 const INACTIVITY_WARNING_TIME = 10 * 60 * 1000; // 10 minutos en milisegundos
 const INACTIVITY_LOGOUT_TIME = 15 * 60 * 1000; // 15 minutos en milisegundos
@@ -72,7 +77,16 @@ function AuthenticatedLayout({
       >
         <Container fluid>
           <Routes>
-            <Route path="/home" element={userProfile.rol === 'admin' ? <AdminHome userProfile={userProfile} /> : <Home userProfile={userProfile} />} />
+            <Route
+              path="/home"
+              element={
+                userProfile.rol === "admin" ? (
+                  <AdminHome userProfile={userProfile} />
+                ) : (
+                  <Home userProfile={userProfile} />
+                )
+              }
+            />
             <Route
               path="/solicitudes"
               element={
@@ -80,19 +94,69 @@ function AuthenticatedLayout({
                   <AdminDashboard
                     activeTab={activeTab}
                     solicitudesPendientes={getFilteredRequests(["Pendiente"])}
-                    solicitudesHistorial={getFilteredRequests(["Aprobada", "Rechazada"])}
+                    solicitudesHistorial={getFilteredRequests([
+                      "Aprobada",
+                      "Rechazada",
+                    ])}
                     ordenesHistorial={orders}
                     userProfile={userProfile}
                   />
                 ) : (
                   <>
                     {activeTab === "solicitudes" && (
-                      <RequestTable requests={getFilteredRequests(["Pendiente"], true)} />
+                      <RequestTable
+                        requests={getFilteredRequests(["Pendiente"], true)}
+                      />
                     )}
                     {activeTab === "historial" && (
-                      <RequestTable requests={getFilteredRequests(["Aprobada", "Rechazada"], true)} />
+                      <RequestTable
+                        requests={getFilteredRequests(
+                          ["Aprobada", "Rechazada"],
+                          true
+                        )}
+                      />
                     )}
                   </>
+                )
+              }
+            />
+            <Route
+              path="/inventory"
+              element={
+                userProfile.rol === "admin" ? (
+                  <InventoryManagement userProfile={userProfile} />
+                ) : (
+                  <Navigate to="/home" replace />
+                )
+              }
+            />
+            <Route
+              path="/inventory/view"
+              element={
+                userProfile.rol === "admin" ? (
+                  <ViewInventory />
+                ) : (
+                  <Navigate to="/home" replace />
+                )
+              }
+            />
+            <Route
+              path="/inventory/add-product"
+              element={
+                userProfile.rol === "admin" ? (
+                  <ProductManagement />
+                ) : (
+                  <Navigate to="/home" replace />
+                )
+              }
+            />
+            <Route
+              path="/inventory/add-provider"
+              element={
+                userProfile.rol === "admin" ? (
+                  <ProviderManagement />
+                ) : (
+                  <Navigate to="/home" replace />
                 )
               }
             />
@@ -377,12 +441,21 @@ function App() {
                   handleSubmitRequest={handleSubmitRequest}
                   getFilteredRequests={getFilteredRequests}
                 />
-                <Modal show={showWarningModal} onHide={() => {}} backdrop="static" keyboard={false}>
+                <Modal
+                  show={showWarningModal}
+                  onHide={() => {}}
+                  backdrop="static"
+                  keyboard={false}
+                >
                   <Modal.Header>
                     <Modal.Title>Sesión a punto de expirar</Modal.Title>
                   </Modal.Header>
                   <Modal.Body>
-                    <p>Tu sesión se cerrará en {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')} debido a inactividad.</p>
+                    <p>
+                      Tu sesión se cerrará en {Math.floor(timeLeft / 60)}:
+                      {(timeLeft % 60).toString().padStart(2, "0")} debido a
+                      inactividad.
+                    </p>
                     <p>¿Deseas mantener la sesión abierta?</p>
                   </Modal.Body>
                   <Modal.Footer>
