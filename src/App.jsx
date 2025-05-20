@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Container, Modal, Button } from "react-bootstrap";
 import Sidebar from "./components/Sidebar";
 import CustomNavbar from "./components/Navbar";
@@ -14,6 +14,7 @@ import { supabase } from "./supabaseClient";
 import ModoOscuro from "./components/ModoOscuro";
 import { generateDescription } from "./components/generateDescription.js";
 import InventoryManagement from "./components/InventoryManagement";
+import InventorySidebar from "./components/InventorySidebar";
 import ViewInventory from "./components/ViewInventory"; // Nuevo componente
 import ProductManagement from "./components/ProductManagement"; // Nuevo componente
 import ProviderManagement from "./components/ProviderManagement"; // Nuevo componente
@@ -51,6 +52,9 @@ function AuthenticatedLayout({
   handleSubmitRequest,
   getFilteredRequests,
 }) {
+  const location = useLocation();
+  const isInventoryRoute = location.pathname.startsWith("/inventory");
+
   return (
     <>
       <CustomNavbar
@@ -58,13 +62,17 @@ function AuthenticatedLayout({
         userRole={userProfile.rol}
         userId={userProfile.id}
       />
-      <Sidebar
-        isVisible={isSidebarVisible}
-        onNewRequest={() => setShowForm(true)}
-        onSelectTab={setActiveTab}
-        userProfile={userProfile}
-        pendingRequests={getFilteredRequests(["Pendiente"], true)}
-      />
+      {isInventoryRoute ? (
+        <InventorySidebar isVisible={isSidebarVisible} userProfile={userProfile} />
+      ) : (
+        <Sidebar
+          isVisible={isSidebarVisible}
+          onNewRequest={() => setShowForm(true)}
+          onSelectTab={setActiveTab}
+          userProfile={userProfile}
+          pendingRequests={getFilteredRequests(["Pendiente"], true)}
+        />
+      )}
       <div
         style={{
           marginLeft: isSidebarVisible ? "250px" : "0",
@@ -162,7 +170,7 @@ function AuthenticatedLayout({
             />
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
-          </Routes>
+            </Routes>
         </Container>
       </div>
       {userProfile.rol === "usuario" && (

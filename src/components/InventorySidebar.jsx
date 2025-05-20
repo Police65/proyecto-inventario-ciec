@@ -1,14 +1,15 @@
-// src/components/InventorySidebar.jsx
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Button } from 'react-bootstrap';
-import '../styles/sidebar.css'; // Asegúrate de que este CSS sea compatible
+import React from "react";
+import { Link } from "react-router-dom";
+import { Button } from "react-bootstrap";
+import "../styles/sidebar.css";
 
-const InventorySidebar = ({ userProfile }) => {
+const InventorySidebar = ({ userProfile, isVisible }) => {
   return (
-    <aside className="sidebar visible">
+    <aside className={`sidebar ${isVisible ? "visible" : ""}`}>
       <h1>Gestión de Inventario</h1>
-      <p className="text-light">Bienvenido, {userProfile.nombre} {userProfile.apellido}</p>
+      <p className="text-light">
+        Bienvenido, {userProfile.nombre} {userProfile.apellido}
+      </p>
       <nav>
         <ul>
           <li>

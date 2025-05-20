@@ -1,58 +1,84 @@
-// src/components/DetailedStats.jsx
-import React, { useState, useEffect } from 'react';
-import { Table } from 'react-bootstrap';
-import { supabase } from '../supabaseClient';
+import React, { useState, useEffect } from "react";
+import { Table } from "react-bootstrap";
+import { supabase } from "../supabaseClient";
 
 const DetailedStats = () => {
   const [departmentExpenses, setDepartmentExpenses] = useState([]);
   const [topOrderProducts, setTopOrderProducts] = useState([]);
   const [topRequestProducts, setTopRequestProducts] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Gastos por departamento
-        const { data: orders } = await supabase
-          .from('ordencompra')
-          .select('departamento:departamento_id(nombre), neto_a_pagar');
+        // Gastos por departamento a través de solicitudcompra
+        const { data: orders, error: ordersError } = await supabase
+          .from("ordencompra")
+          .select(`
+            neto_a_pagar,
+            solicitud_compra:solicitud_compra_id (
+              departamento:departamento_id (nombre)
+            )
+          `);
+        if (ordersError) throw ordersError;
+        if (!orders) throw new Error("No se encontraron datos de órdenes");
         const expenses = orders.reduce((acc, order) => {
-          const dept = order.departamento?.nombre || 'Sin departamento';
+          const dept = order.solicitud_compra?.departamento?.nombre || "Sin departamento";
           acc[dept] = (acc[dept] || 0) + (order.neto_a_pagar || 0);
           return acc;
         }, {});
-        setDepartmentExpenses(Object.entries(expenses).map(([dept, total]) => ({ dept, total })));
+        setDepartmentExpenses(
+          Object.entries(expenses).map(([dept, total]) => ({ dept, total }))
+        );
 
         // Productos más frecuentes en órdenes
-        const { data: orderDetails } = await supabase
-          .from('ordencompra_detalle')
-          .select('producto:producto_id(descripcion), cantidad')
-          .order('cantidad', { ascending: false })
+        const { data: orderDetails, error: orderDetailsError } = await supabase
+          .from("ordencompra_detalle")
+          .select("cantidad, producto:producto_id(descripcion)")
+          .order("cantidad", { ascending: false })
           .limit(5);
+        if (orderDetailsError) throw orderDetailsError;
+        if (!orderDetails) throw new Error("No se encontraron detalles de órdenes");
         const orderProducts = orderDetails.reduce((acc, detail) => {
-          const prod = detail.producto.descripcion;
-          acc[prod] = (acc[prod] || 0) + detail.cantidad;
+          const prod = detail.producto?.descripcion || "Desconocido";
+          acc[prod] = (acc[prod] || 0) + (detail.cantidad || 0);
           return acc;
         }, {});
-        setTopOrderProducts(Object.entries(orderProducts).map(([product, quantity]) => ({ product, quantity })));
+        setTopOrderProducts(
+          Object.entries(orderProducts).map(([product, quantity]) => ({
+            product,
+            quantity,
+          }))
+        );
 
         // Productos más frecuentes en solicitudes
-        const { data: requestDetails } = await supabase
-          .from('solicitudcompra_detalle')
-          .select('producto:producto_id(descripcion), cantidad')
-          .order('cantidad', { ascending: false })
+        const { data: requestDetails, error: requestDetailsError } = await supabase
+          .from("solicitudcompra_detalle")
+          .select("cantidad, producto:producto_id(descripcion)")
+          .order("cantidad", { ascending: false })
           .limit(5);
+        if (requestDetailsError) throw requestDetailsError;
+        if (!requestDetails) throw new Error("No se encontraron detalles de solicitudes");
         const requestProducts = requestDetails.reduce((acc, detail) => {
-          const prod = detail.producto.descripcion;
-          acc[prod] = (acc[prod] || 0) + detail.cantidad;
+          const prod = detail.producto?.descripcion || "Desconocido";
+          acc[prod] = (acc[prod] || 0) + (detail.cantidad || 0);
           return acc;
         }, {});
-        setTopRequestProducts(Object.entries(requestProducts).map(([product, quantity]) => ({ product, quantity })));
+        setTopRequestProducts(
+          Object.entries(requestProducts).map(([product, quantity]) => ({
+            product,
+            quantity,
+          }))
+        );
       } catch (error) {
-        console.error('Error fetching detailed stats:', error);
+        console.error("Error fetching detailed stats:", error);
+        setError(error.message);
       }
     };
     fetchData();
   }, []);
+
+  if (error) return <p className="text-light">Error: {error}</p>;
 
   return (
     <div className="mb-4">

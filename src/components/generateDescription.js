@@ -1,5 +1,5 @@
-const API_KEY = "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"; 
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const API_URL = import.meta.env.VITE_APP_OPENROUTER_API_URL;
+const API_KEY = import.meta.env.VITE_APP_OPENROUTER_API_KEY;
 import { supabase } from "../supabaseClient";
 
 async function getProductNames(productIds) {

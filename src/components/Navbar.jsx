@@ -8,9 +8,8 @@ import {
   Popover,
 } from "react-bootstrap";
 import { Bell, PersonCircle, List } from "react-bootstrap-icons";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import { useNavigate } from "react-router-dom";
 import "../styles/Navbar.css";
 
 const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
@@ -44,7 +43,7 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
         const { data, error } = await supabase
           .from("notificaciones")
           .select("*")
-          .eq("user_id", userId) // userId es el ID de autenticación
+          .eq("user_id", userId)
           .eq("read", false)
           .order("created_at", { ascending: false });
 
@@ -141,9 +140,7 @@ const CustomNavbar = ({ onToggleSidebar, userRole, userId }) => {
                           {notification.description}
                         </p>
                         <small className="text-muted">
-                          {new Date(
-                            notification.created_at
-                          ).toLocaleDateString()}
+                          {new Date(notification.created_at).toLocaleString()}
                         </small>
                       </div>
                     ))

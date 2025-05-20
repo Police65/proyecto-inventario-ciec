@@ -5,8 +5,9 @@ import { Button, Form, Modal } from "react-bootstrap";
 import { supabase } from "./supabaseClient.js";
 
 const Login = ({ onLogin }) => {
-  const [email, setEmail] = useState("");
+  const mev= useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [show, setShow] = useState(true);
 
   const handleLogin = async (e) => {
@@ -59,7 +60,7 @@ const Login = ({ onLogin }) => {
       alert("Error: " + error.message);
     }
   };
-  
+
   return (
     <div className="addUser">
       <h3>Iniciar Sesión</h3>
@@ -86,7 +87,7 @@ const Login = ({ onLogin }) => {
             />
           </Form.Group>
 
-          <button type="submit" class="btn-config ">
+          <button type="submit" className="btn-config">
             Login
           </button>
         </div>
