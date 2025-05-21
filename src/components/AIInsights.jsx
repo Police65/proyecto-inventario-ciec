@@ -47,9 +47,20 @@ const AIInsights = () => {
     try {
       switch (type) {
         case "auditor":
-          const { data: orders } = await supabase
+          const { data: orders, error: ordersError } = await supabase
             .from("ordencompra")
-            .select("neto_a_pagar, departamento!departamento_id(nombre)");
+            .select(`
+              neto_a_pagar,
+              solicitudcompra!solicitud_compra_id (
+                departamento!departamento_id (nombre)
+              )
+            `);
+          if (ordersError) throw ordersError;
+          if (!orders || orders.length === 0) {
+            setInsights((prev) => ({ ...prev, [type]: "No hay datos de órdenes para analizar." }));
+            setLoading(false);
+            return;
+          }
           prompt = `
             Analiza los siguientes gastos por departamento:
             ${JSON.stringify(orders)}
