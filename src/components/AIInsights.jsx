@@ -1,44 +1,89 @@
 import React, { useState } from "react";
 import { Card, Button, Tab, Tabs } from "react-bootstrap";
 import { supabase } from "../supabaseClient";
-
-const API_URL = import.meta.env.VITE_APP_OPENROUTER_API_URL;
-const API_KEY = import.meta.env.VITE_APP_OPENROUTER_API_KEY;
+import DOMPurify from "dompurify";
+import DepartmentExpensesChart from "./DepartmentExpensesChart";
+import AnomalyPieChart from "./AnomalyPieChart";
 
 const AIInsights = () => {
   const [activeTab, setActiveTab] = useState("auditor");
   const [insights, setInsights] = useState({});
   const [loading, setLoading] = useState(false);
+  const [departmentStats, setDepartmentStats] = useState([]);
+  const [anomalyData, setAnomalyData] = useState([]);
+
+  // Funciones de cálculo
+  const calculateMean = (values) => {
+    return values.reduce((acc, val) => acc + val, 0) / values.length;
+  };
+
+  const calculateStandardDeviation = (values, mean) => {
+    const variance =
+      values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) /
+      values.length;
+    return Math.sqrt(variance);
+  };
+
+  const detectAnomaliesZScore = (values, mean, stdDev, threshold = 2) => {
+    return values.map((val) => Math.abs(val - mean) / stdDev > threshold);
+  };
+
+  const detectAnomaliesIQR = (values) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    const q1 = sorted[Math.floor(sorted.length / 4)];
+    const q3 = sorted[Math.floor((sorted.length * 3) / 4)];
+    const iqr = q3 - q1;
+    const lowerBound = q1 - 1.5 * iqr;
+    const upperBound = q3 + 1.5 * iqr;
+    return values.map((val) => val < lowerBound || val > upperBound);
+  };
+
+  const parseResponseToHTML = (text) => {
+    const lines = text.split("\n");
+    let html = "";
+    let inList = false;
+
+    lines.forEach((line) => {
+      line = line.trim();
+      if (line.startsWith("**") && line.endsWith("**")) {
+        if (inList) html += "</ol>";
+        inList = false;
+        const heading = line.replace(/\*\*/g, "");
+        html += `<h2>${heading}</h2>`;
+      } else if (/^\d+\./.test(line)) {
+        if (!inList) {
+          html += "<ol>";
+          inList = true;
+        }
+        const listItem = line.replace(/^\d+\.\s*/, "");
+        html += `<li>${listItem}</li>`;
+      } else if (line) {
+        if (inList) {
+          html += "</ol>";
+          inList = false;
+        }
+        html += `<p>${line}</p>`;
+      }
+    });
+
+    if (inList) html += "</ol>";
+    return html;
+  };
 
   const fetchAIResponse = async (prompt) => {
-    try {
-      if (!API_KEY || !API_URL) {
-        throw new Error("Faltan las credenciales de OpenRouter en el archivo .env");
-      }
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "meta-llama/llama-3-70b-instruct",
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(`Error en la API: ${response.statusText}`);
-      }
-      const data = await response.json();
-      if (data.choices && data.choices.length > 0) {
-        return data.choices[0].message.content.trim();
-      } else {
-        return "No se encontró respuesta válida";
-      }
-    } catch (error) {
-      console.error("Error fetching AI response:", error);
-      return "Error al generar respuesta";
-    }
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.REACT_APP_OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "meta-llama/llama-3.3-8b-instruct:free",
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const data = await response.json();
+    return data.choices[0].message.content;
   };
 
   const handleGenerateInsight = async (type) => {
@@ -47,7 +92,7 @@ const AIInsights = () => {
     try {
       switch (type) {
         case "auditor":
-          const { data: orders, error: ordersError } = await supabase
+          const { data: orders, error } = await supabase
             .from("ordencompra")
             .select(`
               neto_a_pagar,
@@ -55,61 +100,71 @@ const AIInsights = () => {
                 departamento!departamento_id (nombre)
               )
             `);
-          if (ordersError) throw ordersError;
+          if (error) throw error;
           if (!orders || orders.length === 0) {
-            setInsights((prev) => ({ ...prev, [type]: "No hay datos de órdenes para analizar." }));
+            setInsights((prev) => ({
+              ...prev,
+              [type]: "No hay datos de órdenes para analizar.",
+            }));
             setLoading(false);
             return;
           }
+
+          const expensesByDept = orders.reduce((acc, order) => {
+            const dept =
+              order.solicitudcompra?.departamento?.nombre || "Sin departamento";
+            const amount = order.neto_a_pagar || 0;
+            if (!acc[dept]) acc[dept] = [];
+            acc[dept].push(amount);
+            return acc;
+          }, {});
+
+          const stats = Object.entries(expensesByDept).map(
+            ([dept, amounts]) => {
+              const total = amounts.reduce((sum, val) => sum + val, 0);
+              const mean = calculateMean(amounts);
+              const stdDev = calculateStandardDeviation(amounts, mean);
+              const zAnomalies = detectAnomaliesZScore(amounts, mean, stdDev);
+              const iqrAnomalies = detectAnomaliesIQR(amounts);
+              const anomalies = amounts.map(
+                (val, i) => zAnomalies[i] || iqrAnomalies[i]
+              );
+              return { dept, total, mean, stdDev, amounts, anomalies };
+            }
+          );
+
+          const anomalySummary = stats.map((stat) => {
+            const anomalyCount = stat.anomalies.filter(Boolean).length;
+            const normalCount = stat.amounts.length - anomalyCount;
+            return {
+              dept: stat.dept,
+              anomalyCount,
+              normalCount,
+            };
+          });
+
           prompt = `
-            Analiza los siguientes gastos por departamento:
-            ${JSON.stringify(orders)}
+            Analiza los siguientes gastos por departamento con estadísticas:
+            ${JSON.stringify(stats)}
+            Resumen de anomalías: ${JSON.stringify(anomalySummary)}
             Detecta anomalías y sugiere acciones correctivas.
           `;
-          break;
-        case "proveedores":
-          const { data: providers } = await supabase
-            .from("proveedor")
-            .select("id, nombre, direccion");
-          const { data: orderDetails } = await supabase
-            .from("ordencompra_detalle")
-            .select("orden_compra_id, cantidad");
-          prompt = `
-            Con base en estos proveedores y órdenes:
-            - Proveedores: ${JSON.stringify(providers)}
-            - Detalles de órdenes: ${JSON.stringify(orderDetails)}
-            Genera un ranking de proveedores éticos locales con explicaciones (prioriza entrega rápida y costos bajos).
-          `;
-          break;
-        case "predictor":
-          const { data: inventory } = await supabase
-            .from("inventario")
-            .select("producto_id, existencias");
-          const { data: pastOrders } = await supabase
-            .from("ordencompra")
-            .select("fecha_orden, neto_a_pagar");
-          prompt = `
-            Según estos datos:
-            - Inventario: ${JSON.stringify(inventory)}
-            - Órdenes pasadas: ${JSON.stringify(pastOrders)}
-            Recomienda cantidades a comprar para el próximo trimestre con justificación técnica.
-          `;
-          break;
-        case "asistente":
-          const { data: requests } = await supabase
-            .from("solicitudcompra_detalle")
-            .select("cantidad, producto!producto_id(descripcion)");
-          prompt = `
-            Analiza estas solicitudes recurrentes:
-            ${JSON.stringify(requests)}
-            Sugiere órdenes de compra recurrentes para optimizar el proceso.
-          `;
+
+          setDepartmentStats(stats);
+          setAnomalyData(
+            anomalySummary.map((s) => [
+              { name: "Anomalías", value: s.anomalyCount },
+              { name: "Normales", value: s.normalCount },
+            ])
+          );
+
+          const response = await fetchAIResponse(prompt);
+          const cleanHTML = DOMPurify.sanitize(parseResponseToHTML(response));
+          setInsights((prev) => ({ ...prev, [type]: cleanHTML }));
           break;
         default:
           break;
       }
-      const response = await fetchAIResponse(prompt);
-      setInsights((prev) => ({ ...prev, [type]: response }));
     } catch (error) {
       setInsights((prev) => ({ ...prev, [type]: "Error al procesar datos" }));
     } finally {
@@ -133,45 +188,41 @@ const AIInsights = () => {
             >
               {loading ? "Generando..." : "Analizar Gastos"}
             </Button>
-            <p className="mt-3">
-              {insights.auditor || "Presiona el botón para generar análisis"}
-            </p>
-          </Tab>
-          <Tab eventKey="proveedores" title="Optimizador de Proveedores">
-            <Button
-              onClick={() => handleGenerateInsight("proveedores")}
-              disabled={loading}
-            >
-              {loading ? "Generando..." : "Optimizar Proveedores"}
-            </Button>
-            <p className="mt-3">
-              {insights.proveedores || "Presiona el botón para generar ranking"}
-            </p>
-          </Tab>
-          <Tab eventKey="predictor" title="Predictor de Consumo">
-            <Button
-              onClick={() => handleGenerateInsight("predictor")}
-              disabled={loading}
-            >
-              {loading ? "Generando..." : "Predecir Consumo"}
-            </Button>
-            <p className="mt-3">
-              {insights.predictor || "Presiona el botón para generar predicción"}
-            </p>
-          </Tab>
-          <Tab eventKey="asistente" title="Asistente Inteligente">
-            <Button
-              onClick={() => handleGenerateInsight("asistente")}
-              disabled={loading}
-            >
-              {loading ? "Generando..." : "Sugerir Órdenes Recurrentes"}
-            </Button>
-            <p className="mt-3">
-              {insights.asistente || "Presiona el botón para generar sugerencias"}
-            </p>
+            <div className="mt-3">
+              {departmentStats.length > 0 && (
+                <DepartmentExpensesChart data={departmentStats} />
+              )}
+              {anomalyData.length > 0 && <AnomalyPieChart data={anomalyData[0]} />}
+              <div
+                className="ai-response"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    insights.auditor || "Presiona el botón para generar análisis",
+                }}
+              />
+            </div>
           </Tab>
         </Tabs>
       </Card.Body>
+      <style jsx>{`
+        .ai-response h2 {
+          color: #ffffff;
+          margin-top: 20px;
+          font-size: 1.5rem;
+        }
+        .ai-response p {
+          color: #d3d3d3;
+          line-height: 1.6;
+          margin-bottom: 10px;
+        }
+        .ai-response ol {
+          padding-left: 20px;
+          color: #d3d3d3;
+        }
+        .ai-response li {
+          margin-bottom: 8px;
+        }
+      `}</style>
     </Card>
   );
 };
