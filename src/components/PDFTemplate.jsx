@@ -48,6 +48,7 @@ const PDFTemplate = ({ orden, camara }) => {
 
   return (
     <div style={baseStyles.page}>
+    <img src="logos/LogotipoBLACK@1.5x-svg" alt="Imagen no disponible" />
       {/* Cabecera Institucional */}
       <div style={baseStyles.header}>
         <h2 style={{ fontSize: '24px', margin: '5px 0', color: '#000' }}>
