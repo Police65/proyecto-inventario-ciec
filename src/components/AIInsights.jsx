@@ -92,6 +92,7 @@ const AIInsights = () => {
     try {
       switch (type) {
         case "auditor":
+          // Auditor de Gastos (ya implementado)
           const { data: orders, error } = await supabase
             .from("ordencompra")
             .select(`
@@ -162,6 +163,152 @@ const AIInsights = () => {
           const cleanHTML = DOMPurify.sanitize(parseResponseToHTML(response));
           setInsights((prev) => ({ ...prev, [type]: cleanHTML }));
           break;
+
+        case "proveedores":
+          // Optimizador de Proveedores
+          const { data: proveedoresData, error: provError } = await supabase
+            .from("proveedor")
+            .select("id, nombre");
+          if (provError) throw provError;
+
+          const { data: ordenesData, error: ordError } = await supabase
+            .from("ordencompra")
+            .select("proveedor_id, neto_a_pagar, estado");
+          if (ordError) throw ordError;
+
+          const proveedorStats = proveedoresData.map((proveedor) => {
+            const ordenesProv = ordenesData.filter(
+              (orden) => orden.proveedor_id === proveedor.id
+            );
+            const totalGastado = ordenesProv.reduce(
+              (acc, orden) => acc + (orden.neto_a_pagar || 0),
+              0
+            );
+            const completadas = ordenesProv.filter(
+              (orden) => orden.estado === "Completada"
+            ).length;
+            const eficiencia =
+              ordenesProv.length > 0 ? (completadas / ordenesProv.length) * 100 : 0;
+            return {
+              nombre: proveedor.nombre,
+              totalGastado,
+              eficiencia,
+            };
+          });
+
+          prompt = `
+            Analiza los datos de proveedores:
+            ${JSON.stringify(proveedorStats)}
+            Identifica los proveedores más eficientes en costos y cumplimiento.
+            Sugiere cómo optimizar la selección de proveedores.
+          `;
+
+          const provResponse = await fetchAIResponse(prompt);
+          const provHTML = DOMPurify.sanitize(parseResponseToHTML(provResponse));
+          setInsights((prev) => ({ ...prev, [type]: provHTML }));
+          break;
+
+        case "predictor":
+          // Predictor de Consumo
+          const { data: inventarioData, error: invError } = await supabase
+            .from("inventario")
+            .select("producto_id, existencias");
+          if (invError) throw invError;
+
+          const { data: solicitudesData, error: solError } = await supabase
+            .from("solicitudcompra_detalle")
+            .select("producto_id, cantidad");
+          if (solError) throw solError;
+
+          const consumoPorProducto = solicitudesData.reduce((acc, detalle) => {
+            const { producto_id, cantidad } = detalle;
+            acc[producto_id] = (acc[producto_id] || 0) + (cantidad || 0);
+            return acc;
+          }, {});
+
+          const predicciones = inventarioData.map((item) => {
+            const consumo = consumoPorProducto[item.producto_id] || 0;
+            const existencias = item.existencias || 0;
+            const prediccion = existencias - consumo;
+            return {
+              producto_id: item.producto_id,
+              existencias,
+              consumo,
+              prediccion,
+            };
+          });
+
+          prompt = `
+            Analiza el consumo de productos y predice necesidades futuras:
+            ${JSON.stringify(predicciones)}
+            Sugiere acciones para optimizar el inventario basado en estas predicciones.
+          `;
+
+          const predResponse = await fetchAIResponse(prompt);
+          const predHTML = DOMPurify.sanitize(parseResponseToHTML(predResponse));
+          setInsights((prev) => ({ ...prev, [type]: predHTML }));
+          break;
+
+        case "asistente":
+          // Asistente Inteligente
+          const { data: productosData, error: prodError } = await supabase
+            .from("producto")
+            .select("id, descripcion");
+          if (prodError) throw prodError;
+
+          const { data: invAsistData, error: invAsistError } = await supabase
+            .from("inventario")
+            .select("producto_id, existencias");
+          if (invAsistError) throw invAsistError;
+
+          const alertas = invAsistData
+            .map((item) => {
+              const producto = productosData.find((p) => p.id === item.producto_id);
+              if (item.existencias < 10) {
+                return `Producto "${
+                  producto?.descripcion || "Desconocido"
+                }" tiene bajo stock (${item.existencias} unidades).`;
+              }
+              return null;
+            })
+            .filter(Boolean);
+
+          prompt = `
+            Proporciona recomendaciones basadas en los datos:
+            - Alertas de stock bajo: ${alertas.length > 0 ? alertas.join(", ") : "Ninguna"}
+            Sugiere acciones para gestionar el inventario y prevenir problemas.
+          `;
+
+          const asistResponse = await fetchAIResponse(prompt);
+          const asistHTML = DOMPurify.sanitize(parseResponseToHTML(asistResponse));
+          setInsights((prev) => ({ ...prev, [type]: asistHTML }));
+          break;
+
+        case " prostatecttendencias":
+          // Análisis de Tendencias
+          const { data: ordenesTendData, error: tendError } = await supabase
+            .from("ordencompra")
+            .select("fecha_orden, neto_a_pagar");
+          if (tendError) throw tendError;
+
+          const tendencias = ordenesTendData.reduce((acc, orden) => {
+            const mes = new Date(orden.fecha_orden).getMonth() + 1;
+            acc[mes] = (acc[mes] || 0) + (orden.neto_a_pagar || 0);
+            return acc;
+          }, {});
+
+          prompt = `
+            Analiza las tendencias de gastos mensuales:
+            ${JSON.stringify(tendencias)}
+            Identifica patrones o anomalías en los gastos a lo largo del tiempo.
+            Sugiere estrategias basadas en estas tendencias.
+          `;
+
+          const tendResponse = await fetchAIResponse(prompt);
+          const tendHTML = DOMPurify.sanitize(parseResponseToHTML(tendResponse));
+          setInsights((prev) => ({ ...prev, [type]: tendHTML }));
+          break;
+
         default:
           break;
       }
@@ -198,6 +345,74 @@ const AIInsights = () => {
                 dangerouslySetInnerHTML={{
                   __html:
                     insights.auditor || "Presiona el botón para generar análisis",
+                }}
+              />
+            </div>
+          </Tab>
+          <Tab eventKey="proveedores" title="Optimizador de Proveedores">
+            <Button
+              onClick={() => handleGenerateInsight("proveedores")}
+              disabled={loading}
+            >
+              {loading ? "Generando..." : "Optimizar Proveedores"}
+            </Button>
+            <div className="mt-3">
+              <div
+                className="ai-response"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    insights.proveedores || "Presiona el botón para generar análisis",
+                }}
+              />
+            </div>
+          </Tab>
+          <Tab eventKey="predictor" title="Predictor de Consumo">
+            <Button
+              onClick={() => handleGenerateInsight("predictor")}
+              disabled={loading}
+            >
+              {loading ? "Generando..." : "Predecir Consumo"}
+            </Button>
+            <div className="mt-3">
+              <div
+                className="ai-response"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    insights.predictor || "Presiona el botón para generar análisis",
+                }}
+              />
+            </div>
+          </Tab>
+          <Tab eventKey="asistente" title="Asistente Inteligente">
+            <Button
+              onClick={() => handleGenerateInsight("asistente")}
+              disabled={loading}
+            >
+              {loading ? "Generando..." : "Obtener Recomendaciones"}
+            </Button>
+            <div className="mt-3">
+              <div
+                className="ai-response"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    insights.asistente || "Presiona el botón para generar análisis",
+                }}
+              />
+            </div>
+          </Tab>
+          <Tab eventKey="tendencias" title="Análisis de Tendencias">
+            <Button
+              onClick={() => handleGenerateInsight("tendencias")}
+              disabled={loading}
+            >
+              {loading ? "Generando..." : "Analizar Tendencias"}
+            </Button>
+            <div className="mt-3">
+              <div
+                className="ai-response"
+                dangerouslySetInnerHTML={{
+                  __html:
+                    insights.tendencias || "Presiona el botón para generar análisis",
                 }}
               />
             </div>
