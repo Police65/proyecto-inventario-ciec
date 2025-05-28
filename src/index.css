@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Optional: If you are using Flowbite's CSS directly */
+/* Ensure you have 'flowbite' installed as a dependency */
+/* @import 'flowbite/dist/flowbite.min.css'; */
+
+/* You can add any other global styles here */
+body {
+  font-family: 'Inter', sans-serif; /* Example: Set a default font */
+}

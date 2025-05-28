@@ -1,0 +1,6 @@
+{
+  "name": "Purchase Order Management System",
+  "description": "A comprehensive system for managing purchase orders, allowing admins to oversee operations and users to submit requests. Features include request tracking, order generation, inventory management, and user administration.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

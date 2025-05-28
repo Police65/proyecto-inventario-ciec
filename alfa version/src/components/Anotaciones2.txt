@@ -271,7 +271,7 @@ create table public.user_profile (
 ) TABLESPACE pg_default;
 
 
-user_profile esta relacionado con la tabla por defecto de supabase para la autenticacion 
+  user_profile esta relacionado con la tabla por defecto de supabase para la autenticacion 
 
 [fermin@fermin-systemproductname proyecto-inventario-ciec]$ dir
 Captura.jpg                  node_modules                                       pnpm-lock.yaml  src
