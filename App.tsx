@@ -1,4 +1,5 @@
 import React from 'react';
+// @ts-ignore
 import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 
