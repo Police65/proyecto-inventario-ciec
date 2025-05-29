@@ -97,9 +97,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
       });
       setError(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show, proveedorId, formatInitialProducts]); // Added formData.retencion_porcentaje to deps of useEffect, or rather, ensure calcularTotales has the latest.
 
+  }, [show, proveedorId, formatInitialProducts]); 
   const calcularTotales = useCallback((productos: ProductLineItem[], retencionPct: number) => {
     const subtotal = productos
       .filter(p => p.seleccionado)
@@ -111,7 +110,6 @@ const OrderForm: React.FC<OrderFormProps> = ({
   }, []);
   
   useEffect(() => {
-    // This useEffect will run when productosSeleccionados or formData.retencion_porcentaje changes
     calcularTotales(productosSeleccionados, formData.retencion_porcentaje || 75);
   }, [productosSeleccionados, formData.retencion_porcentaje, calcularTotales]);
 
@@ -172,8 +170,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
             empleado_id: userProfile.empleado_id,
             retencion_porcentaje: formData.retencion_porcentaje || 0,
             // Campos requeridos por DB que pueden no estar en el form directamente
-            precio_unitario: 0, // This was on OrdenCompra, likely should be from details. Defaulting to 0 if it's for the main table.
-            changed_by: userProfile.empleado_id // Assuming the creator is the one changing it initially
+            precio_unitario: 0, 
+            changed_by: userProfile.empleado_id 
         };
 
         const { data: ordenData, error: ordenError } = await supabase
@@ -206,7 +204,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
                 solicitud_id: solicitudesIds.length > 0 ? solicitudesIds[0] : null, // Link to the first solicitud if consolidating
             }));
             await supabase.from('productos_rezagados').insert(rezagadosPayload);
-            // TODO: Consider notifying about rezagados items
+            
         }
 
         if (solicitudesIds.length > 0) {
@@ -215,11 +213,11 @@ const OrderForm: React.FC<OrderFormProps> = ({
                 solicitud_id: solId,
             }));
             await supabase.from('orden_solicitud').insert(ordenSolicitudLinks);
-            // Update status of linked solicitudes
+           
             await supabase.from('solicitudcompra').update({ estado: 'Aprobada' }).in('id', solicitudesIds);
         }
         
-        onSuccess(ordenData as OrdenCompra); // Cast to full OrdenCompra
+        onSuccess(ordenData as OrdenCompra);
         onHide();
 
     } catch (err) {

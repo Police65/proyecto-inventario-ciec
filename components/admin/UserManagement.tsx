@@ -4,14 +4,11 @@ import { Empleado, UserProfile, Cargo, Departamento, EmpleadoCargoHistorial, Use
 import { PlusCircleIcon, PencilIcon, TrashIcon, EyeIcon, UserPlusIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 
-// Define a more specific type for the raw employee data from the query
-// User profile will be joined manually.
 interface RawEmpleadoFromQuery extends Omit<Empleado, 'user_profile' | 'cargo' | 'departamento'> {
   cargo: Pick<Cargo, 'id' | 'nombre'> | null;
   departamento: Pick<Departamento, 'id' | 'nombre'> | null;
 }
 
-// Define Tailwind classes for reuse
 const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
 const btnPrimaryClasses = "px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md shadow-sm text-sm";
 const btnSecondaryClasses = "px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none";

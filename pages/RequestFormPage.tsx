@@ -1,6 +1,5 @@
 
 import React from 'react';
-// @ts-ignore
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import RequestForm from '../components/requests/RequestForm';
 import { UserProfile } from '../types';
@@ -27,16 +26,14 @@ const RequestFormPage: React.FC = () => {
       if (requestData.customRequest && requestData.description) {
         finalDescription = requestData.description;
       } else if (!requestData.customRequest && requestData.products && requestData.products.length > 0) {
-        // Ensure productIds are numbers
         const productsForAI = requestData.products.map(p => ({
-          productId: parseInt(p.productId, 10), // Explicitly parse to number
+          productId: parseInt(p.productId, 10),
           quantity: p.quantity
-        })).filter(p => !isNaN(p.productId)); // Filter out any NaN productIds if parsing fails
+        })).filter(p => !isNaN(p.productId));
 
         if (productsForAI.length > 0) {
             finalDescription = await aiGenerateDescription(productsForAI);
         } else if (requestData.products.length > 0) {
-            // This case means all productIds failed to parse, which is unlikely with a select, but good for robustness
             console.warn("All product IDs failed to parse for AI description. Using default.");
             finalDescription = "Solicitud de artículos (IDs no procesados)";
         }
@@ -63,7 +60,7 @@ const RequestFormPage: React.FC = () => {
           solicitud_compra_id: solicitudId,
           producto_id: parseInt(p.productId),
           cantidad: p.quantity,
-        })).filter(d => !isNaN(d.producto_id)); // Ensure producto_id is a number
+        })).filter(d => !isNaN(d.producto_id)); 
         
         if (detalles.length > 0) {
             const { error: detalleError } = await supabase.from('solicitudcompra_detalle').insert(detalles);
@@ -71,7 +68,6 @@ const RequestFormPage: React.FC = () => {
         }
       }
       
-      // Notify admins
       const { data: admins, error: adminError } = await supabase
         .from('user_profile')
         .select('id')
@@ -99,7 +95,7 @@ const RequestFormPage: React.FC = () => {
 
 
       alert('Solicitud creada exitosamente!');
-      navigate('/solicitudes'); // Navigate to user requests page to see the new request
+      navigate('/solicitudes'); 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Error submitting request:', errorMessage, error);
@@ -113,7 +109,7 @@ const RequestFormPage: React.FC = () => {
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Crear Nueva Solicitud de Compra</h1>
         <RequestForm
           onSubmit={handleSubmitRequest}
-          onCancel={() => navigate(-1)} // Go back
+          onCancel={() => navigate(-1)} 
         />
       </div>
     </div>

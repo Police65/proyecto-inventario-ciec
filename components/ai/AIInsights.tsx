@@ -29,15 +29,11 @@ const TABS_CONFIG: TabConfig[] = [
 
 type OrderForAuditor = Pick<OrdenCompra, 'neto_a_pagar'> & {
   solicitudcompra: (Pick<SolicitudCompra, 'id'> & {
-    departamento: Pick<Departamento, 'id' | 'nombre'> | null; // departamento can be null based on schema if FK is nullable
-  }) | null; // solicitudcompra itself can be null if FK is nullable, but !inner makes it non-null
+    departamento: Pick<Departamento, 'id' | 'nombre'> | null; 
+  }) | null; 
 };
 
-
-const KNOWN_PLACEHOLDER_KEYS_AI_INSIGHTS = [
-  "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", // Old placeholder
-  "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", // Previous "new" key, now considered placeholder
-];
+const SITE_URL_AI_INSIGHTS = typeof window !== 'undefined' ? window.location.origin : "https://example.com";
 
 
 const AIInsights: React.FC = () => {
@@ -105,36 +101,55 @@ const AIInsights: React.FC = () => {
   };
 
   const fetchAIResponse = async (prompt: string, type: InsightType): Promise<string> => {
-    if (!OPENROUTER_API_KEY || KNOWN_PLACEHOLDER_KEYS_AI_INSIGHTS.includes(OPENROUTER_API_KEY)) {
-      console.warn("OpenRouter API Key is not configured or is a placeholder. AI insights will be mocked.");
-      return `**Información Simulada para ${type}**\n- Esta es una respuesta simulada porque la clave API no está configurada o es la clave de ejemplo.\n- Configure su clave API de OpenRouter en config.ts para obtener información real.\n- Asegúrate de que las respuestas estén en ESPAÑOL.`;
+    if (!OPENROUTER_API_KEY) {
+      console.warn("OpenRouter API Key is not configured. AI insights will be mocked.");
+      return `**Información Simulada para ${type}**\n- Esta es una respuesta simulada porque la clave API no está configurada.\n- Configure su clave API de OpenRouter en config.ts para obtener información real.\n- Asegúrate de que las respuestas estén en ESPAÑOL.`;
     }
     try {
         const response = await fetch(OPENROUTER_API_URL, {
         method: "POST",
         headers: {
             "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-            "HTTP-Referer": "YOUR_SITE_URL_PLACEHOLDER",
+            "HTTP-Referer": SITE_URL_AI_INSIGHTS,
             "X-Title": "RequiSoftware CIEC",
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            model: "qwen/qwen3-30b-a3b:free", // Updated model
+            model: "qwen/qwen3-30b-a3b:free",
             messages: [{ role: "user", content: prompt }],
-            max_tokens: 500
+            max_tokens: 1500 // Increased max_tokens
         }),
         });
         if (!response.ok) {
             const errorBody = await response.text();
             console.error(`AI API Error for ${type}: ${response.status} - ${errorBody}`, response);
-            throw new Error(`AI API Error: ${response.status} - ${errorBody}`);
+            throw new Error(`Error de API de IA (${response.status}): ${errorBody}`);
         }
         const data = await response.json();
-        return data.choices[0].message.content;
+
+        if (data && data.choices && data.choices.length > 0 && data.choices[0].message && typeof data.choices[0].message.content === 'string') {
+            const content = data.choices[0].message.content;
+            const finishReason = data.choices[0].finish_reason;
+
+            if (content.trim() === "") {
+                if (finishReason === 'length') {
+                     console.warn(`AI response for ${type} was an empty string due to 'length' finish_reason. max_tokens might be too low. Full choice:`, JSON.stringify(data.choices[0], null, 2));
+                     return `**Respuesta Incompleta de la IA**\n- La IA comenzó a generar una respuesta pero fue interrumpida porque se alcanzó el límite de tokens.\n- El límite de tokens ha sido aumentado, intente generar de nuevo. Si el problema persiste, la consulta podría ser demasiado compleja o requerir aún más tokens.`;
+                } else {
+                    console.warn(`AI response for ${type} was an empty string (finish_reason: ${finishReason}). Full choice:`, JSON.stringify(data.choices[0], null, 2));
+                    return `**Respuesta Vacía de la IA**\n- La IA no generó un análisis de texto para esta consulta.\n- Esto podría deberse a la naturaleza de los datos, la configuración del modelo, o un error inesperado de la IA.`;
+                }
+            }
+            return content;
+        } else {
+            console.error(`Invalid AI response structure for ${type}. Expected 'data.choices[0].message.content' to be a string. Received:`, JSON.stringify(data, null, 2));
+            throw new Error("Estructura de respuesta inválida o inesperada de la API de IA.");
+        }
+
     } catch (fetchError) {
         const errorMessageText = fetchError instanceof Error ? fetchError.message : String(fetchError);
         console.error(`Fetch AI response error for ${type}: ${errorMessageText}`, fetchError);
-        throw new Error(`Network or fetch error for AI API: ${errorMessageText}`);
+        throw new Error(`Error de red o de fetch para la API de IA: ${errorMessageText}`);
     }
   };
 
@@ -156,41 +171,39 @@ const AIInsights: React.FC = () => {
             throw ordersError;
           }
           if (!orders || orders.length === 0) {
-            generatedInsight = "No hay datos de órdenes para analizar.";
+            generatedInsight = "**Sin Datos Suficientes**\n- No hay datos de órdenes completas (con departamento asociado) para analizar y generar un informe de auditoría.";
             setDepartmentStatsForChart([]);
             setAnomalyChartData([]);
-            break;
+          } else {
+            const expensesByDept: { [key: string]: number[] } = (orders || []).reduce((acc, order) => {
+              const deptName = order.solicitudcompra?.departamento?.nombre || "Sin_Departamento_Asignado";
+              if (!acc[deptName]) acc[deptName] = [];
+              acc[deptName].push(order.neto_a_pagar || 0);
+              return acc;
+            }, {} as { [key: string]: number[] });
+
+            const localAuditorStats: AISummaryStat[] = Object.entries(expensesByDept).map(([dept, amounts]) => {
+              const mean = calculateMean(amounts);
+              const stdDev = calculateStandardDeviation(amounts, mean);
+              const zAnomalies = detectAnomaliesZScore(amounts, mean, stdDev);
+              const iqrAnomalies = detectAnomaliesIQR(amounts);
+              const anomalies = amounts.map((_, i) => zAnomalies[i] || iqrAnomalies[i]);
+              return { dept, total: amounts.reduce((s, v) => s + v, 0), mean, stdDev, amounts, anomalies };
+            });
+            setDepartmentStatsForChart(localAuditorStats);
+
+            const overallAnomalies = localAuditorStats.reduce((sum, stat) => sum + stat.anomalies.filter(Boolean).length, 0);
+            const overallTransactions = localAuditorStats.reduce((sum, stat) => sum + stat.amounts.length, 0);
+            setAnomalyChartData([
+              { name: "Anomalías", value: overallAnomalies },
+              { name: "Normales", value: overallTransactions - overallAnomalies },
+            ]);
+
+            prompt = `Eres un asistente de auditoría financiera para una empresa. Analiza los siguientes datos de gastos por departamento. Cada departamento tiene un total gastado, un promedio de gasto por transacción, y una lista de montos de transacciones individuales, con un indicador booleano de si cada transacción es una anomalía.
+                      Datos: ${JSON.stringify(localAuditorStats.map(s => ({ departamento: s.dept, total_gastado: s.total, promedio_transaccion: s.mean, numero_transacciones: s.amounts.length, numero_anomalias: s.anomalies.filter(Boolean).length })))}
+                      Proporciona un resumen conciso (1-2 párrafos), identifica departamentos con gastos inusualmente altos o con muchas anomalías (menciona al menos 1-2 departamentos específicos si aplica). Ofrece 2-3 recomendaciones generales y accionables para mejorar el control de gastos o investigar más a fondo. Formatea tu respuesta en ESPAÑOL con títulos en markdown (ej. **Resumen General**) y listas con viñetas o numeradas. Si no hay anomalías significativas o los datos son muy uniformes, indícalo. Sé claro y profesional.`;
+            generatedInsight = await fetchAIResponse(prompt, type);
           }
-
-          const expensesByDept: { [key: string]: number[] } = (orders || []).reduce((acc, order) => {
-            // Since solicitudcompra and departamento are !inner, they should exist.
-            const dept = order.solicitudcompra!.departamento!.nombre || "Sin_Departamento_Asignado";
-            if (!acc[dept]) acc[dept] = [];
-            acc[dept].push(order.neto_a_pagar || 0);
-            return acc;
-          }, {} as { [key: string]: number[] });
-
-          const localAuditorStats: AISummaryStat[] = Object.entries(expensesByDept).map(([dept, amounts]) => {
-            const mean = calculateMean(amounts);
-            const stdDev = calculateStandardDeviation(amounts, mean);
-            const zAnomalies = detectAnomaliesZScore(amounts, mean, stdDev);
-            const iqrAnomalies = detectAnomaliesIQR(amounts);
-            const anomalies = amounts.map((_, i) => zAnomalies[i] || iqrAnomalies[i]);
-            return { dept, total: amounts.reduce((s, v) => s + v, 0), mean, stdDev, amounts, anomalies };
-          });
-          setDepartmentStatsForChart(localAuditorStats);
-
-          const overallAnomalies = localAuditorStats.reduce((sum, stat) => sum + stat.anomalies.filter(Boolean).length, 0);
-          const overallTransactions = localAuditorStats.reduce((sum, stat) => sum + stat.amounts.length, 0);
-          setAnomalyChartData([
-            { name: "Anomalías", value: overallAnomalies },
-            { name: "Normales", value: overallTransactions - overallAnomalies },
-          ]);
-
-          prompt = `Eres un asistente de auditoría financiera para una empresa. Analiza los siguientes datos de gastos por departamento. Cada departamento tiene un total gastado, un promedio de gasto por transacción, y una lista de montos de transacciones individuales, con un indicador booleano de si cada transacción es una anomalía.
-                    Datos: ${JSON.stringify(localAuditorStats.map(s => ({ departamento: s.dept, total_gastado: s.total, promedio_transaccion: s.mean, numero_transacciones: s.amounts.length, numero_anomalias: s.anomalies.filter(Boolean).length })))}
-                    Proporciona un resumen conciso, identifica departamentos con gastos inusualmente altos o con muchas anomalías. Ofrece 2-3 recomendaciones generales para mejorar el control de gastos o investigar más a fondo. Formatea tu respuesta en ESPAÑOL con títulos en markdown (ej. **Resumen General**) y listas con viñetas o numeradas.`;
-          generatedInsight = await fetchAIResponse(prompt, type);
           break;
 
         case "proveedores":
@@ -198,7 +211,7 @@ const AIInsights: React.FC = () => {
                     - Proveedor A: 100 órdenes, 95% completadas a tiempo, costo promedio por orden $500.
                     - Proveedor B: 50 órdenes, 80% completadas a tiempo, costo promedio por orden $450.
                     - Proveedor C: 200 órdenes, 98% completadas a tiempo, costo promedio por orden $550.
-                    Identifica fortalezas y debilidades. Sugiere 2-3 estrategias para optimizar la selección y gestión de proveedores. Responde en ESPAÑOL.`;
+                    Identifica fortalezas y debilidades de cada uno. Sugiere 2-3 estrategias claras y concisas para optimizar la selección y gestión de proveedores en general. Responde en ESPAÑOL. Formatea tu respuesta con títulos en markdown para cada sección principal (ej. **Análisis de Proveedores**, **Estrategias de Optimización**) y usa listas para los detalles.`;
           generatedInsight = await fetchAIResponse(prompt, type);
           break;
         case "predictor":
@@ -206,28 +219,28 @@ const AIInsights: React.FC = () => {
                     - Producto X: Stock 100, Consumo mensual promedio 20.
                     - Producto Y: Stock 50, Consumo mensual promedio 30 (tendencia al alza).
                     - Producto Z: Stock 200, Consumo mensual promedio 10 (estable).
-                    Predice cuándo se agotará cada producto. Sugiere 2-3 acciones para optimizar niveles de inventario y evitar desabastecimientos o excesos. Responde en ESPAÑOL.`;
+                    Predice aproximadamente cuándo se agotará cada producto (en meses o semanas). Sugiere 2-3 acciones específicas y prácticas para optimizar niveles de inventario y evitar desabastecimientos o excesos para estos productos. Responde en ESPAÑOL. Formatea tu respuesta con títulos en markdown (ej. **Predicciones de Agotamiento**, **Recomendaciones de Inventario**) y usa listas.`;
            generatedInsight = await fetchAIResponse(prompt, type);
            break;
         case "asistente":
-            prompt = `Actúa como un asistente de gestión de compras inteligente. Revisa estos datos (ficticios):
-                    - Alerta: Producto 'Tóner XP-500' tiene solo 5 unidades en stock (umbral bajo es 10).
-                    - Nota: Las solicitudes del departamento de Marketing han aumentado un 30% este mes.
-                    - Info: El proveedor 'Suministros Rápidos' tiene una promoción en papel esta semana.
-                    Proporciona 2-3 recomendaciones accionables y prioritarias para el gerente de compras. Responde en ESPAÑOL.`;
+            prompt = `Actúa como un asistente de gestión de compras inteligente. Revisa estos datos (ficticios) y urgencias:
+                    - Alerta CRÍTICA: Producto 'Tóner XP-500' tiene solo 5 unidades en stock (umbral bajo es 10). Se necesita urgentemente.
+                    - Nota: Las solicitudes del departamento de Marketing han aumentado un 30% este mes, revisar si es un pico o nueva tendencia.
+                    - Info: El proveedor 'Suministros Rápidos' tiene una promoción en papel de resma esta semana (15% descuento).
+                    Proporciona 2-3 recomendaciones accionables y prioritarias para el gerente de compras. Enfócate en lo más urgente primero. Responde en ESPAÑOL. Formatea tu respuesta con títulos en markdown (ej. **Acciones Urgentes**, **Consideraciones Adicionales**) y usa listas numeradas para las acciones.`;
             generatedInsight = await fetchAIResponse(prompt, type);
             break;
         case "tendencias":
             prompt = `Eres un analista de datos financieros. Observa estas tendencias (ficticias) de gasto total mensual de la empresa:
                     - Enero: $10,000
-                    - Febrero: $12,000
-                    - Marzo: $9,000 (campaña de ahorro implementada)
-                    - Abril: $15,000 (proyecto grande iniciado)
-                    Identifica patrones significativos o anomalías en los gastos. Ofrece 2-3 insights o preguntas clave que el equipo de finanzas debería considerar. Responde en ESPAÑOL.`;
+                    - Febrero: $12,000 (Incremento notable)
+                    - Marzo: $9,000 (Campaña de ahorro implementada a mediados de mes)
+                    - Abril: $15,000 (Proyecto grande 'Omega' iniciado, presupuesto adicional asignado)
+                    Identifica 2-3 patrones significativos o anomalías en los gastos mensuales. Ofrece 2-3 insights o preguntas clave que el equipo de finanzas debería considerar para entender mejor estas variaciones. Responde en ESPAÑOL. Formatea tu respuesta con títulos en markdown (ej. **Patrones Observados**, **Preguntas Clave para Finanzas**) y usa listas.`;
             generatedInsight = await fetchAIResponse(prompt, type);
             break;
         default:
-          generatedInsight = "Funcionalidad no implementada.";
+          generatedInsight = "**Funcionalidad no implementada.**\n- La lógica para este tipo de insight aún no ha sido desarrollada.";
       }
       const cleanHTML = DOMPurify.sanitize(parseResponseToHTML(generatedInsight));
       setInsights(prev => ({ ...prev, [type]: cleanHTML }));
@@ -235,7 +248,8 @@ const AIInsights: React.FC = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`Error generando insight para ${type}: ${errorMessage}`, error);
-      setInsights(prev => ({ ...prev, [type]: `<p class="text-red-500">Error al procesar datos para ${type}: ${errorMessage}</p>` }));
+      const errorHtml = `<p class="text-red-600 dark:text-red-400"><strong>Error al generar análisis para ${TABS_CONFIG.find(t => t.key === type)?.title || type}:</strong></p><p class="text-red-500 dark:text-red-500">${DOMPurify.sanitize(errorMessage)}</p>`;
+      setInsights(prev => ({ ...prev, [type]: errorHtml }));
     } finally {
       setLoading(prev => ({ ...prev, [type]: false }));
     }

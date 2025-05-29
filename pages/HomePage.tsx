@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-// @ts-ignore
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Inventario, SolicitudCompra, ProductoRezagado, UserProfile, Departamento, SolicitudCompraEstado, Empleado, SolicitudCompraDetalle, Producto } from '../types';
 import LoadingSpinner from '../components/core/LoadingSpinner';
-// Admin specific components - consider lazy loading if they are large
 import ProviderManagement from '../components/inventory/ProviderManagement'; 
 import ProductManagement from '../components/inventory/ProductManagement';
 import RequestTable from '../components/requests/RequestTable'; // For AdminHome functionality
@@ -81,14 +79,14 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // User specific states
+
   const [userInventory, setUserInventory] = useState<Inventario[]>([]);
   const [userSummaryStats, setUserSummaryStats] = useState<OverallStats>({ total: 0, aprobadas: 0, rechazadas: 0, pendientes: 0 });
   const [approvedProducts, setApprovedProducts] = useState<ProductStat[]>([]);
   const [rejectedProducts, setRejectedProducts] = useState<ProductStat[]>([]);
 
 
-  // Admin specific states
+
   const [departments, setDepartments] = useState<DepartmentStat[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentStat | null>(null);
   const [departmentRequests, setDepartmentRequests] = useState<SolicitudCompra[]>([]);
@@ -103,7 +101,6 @@ const HomePage: React.FC = () => {
       setError(null);
       try {
         if (userProfile.rol === 'usuario') {
-          // 1. Fetch inventory for user
           const { data: invData, error: invError } = await supabase
             .from('inventario')
             .select('*, producto:producto_id(descripcion, categoria:categoria_id(nombre))')
@@ -115,7 +112,7 @@ const HomePage: React.FC = () => {
           }
           setUserInventory(invData || []);
 
-          // 2. Fetch overall request stats for user
+
           if (userProfile.empleado_id) {
             const { data: reqsData, error: reqsError } = await supabase
               .from('solicitudcompra')
@@ -135,7 +132,7 @@ const HomePage: React.FC = () => {
             });
             setUserSummaryStats(summary);
 
-            // 3. Fetch product stats for user
+
             const fetchProductStats = async (status: SolicitudCompraEstado): Promise<ProductStat[]> => {
               const { data: requestsWithDetails, error: detailsError } = await supabase
                 .from('solicitudcompra')
@@ -176,7 +173,6 @@ const HomePage: React.FC = () => {
           }
 
         } else if (userProfile.rol === 'admin') {
-          // Admin data fetching logic (remains unchanged)
           const { data: deptsData, error: deptError } = await supabase
             .from('departamento')
             .select('id, nombre');
@@ -232,7 +228,6 @@ const HomePage: React.FC = () => {
     if (userProfile) {
       fetchData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile]);
 
 
@@ -254,7 +249,6 @@ const HomePage: React.FC = () => {
   if (!userProfile) return null; 
 
   if (userProfile.rol === 'admin') {
-    // Admin view (remains unchanged)
     if (selectedDepartment) {
       const filteredDeptRequests = departmentRequests.filter(r => 
         r.departamento_id === selectedDepartment.id && 
@@ -388,7 +382,6 @@ const HomePage: React.FC = () => {
     );
   }
 
-  // User view
   return (
     <div className="space-y-8">
       <div>

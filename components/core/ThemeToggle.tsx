@@ -8,7 +8,7 @@ const ThemeToggle: React.FC = () => {
       return localStorage.getItem('theme') === 'dark' || 
              (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
     }
-    return false; // Default to false if window is not defined (SSR)
+    return false; 
   });
 
   useEffect(() => {

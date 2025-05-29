@@ -1,17 +1,17 @@
 
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { AISummaryStat } from '../../types'; // Assuming type for AI data
+import { AISummaryStat } from '../../types';
 
 interface DepartmentExpensesChartProps {
-  data: AISummaryStat[]; // Use AISummaryStat from types.ts
+  data: AISummaryStat[]; 
 }
 
 const DepartmentExpensesChart: React.FC<DepartmentExpensesChartProps> = ({ data }) => {
   const chartData = data.map(item => ({
-    name: item.dept, // 'name' is typically used by Recharts for XAxis dataKey
+    name: item.dept, 
     total: item.total,
-    promedio: item.mean, // Optional: show mean as well
+    promedio: item.mean, 
   }));
 
   if (!data || data.length === 0) {
@@ -19,7 +19,7 @@ const DepartmentExpensesChart: React.FC<DepartmentExpensesChartProps> = ({ data 
   }
 
   return (
-    <div className="w-full h-72 md:h-96"> {/* Responsive height */}
+    <div className="w-full h-72 md:h-96"> 
       <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-3">Gastos por Departamento (Análisis IA)</h3>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>

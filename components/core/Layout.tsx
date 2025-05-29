@@ -1,30 +1,28 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-// @ts-ignore
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import CustomNavbar from './Navbar';
 import Sidebar from './Sidebar';
 import { UserProfile, SolicitudCompra, OrdenCompra } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { useInactivityTimer } from '../../hooks/useInactivityTimer';
-import { supabase } from '../../supabaseClient'; // For data fetching if needed here
+import { supabase } from '../../supabaseClient'; 
 import LoadingSpinner from './LoadingSpinner';
 
 interface AuthenticatedLayoutProps {
   userProfile: UserProfile;
   onLogout: () => void;
-  // Pass any other global state or setters needed by child routes via Outlet context or props
 }
 
 export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userProfile, onLogout }) => {
-  const [isSidebarVisible, setIsSidebarVisible] = useState(window.innerWidth >= 1024); // Default open on larger screens
+  const [isSidebarVisible, setIsSidebarVisible] = useState(window.innerWidth >= 1024); 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [activeUITab, setActiveUITab] = useState('solicitudes'); // Example state for AdminDashboard tabs
+  const [activeUITab, setActiveUITab] = useState('solicitudes'); 
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   
-  // For user's own pending requests count
+
   useEffect(() => {
     if (userProfile?.rol === 'usuario' && userProfile.empleado_id) {
       const fetchPendingCount = async () => {
@@ -41,7 +39,7 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
         }
       };
       fetchPendingCount();
-      // Potentially subscribe to changes if real-time update is needed
+  
     }
   }, [userProfile]);
 
@@ -50,17 +48,17 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
     setIsSidebarVisible(!isSidebarVisible);
   };
 
-  // Close sidebar on small screens when navigating
+
   useEffect(() => {
     if (window.innerWidth < 1024 && isSidebarVisible) {
       setIsSidebarVisible(false);
     }
-  }, [location.pathname, isSidebarVisible]); // Added isSidebarVisible to dependency array
+  }, [location.pathname, isSidebarVisible]); 
 
 
   const { showWarningModal, timeLeft, setShowWarningModal, resetTimers } = useInactivityTimer({
     onLogout: () => {
-      onLogout(); // This calls useAuth's logout, which will trigger state change and App.tsx redirect
+      onLogout(); 
     },
     isUserActive: !!userProfile, 
   });
@@ -70,21 +68,13 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
     setShowWarningModal(false);
   };
   
-  // Check if userProfile exists, if not, redirect to login (this is primarily handled by App.tsx's Route structure)
-  // This useEffect is a secondary check, App.tsx's Navigate is more direct.
   useEffect(() => {
     if (!userProfile) {
-      // App.tsx <Navigate to="/login" /> should handle this redirection.
-      // If this layout is rendered, userProfile should exist.
-      // Logging here can help debug if this state is ever reached unexpectedly.
       console.warn("AuthenticatedLayout rendered without userProfile, App.tsx should have redirected.");
-      // navigate('/login'); // This might be redundant if App.tsx handles it.
     }
   }, [userProfile, navigate]);
 
   if (!userProfile) {
-    // This should ideally not be reached if App.tsx is correctly redirecting.
-    // If it is reached, it indicates userProfile became null while this component was mounted.
     return <LoadingSpinner message="Sesión terminada, redirigiendo..." />; 
   }
 
@@ -96,8 +86,8 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
         pendingRequestsCount={pendingRequestsCount}
         onNewRequestClick={() => navigate('/new-request')}
         onSelectTab={setActiveUITab}
-        onLogout={onLogout} // Pass onLogout to Sidebar
-        activeUITab={activeUITab} // Pass activeUITab to Sidebar
+        onLogout={onLogout} 
+        activeUITab={activeUITab} 
       />
       <div className="flex flex-col flex-1 w-full overflow-y-auto">
         <CustomNavbar 
@@ -105,7 +95,7 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
           onToggleSidebar={toggleSidebar}
           onLogout={onLogout}
         />
-        <main className="h-full pt-16"> {/* pt-16 for navbar height */}
+        <main className="h-full pt-16"> 
           <div className="container mx-auto px-6 py-8">
             <Outlet context={{ userProfile, activeUITab, setActiveUITab }} />
           </div>
@@ -122,7 +112,7 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">¿Deseas mantener la sesión abierta?</p>
             <div className="mt-6 flex justify-end space-x-3">
               <button
-                onClick={onLogout} // Use onLogout directly
+                onClick={onLogout} 
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
               >
                 Cerrar sesión ahora

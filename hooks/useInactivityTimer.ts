@@ -1,18 +1,18 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const INACTIVITY_WARNING_TIME = 10 * 60 * 1000; // 10 minutes
-const INACTIVITY_LOGOUT_TIME = 15 * 60 * 1000; // 15 minutes (total from last activity)
-const COUNTDOWN_DURATION = (INACTIVITY_LOGOUT_TIME - INACTIVITY_WARNING_TIME) / 1000; // 5 minutes in seconds
+const INACTIVITY_WARNING_TIME = 10 * 60 * 1000; 
+const INACTIVITY_LOGOUT_TIME = 15 * 60 * 1000; 
+const COUNTDOWN_DURATION = (INACTIVITY_LOGOUT_TIME - INACTIVITY_WARNING_TIME) / 1000; 
 
 interface UseInactivityTimerProps {
   onLogout: () => void;
-  isUserActive: boolean; // To control whether the timer should run
+  isUserActive: boolean; 
 }
 
 interface InactivityTimerResult {
   showWarningModal: boolean;
-  timeLeft: number; // in seconds
+  timeLeft: number;
   setShowWarningModal: React.Dispatch<React.SetStateAction<boolean>>;
   resetTimers: () => void;
 }
@@ -33,7 +33,7 @@ export function useInactivityTimer({ onLogout, isUserActive }: UseInactivityTime
 
   const startCountdown = useCallback(() => {
     setTimeLeft(COUNTDOWN_DURATION);
-    countdownInterval.current = window.setInterval(() => { // Use window.setInterval for clarity
+    countdownInterval.current = window.setInterval(() => { 
       setTimeLeft((prevTime) => {
         if (prevTime <= 1) {
           if (countdownInterval.current) clearInterval(countdownInterval.current);
@@ -51,14 +51,14 @@ export function useInactivityTimer({ onLogout, isUserActive }: UseInactivityTime
     setTimeLeft(COUNTDOWN_DURATION);
 
     if (isUserActive) {
-      localStorage.setItem("sessionTime", Date.now().toString()); // Update last activity time
+      localStorage.setItem("sessionTime", Date.now().toString()); 
 
-      warningTimer.current = window.setTimeout(() => { // Use window.setTimeout
+      warningTimer.current = window.setTimeout(() => { 
         setShowWarningModal(true);
         startCountdown();
       }, INACTIVITY_WARNING_TIME);
 
-      logoutTimer.current = window.setTimeout(() => { // Use window.setTimeout
+      logoutTimer.current = window.setTimeout(() => {
         onLogout();
       }, INACTIVITY_LOGOUT_TIME);
     }
@@ -77,7 +77,7 @@ export function useInactivityTimer({ onLogout, isUserActive }: UseInactivityTime
     };
 
     events.forEach(event => window.addEventListener(event, handleActivity));
-    resetTimers(); // Initial setup
+    resetTimers(); 
 
     return () => {
       events.forEach(event => window.removeEventListener(event, handleActivity));

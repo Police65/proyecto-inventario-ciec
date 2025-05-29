@@ -69,7 +69,7 @@ const ProductManagement: React.FC = () => {
       }
       setShowModal(false);
       setCurrentProduct({});
-      fetchData(); // Refresh list
+      fetchData(); 
     } catch (error) {
       console.error('Error saving product:', error);
       alert(`Error al guardar producto: ${error instanceof Error ? error.message : String(error)}`);
@@ -87,7 +87,7 @@ const ProductManagement: React.FC = () => {
       try {
         const { error } = await supabase.from('producto').delete().eq('id', id);
         if (error) throw error;
-        fetchData(); // Refresh list
+        fetchData(); 
       } catch (error) {
         console.error('Error deleting product:', error);
         alert('Error al eliminar producto.');

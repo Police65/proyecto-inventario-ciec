@@ -1,5 +1,4 @@
 import React from 'react';
-// @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { UserProfile, SolicitudCompra } from '../../types';
 import { 
@@ -13,12 +12,12 @@ interface SidebarProps {
   onNewRequestClick: () => void;
   onSelectTab: (tab: string) => void;
   onLogout: () => void; 
-  activeUITab: string; // Added to determine active tab for specific routes
+  activeUITab: string; 
 }
 
 interface NavItem {
-  to?: string; // Optional for buttons like logout
-  onClick?: () => void; // For buttons like logout
+  to?: string; 
+  onClick?: () => void; 
   icon: React.ElementType;
   label: string;
   adminOnly?: boolean;
@@ -27,7 +26,7 @@ interface NavItem {
   badgeCount?: number;
   isExternalLink?: boolean;
   subItems?: NavItem[];
-  isActionButton?: boolean; // To style logout differently if needed
+  isActionButton?: boolean; 
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingRequestsCount, onNewRequestClick, onSelectTab, onLogout, activeUITab }) => {
@@ -41,22 +40,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
       to: '/solicitudes', 
       icon: ListBulletIcon, 
       label: 'Solicitudes', 
-      tabKey: 'solicitudes', // For Admin: pending requests tab; For User: their pending requests
+      tabKey: 'solicitudes', 
       badgeCount: userProfile?.rol === 'usuario' ? pendingRequestsCount : undefined
     },
     { 
       to: '/solicitudes', 
       icon: ClockIcon, 
-      label: 'Historial Solicitudes', // For Admin: approved/rejected; For User: their history
+      label: 'Historial Solicitudes', 
       tabKey: 'historial-solicitudes'
     },
-    // { // Removed Mis Estadísticas
+    // { // Removere Mis Estadísticas POR AHORA, hola luis miguel si ves esto en el proyector
     //   to: '/mis-estadisticas',
     //   icon: ChartPieIcon,
     //   label: 'Mis Estadísticas',
     //   userOnly: true, 
     // },
-    // Admin specific items
     { 
       to: '/solicitudes', 
       icon: DocumentTextIcon, 
@@ -108,13 +106,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
 
     let calculatedIsActive = false;
     if (item.tabKey && item.to) {
-      // For items that manage tabs on a page (e.g., different views under /solicitudes)
       calculatedIsActive = currentPath === item.to && activeUITab === item.tabKey;
     } else if (item.to === '/inventory' && item.subItems && item.subItems.length > 0) {
-      // For the parent "Gestión de Inventario" item
       calculatedIsActive = currentPath.startsWith(item.to);
     } else if (item.to) {
-      // For simple direct links (e.g., /home or sub-items like /inventory/view)
       calculatedIsActive = currentPath === item.to;
     }
     

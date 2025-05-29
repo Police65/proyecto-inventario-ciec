@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
-import { useAuth } from '../../hooks/useAuth'; // Assuming useAuth handles login logic
+import { useAuth } from '../../hooks/useAuth'; 
 // @ts-ignore
-import { useNavigate } from 'react-router-dom'; // Correct import for useNavigate
+import { useNavigate } from 'react-router-dom'; 
 import { EyeIcon, EyeSlashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 
@@ -13,9 +14,9 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   
   const navigate = useNavigate();
-  const { login: authLogin, userProfile } = useAuth(); // Get login function from useAuth
+  const { login: authLogin, userProfile } = useAuth(); 
 
-  // Redirect if already logged in (useAuth handles initial check)
+  
   React.useEffect(() => {
     if (userProfile) {
       navigate('/home');
@@ -29,9 +30,8 @@ const Login: React.FC = () => {
     setError(null);
     try {
       await authLogin(email, password);
-      // useAuth's onAuthStateChange or useEffect should redirect upon successful login
-      // or navigate('/home') can be called here if useAuth doesn't auto-redirect.
-      navigate('/home'); // Explicit navigation after successful login
+     
+      navigate('/home'); 
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message || "Error de inicio de sesión. Verifica tus credenciales.");
@@ -50,8 +50,8 @@ const Login: React.FC = () => {
         <div>
           <img
             className="mx-auto h-16 w-auto"
-            src="https://picsum.photos/seed/loginlogo/100/100" // Placeholder logo
-            alt="Workflow"
+            src="/assets/logo_png.png" 
+            alt="RequiSoftware Logo"
           />
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
             Iniciar Sesión
@@ -112,7 +112,7 @@ const Login: React.FC = () => {
             </div>
           </div>
 
-          {/* <div className="flex items-center justify-between">
+          { <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
                 id="remember-me"
@@ -130,7 +130,7 @@ const Login: React.FC = () => {
                 ¿Olvidaste tu contraseña?
               </a>
             </div>
-          </div> */}
+          </div> }
 
           <div>
             <button

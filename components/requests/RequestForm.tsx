@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Producto } from '../../types';
@@ -29,7 +28,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
       const { data, error } = await supabase.from('producto').select('id, descripcion');
       if (error) {
         console.error('Error fetching products:', error);
-        // Handle error (e.g., show a message to the user)
       } else {
         setFetchedProducts(data || []);
       }

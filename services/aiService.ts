@@ -1,4 +1,3 @@
-
 import { supabase } from '../supabaseClient';
 import { OPENROUTER_API_URL, OPENROUTER_API_KEY } from '../config';
 
@@ -7,12 +6,7 @@ interface ProductInput {
   quantity: number;
 }
 
-const KNOWN_PLACEHOLDER_KEYS = [
-  "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", // Old placeholder
-  "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", // Previous "new" key, now considered placeholder
-];
-
-const SITE_URL = typeof window !== 'undefined' ? window.location.origin : "https://example.com"; // Fallback for non-browser env
+const SITE_URL = typeof window !== 'undefined' ? window.location.origin : "https://example.com";
 
 async function getProductNames(productIds: number[]): Promise<string[]> {
   if (productIds.length === 0) {
@@ -52,8 +46,8 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
 }
 
 async function generateDescription(products: ProductInput[]): Promise<string> {
-  if (!OPENROUTER_API_KEY || KNOWN_PLACEHOLDER_KEYS.includes(OPENROUTER_API_KEY)) {
-    console.warn("OpenRouter API Key is not configured or is a placeholder. Using default description.");
+  if (!OPENROUTER_API_KEY) {
+    console.warn("OpenRouter API Key is not configured. Using default description.");
     return "Solicitud de compra de varios artículos";
   }
 
@@ -66,7 +60,7 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
     const productList = productNames.join(", ");
     const prompt = `Genera una descripción corta y concisa en español (máximo 5 palabras, idealmente 2-3 palabras) para una solicitud de compra que incluye los siguientes artículos: ${productList}. La descripción debe ser un resumen general del tipo de artículos. Por ejemplo, si los artículos son "Resma de papel, Bolígrafos, Grapadora", una buena descripción podría ser "Suministros de Oficina". Si son "Laptop, Monitor, Teclado", podría ser "Equipamiento Informático".`;
 
-    // console.log("Prompt enviado a OpenRouter:", prompt);
+    console.log("Prompt enviado a OpenRouter:", prompt);
 
     const response = await fetch(OPENROUTER_API_URL, {
       method: "POST",
@@ -79,7 +73,7 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
       body: JSON.stringify({
         model: "qwen/qwen3-30b-a3b:free", 
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 50 // Increased max_tokens from 15 to 50
+        max_tokens: 50
       })
     });
 
@@ -90,7 +84,7 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
     }
 
     const data = await response.json();
-    // console.log("Respuesta de OpenRouter API (raw):", JSON.stringify(data, null, 2));
+    console.log("Respuesta de OpenRouter API (raw):", JSON.stringify(data, null, 2));
 
     if (data && data.choices && data.choices.length > 0) {
       const firstChoice = data.choices[0];
@@ -104,16 +98,14 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
             return "Solicitud (Respuesta IA vacía)";
           }
         }
-        // Content is non-empty string, proceed with processing
         let generatedDesc = firstChoice.message.content.trim();
-        generatedDesc = generatedDesc.replace(/["*]/g, ''); // Remove quotes and asterisks
+        generatedDesc = generatedDesc.replace(/["*]/g, ''); 
         const words = generatedDesc.split(/\s+/);
-        if (words.length > 7) { // Limit to 7 words
+        if (words.length > 7) { 
             generatedDesc = words.slice(0, 7).join(" ") + "...";
         }
-        return generatedDesc || "Solicitud Múltiple"; // Fallback if processing results in empty
+        return generatedDesc || "Solicitud Múltiple";
       } else {
-        // Message object exists, but 'content' property is missing or not a string
         console.error("API response's first choice is missing 'content' string property or 'message' object. Full choice:", JSON.stringify(firstChoice, null, 2), "Full data:", JSON.stringify(data, null, 2));
         throw new Error("Estructura de mensaje inválida en la respuesta de la API (sin 'content' o 'message').");
       }

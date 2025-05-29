@@ -2,21 +2,20 @@ import React, { useState } from 'react';
 import { OrdenCompra, OrdenCompraEstado } from '../../types';
 import { supabase } from '../../supabaseClient';
 import { CheckCircleIcon, XCircleIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
-import { OrderCompletionForm } from './OrderCompletionForm'; // Changed to named import
+import { OrderCompletionForm } from './OrderCompletionForm'; 
 
 interface OrderActionsProps {
   order: OrdenCompra;
-  onUpdate: () => void; // Callback to refresh data after an action
+  onUpdate: () => void; 
 }
 
 const OrderActions: React.FC<OrderActionsProps> = ({ order, onUpdate }) => {
-  const [showCompletionForm, setShowCompletionForm] = useState(false); // For a completion form modal
+  const [showCompletionForm, setShowCompletionForm] = useState(false); 
   const [loading, setLoading] = useState(false);
 
   const handleStatusChange = async (newStatus: OrdenCompraEstado) => {
     if (loading) return;
     setLoading(true);
-    // Basic confirmation for critical actions
     if (newStatus === 'Anulada' && !window.confirm(`¿Está seguro de anular la orden #${order.id}?`)) {
         setLoading(false);
         return;
@@ -33,24 +32,21 @@ const OrderActions: React.FC<OrderActionsProps> = ({ order, onUpdate }) => {
         .eq('id', order.id);
 
       if (error) throw error;
-      
-      // If completing, one might trigger inventory updates here or in a dedicated OrderCompletionForm
-      // This logic is kept here assuming OrderCompletionForm might eventually call this,
-      // or if OrderCompletionForm is a simple wrapper.
+    
       if (newStatus === 'Completada') {
         if (order.detalles) {
           for (const detalle of order.detalles) {
             if (detalle.producto_id && detalle.cantidad > 0) {
-              // Fetch current inventory
+ 
               const { data: invItem, error: invError } = await supabase
                 .from('inventario')
                 .select('id, existencias')
                 .eq('producto_id', detalle.producto_id)
                 .single();
 
-              if (invError && invError.code !== 'PGRST116') { // PGRST116: 0 rows
+              if (invError && invError.code !== 'PGRST116') { 
                  console.error('Error fetching inventory item for update:', invError);
-                 continue; // Skip this item or handle error more gracefully
+                 continue; 
               }
 
               if (invItem) {
@@ -61,11 +57,11 @@ const OrderActions: React.FC<OrderActionsProps> = ({ order, onUpdate }) => {
                     fecha_actualizacion: new Date().toISOString()
                   })
                   .eq('id', invItem.id);
-              } else { // Product not in inventory, add it
+              } else { 
                  await supabase.from('inventario').insert({
                     producto_id: detalle.producto_id,
                     existencias: detalle.cantidad,
-                    ubicacion: 'Almacén Principal (Entrada OC)', // Default location
+                    ubicacion: 'Almacén Principal (Entrada OC)', 
                     fecha_actualizacion: new Date().toISOString(),
                  });
               }
@@ -73,7 +69,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({ order, onUpdate }) => {
           }
         }
       }
-      onUpdate(); // Refresh the parent component's data
+      onUpdate(); 
     } catch (error) {
       console.error('Error updating order status:', error);
       alert(`Error al actualizar estado de la orden: ${error instanceof Error ? error.message : String(error)}`);
@@ -87,7 +83,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({ order, onUpdate }) => {
       {order.estado === 'Pendiente' && (
         <>
           <button
-            onClick={() => setShowCompletionForm(true)} // Changed to open form
+            onClick={() => setShowCompletionForm(true)} 
             disabled={loading}
             className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 rounded-md hover:bg-green-100 dark:hover:bg-green-700 transition-colors disabled:opacity-50"
             title="Completar Orden (Abrir Formulario)"
@@ -120,15 +116,10 @@ const OrderActions: React.FC<OrderActionsProps> = ({ order, onUpdate }) => {
           show={showCompletionForm}
           onHide={() => setShowCompletionForm(false)}
           order={order}
-          onComplete={(updatedOrder) => { // Assuming onComplete now passes the updated order
-            // OrderCompletionForm should handle the status change to 'Completada' and inventory
-            // Then call onUpdate to refresh the main list.
+          onComplete={(updatedOrder) => { 
             setShowCompletionForm(false);
-            onUpdate(); // Or handle specific logic based on updatedOrder if needed
+            onUpdate(); 
           }}
-          // Pass handleStatusChange if the form needs to call it directly,
-          // or the form has its own more detailed completion logic.
-          // handleStatusChangeDirectly={handleStatusChange} 
         />
       )}
     </div>

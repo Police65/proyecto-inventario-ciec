@@ -88,7 +88,6 @@ const ProviderManagement: React.FC = () => {
         if (!data) throw new Error("Failed to update provider.");
         savedProviderId = data.id;
 
-        // Remove existing category associations
         await supabase.from('proveedor_categoria').delete().eq('proveedor_id', savedProviderId);
 
       } else {
@@ -102,7 +101,7 @@ const ProviderManagement: React.FC = () => {
         savedProviderId = data.id;
       }
 
-      // Add new category associations
+
       if (currentProvider.selectedCategorias && currentProvider.selectedCategorias.length > 0) {
         const categoryLinks = currentProvider.selectedCategorias.map(catId => ({
             proveedor_id: savedProviderId,
@@ -114,7 +113,7 @@ const ProviderManagement: React.FC = () => {
 
       setShowModal(false);
       setCurrentProvider({});
-      fetchProvidersAndCategories(); // Refresh list
+      fetchProvidersAndCategories(); 
     } catch (error) {
       console.error('Error saving provider:', error);
       alert(`Error al guardar proveedor: ${error instanceof Error ? error.message : String(error)}`);
@@ -131,12 +130,12 @@ const ProviderManagement: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Está seguro de que desea eliminar este proveedor? Esta acción también eliminará sus asociaciones de categorías.')) {
       try {
-        // First delete associations in proveedor_categoria
+  
         await supabase.from('proveedor_categoria').delete().eq('proveedor_id', id);
-        // Then delete the provider
+
         const { error } = await supabase.from('proveedor').delete().eq('id', id);
         if (error) throw error;
-        fetchProvidersAndCategories(); // Refresh list
+        fetchProvidersAndCategories(); 
       } catch (error) {
         console.error('Error deleting provider:', error);
         alert('Error al eliminar proveedor.');

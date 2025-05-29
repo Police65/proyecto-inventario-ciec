@@ -1,20 +1,19 @@
 import React from 'react';
-// @ts-ignore
 import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 
-import { AuthenticatedLayout } from './components/core/Layout'; // Changed to named import
+import { AuthenticatedLayout } from './components/core/Layout'; 
 import Login from './components/auth/Login';
 import HomePage from './pages/HomePage';
-import { AdminDashboardPage } from './pages/AdminDashboardPage'; // Changed to named import
+import { AdminDashboardPage } from './pages/AdminDashboardPage'; 
 import UserRequestsPage from './pages/UserRequestsPage'; 
 import RequestFormPage from './pages/RequestFormPage';
 import InventoryPage from './pages/InventoryPage';
-// import UserStatsPage from './pages/UserStatsPage'; // Removed UserStatsPage
+
 
 import LoadingSpinner from './components/core/LoadingSpinner';
 
-// Placeholder for pages that might not be fully implemented yet
+
 const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
     <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{title}</h1>

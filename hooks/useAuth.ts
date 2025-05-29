@@ -1,8 +1,7 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
-import { UserProfile, Empleado, Departamento } from '../types';
+import { UserProfile, Empleado, Departamento, UserProfileRol } from '../types';
 
 interface AuthHookResult {
   session: Session | null;
@@ -66,14 +65,20 @@ export function useAuth(): AuthHookResult {
         return null;
       }
       
-      const basicProfile = basicProfileData as UserProfile; 
-      let completeProfile: UserProfile = { 
-        ...basicProfile, 
+     
+      let completeProfile: UserProfile = {
+        id: basicProfileData.id,
+        rol: basicProfileData.rol as UserProfileRol | null,
+        empleado_id: basicProfileData.empleado_id,
+        departamento_id: basicProfileData.departamento_id,
+        departamento: basicProfileData.departamento ? {
+             id: basicProfileData.departamento.id,
+             nombre: basicProfileData.departamento.nombre,
+        } : undefined,
         empleado: undefined, 
-        departamento: basicProfile.departamento as Departamento | undefined 
       };
 
-      if (basicProfile.empleado_id) {
+      if (completeProfile.empleado_id) {
         const { data: empleadoData, error: rawEmpleadoError } = await supabase
           .from("empleado")
           .select(`
@@ -86,21 +91,20 @@ export function useAuth(): AuthHookResult {
             cedula, 
             firma
           `)
-          .eq("id", basicProfile.empleado_id)
+          .eq("id", completeProfile.empleado_id)
           .single<Partial<Empleado>>();
 
         if (rawEmpleadoError) {
           const codePart = rawEmpleadoError.code ? `(Code: ${rawEmpleadoError.code})` : '';
           const detailsPart = rawEmpleadoError.details ? `Details: ${rawEmpleadoError.details}` : '';
           console.error(`Error fetching empleado details: ${rawEmpleadoError.message} ${codePart} ${detailsPart}`, rawEmpleadoError);
-          // Depending on requirements, you might set an error or return null
-          // setError(new Error(`Error al obtener detalles del empleado: ${rawEmpleadoError.message}`));
-          return completeProfile; // Return profile even if employee details fail, or null if critical
+          
+          return completeProfile; 
         }
         if (empleadoData) {
           completeProfile.empleado = empleadoData;
         } else {
-            console.warn(`No empleado found for empleado_id: ${basicProfile.empleado_id} associated with user ${userId}`);
+            console.warn(`No empleado found for empleado_id: ${completeProfile.empleado_id} associated with user ${userId}`);
         }
       }
       
@@ -124,41 +128,53 @@ export function useAuth(): AuthHookResult {
     const getInitialSession = async () => {
       setLoading(true);
       setError(null);
-      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+      try {
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
 
-      if (sessionError) {
-        console.error("Error in getInitialSession (getSession):", sessionError.message, sessionError);
-        setError(sessionError);
-        setLoading(false);
-        return;
-      }
-      
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+        if (sessionError) {
+          console.error("Error in getInitialSession (getSession):", sessionError.message, sessionError);
+          setError(sessionError);
+     
+          return; 
+        }
+        
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
 
-      if (currentSession?.user) {
-        const profile = await fetchUserProfile(currentSession.user.id);
-        let loginAbortedReason = "Perfil de usuario no encontrado."; 
-        if (profile && profile.empleado?.estado === 'activo') {
-          setUserProfile(profile);
-          localStorage.setItem("userProfile", JSON.stringify(profile));
+        if (currentSession?.user) {
+          const profile = await fetchUserProfile(currentSession.user.id);
+          let loginAbortedReason = "Perfil de usuario no encontrado."; 
+          if (profile && profile.empleado?.estado === 'activo') {
+            setUserProfile(profile);
+            localStorage.setItem("userProfile", JSON.stringify(profile));
+          } else {
+             loginAbortedReason = profile ? (profile.empleado?.estado === 'inactivo' ? "Usuario inactivo. Contacta al administrador." : "Perfil de usuario no encontrado, incompleto o empleado inactivo.") : "Perfil de usuario no encontrado.";
+             console.warn(`Login aborted: ${loginAbortedReason}`);
+             setError(new Error(loginAbortedReason));
+             if(currentSession) await supabase.auth.signOut(); 
+             setUserProfile(null);
+             localStorage.removeItem("userProfile");
+          }
         } else {
-           loginAbortedReason = profile ? (profile.empleado?.estado === 'inactivo' ? "Usuario inactivo. Contacta al administrador." : "Perfil de usuario no encontrado, incompleto o empleado inactivo.") : "Perfil de usuario no encontrado.";
-           console.warn(`Login aborted: ${loginAbortedReason}`);
-           setError(new Error(loginAbortedReason));
-           if(currentSession) await supabase.auth.signOut(); 
-           setUserProfile(null);
-           localStorage.removeItem("userProfile");
+          const stored = checkStoredSession();
+          if (stored && stored.empleado?.estado === 'activo') { // Also check stored user activity
+             setUserProfile(stored); 
+          } else {
+             if(stored && stored.empleado?.estado !== 'activo') {
+                console.warn("Stored user session is inactive. Clearing.");
+                localStorage.removeItem("userProfile");
+             }
+             setUserProfile(null); 
+          }
         }
-      } else {
-        const stored = checkStoredSession();
-        if (stored) {
-           setUserProfile(stored); 
-        } else {
-           setUserProfile(null); 
-        }
+      } catch (e) {
+          console.error("Critical error in getInitialSession:", e);
+          setError(e instanceof Error ? e : new Error(String(e)));
+          setUserProfile(null); 
+          localStorage.removeItem("userProfile");
+      } finally {
+          setLoading(false);
       }
-      setLoading(false);
     };
 
     getInitialSession();
@@ -187,10 +203,9 @@ export function useAuth(): AuthHookResult {
           }
         }
       } else { 
-        // This block handles logout or session expiry
         setUserProfile(null);
         localStorage.removeItem("userProfile");
-        setError(null); // Explicitly clear any errors when session becomes null (logout)
+        setError(null);
       }
       setLoading(false);
     });
@@ -224,8 +239,10 @@ export function useAuth(): AuthHookResult {
         await supabase.auth.signOut(); 
         throw new Error(profile.empleado?.estado === 'inactivo' ? "Usuario inactivo. Contacta al administrador." : "El empleado asociado al perfil no está activo.");
       }
+     
       setUserProfile(profile); 
       localStorage.setItem("userProfile", JSON.stringify(profile));
+ 
 
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -249,13 +266,11 @@ export function useAuth(): AuthHookResult {
         console.error("Logout error:", signOutError.message, signOutError);
         throw signOutError;
       }
-      // onAuthStateChange will handle setting userProfile to null and clearing localStorage
+      
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       console.error("Logout error:", errorMessage, e);
       setError(e instanceof Error ? e : new Error(errorMessage));
-      // If signOut fails, userProfile remains, and onAuthStateChange might not update it to null.
-      // The error is set, but not displayed globally. User might perceive this as logout "not working".
     } finally {
       setLoading(false);
     }

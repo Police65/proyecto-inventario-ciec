@@ -1,5 +1,4 @@
 import React from 'react';
-// @ts-ignore
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import ViewInventory from '../components/inventory/ViewInventory';
 import ProductManagement from '../components/inventory/ProductManagement';
@@ -64,7 +63,7 @@ const InventoryPage: React.FC = () => {
   );
 };
 
-// Content for the main /inventory path (index route)
+
 const InventoryDashboardContent: React.FC = () => (
   <div>
     <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Dashboard de Inventario</h1>

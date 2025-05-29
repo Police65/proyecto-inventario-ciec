@@ -7,10 +7,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 
 interface DirectProductLineItem {
-  id: string; // UUID for local state key
+  id: string; 
   producto_id: number | null;
-  descripcion?: string; // For display if product is selected
-  customDescripcion?: string; // For manually entered description
+  descripcion?: string; 
+  customDescripcion?: string; 
   quantity: number;
   precio_unitario: number;
 }
@@ -63,7 +63,6 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
       };
       loadInitialData();
     } else {
-      // Reset form when hidden
       setProductos([{ id: uuidv4(), producto_id: null, quantity: 1, precio_unitario: 0 }]);
       setFormData({ proveedor_id: null, unidad: 'Bs', retencion_porcentaje: 75, sub_total: 0, iva: 0, ret_iva: 0, neto_a_pagar: 0, estado: 'Pendiente', observaciones: '' });
       setError(null);
@@ -91,7 +90,6 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
     if (productos.length > 1) {
       setProductos(prev => prev.filter(p => p.id !== id));
     } else {
-      // If it's the last one, reset it instead of removing
       setProductos([{ id: uuidv4(), producto_id: null, quantity: 1, precio_unitario: 0 }]);
     }
   };
@@ -138,12 +136,11 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
     }
 
     try {
-      // 1. Create a dummy SolicitudCompra as OrdenCompra requires solicitud_compra_id
       const { data: solicitudData, error: solError } = await supabase
         .from('solicitudcompra')
         .insert({
           descripcion: `Orden Directa - ${formData.observaciones || new Date().toLocaleDateString()}`,
-          estado: 'Aprobada', // Direct orders are implicitly approved by creation
+          estado: 'Aprobada',
           empleado_id: userProfile.empleado_id,
           departamento_id: userProfile.departamento_id,
           fecha_solicitud: new Date().toISOString(),
@@ -154,7 +151,6 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
       if (!solicitudData) throw new Error("No se pudo crear la solicitud base para la orden directa.");
       const solicitudBaseId = solicitudData.id;
 
-      // 2. Create OrdenCompra
       const ordenPayload: Omit<OrdenCompra, 'id'|'fecha_modificacion'|'detalles'|'empleado'|'proveedor'|'solicitud_compra' | 'factura'> = {
         solicitud_compra_id: solicitudBaseId,
         proveedor_id: Number(formData.proveedor_id),
@@ -180,14 +176,12 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
       if (!ordenData) throw new Error("No se pudo crear la orden de compra.");
       const ordenId = ordenData.id;
 
-      // 3. Handle Productos: Create new ones if custom, then link all to OrdenCompraDetalle
       const detallesOrdenPayload = await Promise.all(productos.map(async p => {
         let productoRealId = p.producto_id;
         if (!productoRealId && p.customDescripcion?.trim()) {
-          // Create a new product for custom descriptions
           const { data: newProd, error: newProdError } = await supabase
             .from('producto')
-            .insert({ descripcion: p.customDescripcion.trim(), categoria_id: null /* Or a default/selectable one */ })
+            .insert({ descripcion: p.customDescripcion.trim(), categoria_id: null  })
             .select('id')
             .single();
           if (newProdError) throw new Error(`Error creando producto personalizado '${p.customDescripcion}': ${newProdError.message}`);
@@ -207,7 +201,7 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
       const { error: detallesError } = await supabase.from('ordencompra_detalle').insert(detallesOrdenPayload);
       if (detallesError) throw detallesError;
       
-      // 4. Link Orden y Solicitud (dummy)
+ 
       await supabase.from('orden_solicitud').insert({ ordencompra_id: ordenId, solicitud_id: solicitudBaseId });
 
       onSuccess(ordenData as OrdenCompra);
@@ -238,7 +232,6 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
             {error && <div className="p-3 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 rounded-md text-sm">{error}</div>}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Proveedor and Unidad Monetaria (same as OrderForm) */}
                <div>
                 <label htmlFor="direct_proveedor_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor</label>
                 <select id="direct_proveedor_id" name="proveedor_id" value={formData.proveedor_id || ''} onChange={handleFormInputChange} required
@@ -292,7 +285,7 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
                                onChange={(e) => handleProductLineChange(item.id, 'precio_unitario', Number(e.target.value))}
                                className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" required />
                     </div>
-                    {productos.length > 0 && ( // Allow removing even if it's the only one, it will reset
+                    {productos.length > 0 && ( 
                         <button type="button" onClick={() => handleRemoveProductLine(item.id)} 
                                 className="sm:col-span-12 md:col-span-1 p-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded-md hover:bg-red-100 dark:hover:bg-red-900 self-center mt-1 md:mt-0" title="Eliminar producto">
                             <TrashIcon className="w-5 h-5 mx-auto" />
@@ -307,7 +300,7 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
               </button>
             </div>
             
-            {/* Resumen de Pago (same as OrderForm) */}
+
             <div className="p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg space-y-2 border dark:border-gray-600">
                 <h4 className="text-md font-semibold text-gray-800 dark:text-gray-100 mb-2">Resumen de Pago</h4>
                 <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300">
@@ -331,7 +324,6 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
                 </div>
             </div>
 
-            {/* Observaciones (same as OrderForm) */}
             <div>
                 <label htmlFor="direct_observaciones" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observaciones</label>
                 <textarea id="direct_observaciones" name="observaciones" value={formData.observaciones || ''} onChange={handleFormInputChange} rows={3}

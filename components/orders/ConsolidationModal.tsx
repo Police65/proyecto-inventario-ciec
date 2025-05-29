@@ -82,7 +82,6 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
       };
       fetchData();
     } else {
-        // Reset state when modal is hidden
         setSelectedSolicitudIds(new Set());
         setSelectedProveedorId('');
         setSelectedCategoriaFiltro('');
@@ -179,7 +178,6 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
 
         {loading && !solicitudesPendientes.length ? <div className="p-10 flex-grow flex items-center justify-center"><LoadingSpinner message="Cargando datos..." /></div> : (
           <div className="flex-grow overflow-y-auto p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Columna de Solicitudes */}
             <div className="space-y-4">
               <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100">1. Seleccionar Solicitudes</h4>
                <div className="mb-3">
@@ -210,7 +208,6 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
               </div>
             </div>
 
-            {/* Columna de Resumen y Proveedor */}
             <div className="space-y-4">
               <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100">2. Productos Consolidados</h4>
               <div className="max-h-60 overflow-y-auto border dark:border-gray-600 rounded-md p-2 text-sm space-y-1">

@@ -1,2 +1,0 @@
-Productos deberian poder añadirse al momento de poder crear ordines de compra 
-Tambien deberia poder crearse una orden de compra de los productos nuevos que se añadan en la parte de añadir nevos productos

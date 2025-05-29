@@ -11,14 +11,13 @@ interface OrderCompletionFormProps {
   onComplete: (updatedOrder: OrdenCompra) => void;
 }
 
-// Redefined ProductReceptionStatus for clarity and to require producto_id
+
 interface ProductReceptionStatus {
-  id: number; // From OrdenCompraDetalle.id
-  producto_id: number; // Required, non-null product ID
-  cantidad: number; // Original ordered quantity
-  precio_unitario: number; // Original price
-  producto?: Producto; // Associated product details
-  // Form-specific fields
+  id: number; 
+  producto_id: number; 
+  cantidad: number; 
+  precio_unitario: number; 
+  producto?: Producto; 
   cantidadRecibida: number;
   cantidadFaltante: number;
   motivoFaltante?: string;
@@ -29,11 +28,10 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [facturaNumero, setFacturaNumero] = useState<string>('');
-  const [facturaDocumento, setFacturaDocumento] = useState<File | null>(null); // For file upload
+  const [facturaDocumento, setFacturaDocumento] = useState<File | null>(null); 
 
   React.useEffect(() => {
     if (order && order.detalles) {
-      // Filter details to ensure producto_id is not null/undefined, then map.
       const validDetails = order.detalles.filter(
         (d): d is OrdenCompraDetalle & { producto_id: number } => d.producto_id != null
       );
@@ -41,12 +39,11 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
       setProductStatuses(
         validDetails.map(d => ({
           id: d.id,
-          producto_id: d.producto_id, // Now guaranteed to be a number
+          producto_id: d.producto_id,
           cantidad: d.cantidad,
           precio_unitario: d.precio_unitario,
           producto: d.producto,
-          // Form-specific initial values
-          cantidadRecibida: d.cantidad, // Default to full quantity received
+          cantidadRecibida: d.cantidad, 
           cantidadFaltante: 0,
           motivoFaltante: '',
         }))
@@ -61,7 +58,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
       prev.map(p => {
         if (p.id === detalleId) {
           const originalCantidad = p.cantidad;
-          const cantidadRecibida = Math.max(0, Math.min(originalCantidad, received)); // Clamp between 0 and original
+          const cantidadRecibida = Math.max(0, Math.min(originalCantidad, received)); 
           return {
             ...p,
             cantidadRecibida: cantidadRecibida,
@@ -85,7 +82,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
     setError(null);
 
     try {
-      // 1. Update Order status to 'Completada'
+
       const { data: updatedOrderData, error: orderUpdateError } = await supabase
         .from('ordencompra')
         .update({ estado: 'Completada', fecha_modificacion: new Date().toISOString() })
@@ -96,9 +93,9 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
       if (orderUpdateError) throw orderUpdateError;
       if (!updatedOrderData) throw new Error('Failed to update order status.');
 
-      // 2. Update inventory for received products
+   
       for (const pStatus of productStatuses) {
-        // producto_id is now guaranteed to be a number by ProductReceptionStatus type and initialization logic
+
         if (pStatus.cantidadRecibida > 0) {
           const { data: invItem, error: invError } = await supabase
             .from('inventario')
@@ -106,7 +103,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
             .eq('producto_id', pStatus.producto_id)
             .single();
 
-          if (invError && invError.code !== 'PGRST116') { // PGRST116: 0 rows mean not found
+          if (invError && invError.code !== 'PGRST116') { 
             console.warn(`Error fetching inventory for product ${pStatus.producto_id}: ${invError.message}`);
             continue; 
           }
@@ -129,12 +126,12 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
         }
       }
       
-      // 3. Record missing products
+
       const missingProductsPayload: Omit<ProductoNoRecibido, 'id'>[] = productStatuses
-        .filter(p => p.cantidadFaltante > 0) // producto_id is guaranteed non-null here
+        .filter(p => p.cantidadFaltante > 0) 
         .map(p => ({
             orden_compra_id: order.id,
-            producto_id: p.producto_id, // Known to be number
+            producto_id: p.producto_id, 
             cantidad_faltante: p.cantidadFaltante,
             motivo: p.motivoFaltante || 'No especificado',
         }));
@@ -144,13 +141,12 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
         if (missingError) console.warn("Error recording missing products:", missingError.message);
       }
       
-      // 4. (Optional) Handle Factura - Basic recording of number. File upload is more complex.
+
       if (facturaNumero.trim()) {
           await supabase.from('facturas_orden').insert({
             orden_compra_id: order.id,
             numero_factura: facturaNumero.trim(),
             fecha_recepcion: new Date().toISOString(),
-            // documento_factura: "URL_if_uploaded_elsewhere", // Placeholder
             total_recepcionado: productStatuses.reduce((acc, curr) => acc + (curr.cantidadRecibida * curr.precio_unitario), 0)
           });
       }
@@ -211,7 +207,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
             <input type="text" id="facturaNumero" value={facturaNumero} onChange={(e) => setFacturaNumero(e.target.value)}
                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
           </div>
-          {/* Basic file input for now, real upload needs server-side handling
+          {/* 
           <div>
             <label htmlFor="facturaDocumento" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Documento Factura (Opcional)</label>
             <input type="file" id="facturaDocumento" onChange={(e) => setFacturaDocumento(e.target.files ? e.target.files[0] : null)}

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { SolicitudCompra } from '../../types';
 import { XMarkIcon } from '@heroicons/react/24/outline';

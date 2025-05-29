@@ -15,21 +15,21 @@ interface ProductFrequency {
   quantity: number;
 }
 
-// Stricter type based on !inner joins
+
 type OrderWithNestedInfo = Pick<OrdenCompra, 'neto_a_pagar'> & {
-  solicitudcompra: Pick<SolicitudCompra, 'id'> & { // Was SolicitudCompra, but only id is selected from it for this specific join
-    departamento: Pick<Departamento, 'id' | 'nombre'>; // Not null due to !inner
-  }; // Not null due to !inner
+  solicitudcompra: Pick<SolicitudCompra, 'id'> & { 
+    departamento: Pick<Departamento, 'id' | 'nombre'>; 
+  }; 
 };
 
-// Stricter type based on !inner joins
+
 type OrderDetailWithProductInfo = Pick<OrdenCompraDetalle, 'cantidad'> & {
-  producto: Pick<Producto, 'id' | 'descripcion'>; // Not null due to !inner
+  producto: Pick<Producto, 'id' | 'descripcion'>; 
 };
 
-// Stricter type based on !inner joins
+
 type RequestDetailWithProductInfo = Pick<SolicitudCompraDetalleType, 'cantidad'> & {
-  producto: Pick<Producto, 'id' | 'descripcion'>; // Not null due to !inner
+  producto: Pick<Producto, 'id' | 'descripcion'>; 
 };
 
 
@@ -58,7 +58,6 @@ const DetailedStats: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        // Query for department expenses
         const { data: orders, error: ordersError } = await supabase
           .from('ordencompra')
           .select('neto_a_pagar, solicitudcompra!ordencompra_solicitud_compra_id_fkey!inner(id, departamento!inner(id, nombre))')
@@ -70,13 +69,11 @@ const DetailedStats: React.FC = () => {
 
         const expenses: { [key: string]: number } = {};
         (orders || []).forEach(order => {
-          // With stricter types from !inner, solicitudcompra and departamento should exist.
           const deptName = order.solicitudcompra.departamento.nombre;
           expenses[deptName] = (expenses[deptName] || 0) + (order.neto_a_pagar || 0);
         });
         setDepartmentExpenses(Object.entries(expenses).map(([dept, total]) => ({ dept, total })).sort((a,b) => b.total - a.total));
 
-        // Query for top products in orders
         const { data: orderDetails, error: orderDetailsError } = await supabase
           .from('ordencompra_detalle')
           .select('cantidad, producto:producto_id!inner(id, descripcion)')
@@ -88,7 +85,6 @@ const DetailedStats: React.FC = () => {
         
         const orderProductsCount: { [key: string]: number } = {};
         (orderDetails || []).forEach(detail => {
-           // producto should exist due to !inner join
            orderProductsCount[detail.producto.descripcion] = (orderProductsCount[detail.producto.descripcion] || 0) + (detail.cantidad || 0);
         });
         setTopOrderProducts(
@@ -98,7 +94,6 @@ const DetailedStats: React.FC = () => {
             .slice(0, 5) 
         );
 
-        // Query for top products in requests
         const { data: requestDetails, error: requestDetailsError } = await supabase
           .from('solicitudcompra_detalle')
           .select('cantidad, producto:producto_id!inner(id, descripcion)')
@@ -110,7 +105,7 @@ const DetailedStats: React.FC = () => {
 
         const requestProductsCount: { [key: string]: number } = {};
          (requestDetails || []).forEach(detail => {
-            // producto should exist
+
             requestProductsCount[detail.producto.descripcion] = (requestProductsCount[detail.producto.descripcion] || 0) + (detail.cantidad || 0);
         });
         setTopRequestProducts(

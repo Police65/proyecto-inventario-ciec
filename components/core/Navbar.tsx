@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-// @ts-ignore
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { UserProfile, Notificacion } from '../../types';
@@ -13,8 +12,8 @@ interface CustomNavbarProps {
   onLogout: () => void;
 }
 
-const MAX_RETRIES = 3; // Max number of manual retries
-const RETRY_DELAY_MS = 5000; // Initial retry delay
+const MAX_RETRIES = 3; 
+const RETRY_DELAY_MS = 5000; 
 
 function CustomNavbar({ userProfile, onToggleSidebar, onLogout }: CustomNavbarProps): JSX.Element {
   const navigate = useNavigate();
@@ -31,16 +30,14 @@ function CustomNavbar({ userProfile, onToggleSidebar, onLogout }: CustomNavbarPr
   useEffect(() => {
     if (!userProfile?.id) {
       setNotifications([]);
-      // Clear any pending retry timeout if user logs out or profile becomes unavailable
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
       }
-      setRetryAttempt(0); // Reset retry attempts
+      setRetryAttempt(0); 
       return; 
     }
 
-    // console.log(`Setting up notification subscription for user ${userProfile.id}, attempt: ${retryAttempt}`);
 
     const fetchUserNotifications = async (): Promise<void> => {
       try {
@@ -73,7 +70,7 @@ function CustomNavbar({ userProfile, onToggleSidebar, onLogout }: CustomNavbarPr
       }
       if (retryAttempt < MAX_RETRIES) {
         const delay = RETRY_DELAY_MS * Math.pow(2, retryAttempt);
-        // console.log(`Notification channel issue. Scheduling retry ${retryAttempt + 1}/${MAX_RETRIES} in ${delay / 1000}s for user ${userProfile.id}.`);
+        // console.log(`Canal de notificacion con problemas. Reitento ${retryAttempt + 1}/${MAX_RETRIES} en ${delay / 1000}s para el usuario ${userProfile.id}.`);
         retryTimerRef.current = window.setTimeout(() => {
           setRetryAttempt(prev => prev + 1);
         }, delay);
@@ -105,9 +102,9 @@ function CustomNavbar({ userProfile, onToggleSidebar, onLogout }: CustomNavbarPr
         const errDetails = err ? `Error: ${err.message || String(err)}` : 'No additional error info.';
 
         if (status === 'SUBSCRIBED') {
-          // console.log(`Subscribed to notifications for user ${userProfile.id} on channel ${channelName}`);
+           console.log(`Notificaciones suscritas para ${userProfile.id} en el canal ${channelName}`);
           if (retryAttempt > 0) {
-            // console.log(`Notification channel successfully (re-)subscribed for user ${userProfile.id}. Resetting retry attempts.`);
+            console.log(`Canal exitosamente (re-)subscrito para el usuario ${userProfile.id}. reseteando intentos.`);
             setRetryAttempt(0); // Reset on successful connection
           }
           if (retryTimerRef.current) { // Clear timer if any was pending
@@ -120,22 +117,20 @@ function CustomNavbar({ userProfile, onToggleSidebar, onLogout }: CustomNavbarPr
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error(`${baseMessage} failure: ${status}. Attempting to re-subscribe. ${errDetails}`);
           scheduleRetry();
-        } else { // Handles other statuses
-          const logLevel = err ? 'error' : 'info'; // Log as error if an err object is present
+        } else { 
+          const logLevel = err ? 'error' : 'info'; 
           console[logLevel](`${baseMessage} status: ${status}. ${err ? errDetails : '(No specific error details)'}`);
-          // Consider if scheduleRetry() should be called for other specific statuses if they imply disconnection.
         }
       });
 
     return () => {
-      // console.log(`Cleaning up notification subscription for user ${userProfile.id}, current retryAttempt: ${retryAttempt}`);
+      // console.log(`Limpiando notificacines para ${userProfile.id}, intento: ${retryAttempt}`);
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
       }
       if (subscriptionChannel) {
         supabase.removeChannel(subscriptionChannel)
-          // .then(removeStatus => console.log(`Channel ${channelName} removal status for user ${userProfile.id}: ${removeStatus}`))
           .catch(removeError => {
             console.error(`Error removing Supabase channel ${channelName} for user ${userProfile.id}:`, removeError.message || String(removeError));
         });
@@ -186,7 +181,7 @@ function CustomNavbar({ userProfile, onToggleSidebar, onLogout }: CustomNavbarPr
               <Bars3Icon className="w-6 h-6" />
             </button>
             <Link to="/home" className="flex-shrink-0 flex items-center ml-2 lg:ml-0">
-              <img className="h-8 w-auto" src="https://picsum.photos/seed/logo/40/40" alt="Logo" />
+              <img className="h-8 w-auto" src="/assets/logo_svg.svg" alt="RequiSoftware Logo" />
               <span className="ml-2 font-semibold text-xl text-gray-800 dark:text-white">RequiSoftware</span>
             </Link>
           </div>

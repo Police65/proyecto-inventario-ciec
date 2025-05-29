@@ -1,21 +1,19 @@
-import { defineConfig, loadEnv } from 'vite'
-import react from '@vitejs/plugin-react'
+import path from 'path';
+import { defineConfig, loadEnv } from 'vite';
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Load env file based on mode (development, production) from the project root
-  const env = loadEnv(mode, '', ''); // process.cwd() is the default for the second arg if empty string is passed.
-
+  const env = loadEnv(mode, '.', '');
   return {
-    plugins: [react()],
     define: {
-      // Make process.env.API_KEY available in client code for Gemini SDK
-      // It takes its value from VITE_GEMINI_API_KEY in the .env file.
-      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY)
+      'process.env.VITE_SUPABASE_KEY': JSON.stringify(env.VITE_SUPABASE_KEY),
+      'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
+      'process.env.VITE_APP_OPENROUTER_API_URL': JSON.stringify(env.VITE_APP_OPENROUTER_API_URL),
+      'process.env.VITE_APP_OPENROUTER_API_KEY': JSON.stringify(env.VITE_APP_OPENROUTER_API_KEY),
     },
-    server: {
-      port: 5173, 
-      open: true   
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
+      }
     }
-  }
-})
+  };
+});

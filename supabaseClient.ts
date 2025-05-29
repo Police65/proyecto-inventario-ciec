@@ -3,7 +3,6 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 import { Database, SolicitudCompra, SolicitudCompraDetalle, Producto } from './types';
 
-// Ensure environment variables are provided
 if (!SUPABASE_URL) {
   throw new Error("Supabase URL is not defined. Please check your configuration.");
 }
@@ -21,11 +20,10 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(SUPABAS
 });
 
 export const agruparSolicitudes = async (solicitudId: number) => {
-  // Define a more specific type for the data fetched for the current solicitud
+
   type FetchedSolicitudConDetalles = Pick<SolicitudCompra, 'id' | 'fecha_solicitud' | 'estado' | 'empleado_id' | 'departamento_id' | 'descripcion'> & {
     detalles: Array<{
       producto_id: number | null;
-      // Ensure 'producto' matches the structure returned by the select: an object or null
       producto: Pick<Producto, 'id' | 'descripcion' | 'categoria_id'> | null;
     }> | null; 
   };
@@ -41,7 +39,7 @@ export const agruparSolicitudes = async (solicitudId: number) => {
     return { porProducto: [], porCategoria: [] };
   }
 
-  const currentSolicitud = currentSolicitudData; // currentSolicitudData is now correctly typed
+  const currentSolicitud = currentSolicitudData; 
 
   if (!currentSolicitud.detalles || currentSolicitud.detalles.length === 0) {
     console.warn("Current solicitud has no details or details array is empty:", currentSolicitud);
@@ -54,7 +52,7 @@ export const agruparSolicitudes = async (solicitudId: number) => {
 
   const categoriasIds = currentSolicitud.detalles
     .filter(d => d.producto?.categoria_id !== null && d.producto?.categoria_id !== undefined)
-    .map(d => d.producto!.categoria_id) as number[]; // Safe to use ! due to filter
+    .map(d => d.producto!.categoria_id) as number[]; 
 
   if (productosIds.length === 0 && categoriasIds.length === 0) {
     return { porProducto: [], porCategoria: [] };

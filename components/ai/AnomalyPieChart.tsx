@@ -1,10 +1,10 @@
 
 import React from 'react';
 import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
-import { ChartDataItem } from '../../types'; // Use ChartDataItem from types.ts
+import { ChartDataItem } from '../../types'; // Lo saca desde el types.ts
 
 interface AnomalyPieChartProps {
-  data: ChartDataItem[]; // Expects data like [{ name: "Anomalías", value: 5 }, { name: "Normales", value: 95 }]
+  data: ChartDataItem[]; // Esto se supone que espera datos como [{ name: "Anomalías", value: 5 }, { name: "Normales", value: 95 }] lo anoto porque se que lo olvidare soy pajuo xd
   title?: string;
 }
 
@@ -16,7 +16,7 @@ const AnomalyPieChart: React.FC<AnomalyPieChartProps> = ({ data, title = "Distri
   }
   
   return (
-    <div className="w-full h-72 md:h-96"> {/* Responsive height */}
+    <div className="w-full h-72 md:h-96"> 
       <h3 className="text-md font-semibold text-gray-700 dark:text-gray-200 mb-3">{title}</h3>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
@@ -25,8 +25,8 @@ const AnomalyPieChart: React.FC<AnomalyPieChartProps> = ({ data, title = "Distri
             cx="50%"
             cy="50%"
             labelLine={false}
-            outerRadius={80} // Adjust radius as needed
-            fill="#8884d8" // Default fill, overridden by Cell
+            outerRadius={80} 
+            fill="#8884d8" 
             dataKey="value"
             nameKey="name"
             label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
