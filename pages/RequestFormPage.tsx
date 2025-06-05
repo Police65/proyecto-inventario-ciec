@@ -1,10 +1,10 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import RequestForm from '../components/requests/RequestForm';
 import { UserProfile } from '../types';
 import { supabase } from '../supabaseClient';
 import { generateDescription as aiGenerateDescription } from '../services/aiService';
+import { ArrowPathIcon } from '@heroicons/react/24/outline'; 
 
 
 interface RequestFormPageContext {
@@ -14,12 +14,27 @@ interface RequestFormPageContext {
 const RequestFormPage: React.FC = () => {
   const { userProfile } = useOutletContext<RequestFormPageContext>();
   const navigate = useNavigate();
+  const [submittingRequest, setSubmittingRequest] = useState(false);
 
   const handleSubmitRequest = async (requestData: { products: { productId: string; quantity: number }[] | null; description: string | null, customRequest: boolean }) => {
+    setSubmittingRequest(true);
     if (!userProfile?.empleado_id || !userProfile.departamento_id) {
       alert("Error: Perfil de usuario incompleto. Contacte al administrador.");
+      setSubmittingRequest(false);
       return;
     }
+
+    if (requestData.customRequest && (!requestData.description || requestData.description.trim() === '')) {
+        alert('Para una requisición especial, la descripción es obligatoria.');
+        setSubmittingRequest(false);
+        return;
+    }
+    if (!requestData.customRequest && (!requestData.products || requestData.products.length === 0 || requestData.products.some(p => !p.productId || p.quantity < 1))) {
+        alert('Debe seleccionar al menos un producto con cantidad válida (mayor a 0) para una solicitud estándar.');
+        setSubmittingRequest(false);
+        return;
+    }
+
 
     try {
       let finalDescription = "Solicitud de Compra";
@@ -27,14 +42,14 @@ const RequestFormPage: React.FC = () => {
         finalDescription = requestData.description;
       } else if (!requestData.customRequest && requestData.products && requestData.products.length > 0) {
         const productsForAI = requestData.products.map(p => ({
-          productId: parseInt(p.productId, 10),
+          productId: parseInt(p.productId, 10), 
           quantity: p.quantity
-        })).filter(p => !isNaN(p.productId));
+        })).filter(p => !isNaN(p.productId)); 
 
         if (productsForAI.length > 0) {
             finalDescription = await aiGenerateDescription(productsForAI);
         } else if (requestData.products.length > 0) {
-            console.warn("All product IDs failed to parse for AI description. Using default.");
+            console.warn("Todos los IDs de producto fallaron al analizarse para la descripción de IA. Usando descripción predeterminada.");
             finalDescription = "Solicitud de artículos (IDs no procesados)";
         }
       }
@@ -74,7 +89,7 @@ const RequestFormPage: React.FC = () => {
         .eq('rol', 'admin');
       
       if (adminError) {
-        console.error("Error fetching admins for notification:", adminError.message, adminError.details, adminError.code);
+        console.error("Error al obtener administradores para notificación:", adminError.message, adminError.details, adminError.code);
       }
 
       if (admins && admins.length > 0) {
@@ -89,17 +104,18 @@ const RequestFormPage: React.FC = () => {
         }));
         const { error: notifError } = await supabase.from('notificaciones').insert(notifications);
         if (notifError) {
-            console.error("Error creating notifications:", notifError.message, notifError.details, notifError.code);
+            console.error("Error al crear notificaciones:", notifError.message, notifError.details, notifError.code);
         }
       }
 
-
-      alert('Solicitud creada exitosamente!');
+      alert('¡Solicitud creada exitosamente!');
       navigate('/solicitudes'); 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('Error submitting request:', errorMessage, error);
+      console.error('Error al enviar solicitud:', errorMessage, error);
       alert(`Error al crear la solicitud: ${errorMessage}`);
+    } finally {
+      setSubmittingRequest(false);
     }
   };
 
@@ -109,7 +125,8 @@ const RequestFormPage: React.FC = () => {
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Crear Nueva Solicitud de Compra</h1>
         <RequestForm
           onSubmit={handleSubmitRequest}
-          onCancel={() => navigate(-1)} 
+          onCancel={() => navigate(-1)}
+          isSubmitting={submittingRequest}
         />
       </div>
     </div>

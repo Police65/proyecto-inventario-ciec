@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { SolicitudCompra, OrdenCompra, UserProfile, OrdenConsolidada, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, Proveedor, OrdenCompraDetalle as OrdenCompraDetalleType, CategoriaProducto } from '../types';
 import LoadingSpinner from '../components/core/LoadingSpinner';
-
 
 import RequestTable from '../components/requests/RequestTable';
 import OrderTable from '../components/orders/OrderTable';
@@ -17,7 +15,6 @@ import ConsolidationModal from '../components/orders/ConsolidationModal';
 import OrderDetailsModal from '../components/orders/OrderDetailsModal';
 import RequestDetailsModal from '../components/requests/RequestDetailsModal';
 import ConsolidatedOrderDetailsModal from '../components/orders/ConsolidatedOrderDetailsModal';
-
 
 
 interface AdminDashboardContext {
@@ -46,7 +43,7 @@ type RawOrdenFromQuery = Omit<OrdenCompra, 'proveedor' | 'detalles' | 'empleado'
     }
   > | null;
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
-  solicitud_compra: Pick<SolicitudCompra, 'id' | 'descripcion'> | null; 
+  solicitud_compra: Pick<SolicitudCompra, 'id' | 'descripcion'> | null;
 };
 
 
@@ -61,7 +58,6 @@ export const AdminDashboardPage = (): JSX.Element => {
   const [ordenesHistorial, setOrdenesHistorial] = useState<OrdenCompra[]>([]);
   const [ordenesConsolidadas, setOrdenesConsolidadas] = useState<OrdenConsolidada[]>([]);
 
-  // Modals states
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [showDirectOrderForm, setShowDirectOrderForm] = useState(false);
   const [showConsolidationModal, setShowConsolidationModal] = useState(false);
@@ -78,7 +74,7 @@ export const AdminDashboardPage = (): JSX.Element => {
   const [selectedConsolidatedOrderDetail, setSelectedConsolidatedOrderDetail] = useState<OrdenConsolidada | null>(null);
 
   const [newlyCreatedOrder, setNewlyCreatedOrder] = useState<OrdenCompra | null>(null);
-  const [showPDFConfirmationModal, setShowPDFConfirmationModal] = useState(false); // For confirming PDF generation after order creation
+  const [showPDFConfirmationModal, setShowPDFConfirmationModal] = useState(false);
 
   const mapSolicitudData = (req: RawSolicitudFromQuery): SolicitudCompra => ({
     id: req.id,
@@ -109,7 +105,7 @@ export const AdminDashboardPage = (): JSX.Element => {
         categoria_id: d.producto.categoria_id,
         categoria: d.producto.categoria || undefined,
       } : undefined,
-    })) : [],
+    })) : [], 
   });
   
   const mapOrdenData = (order: RawOrdenFromQuery): OrdenCompra => ({
@@ -118,7 +114,7 @@ export const AdminDashboardPage = (): JSX.Element => {
     proveedor_id: order.proveedor_id,
     fecha_orden: order.fecha_orden,
     estado: order.estado,
-    precio_unitario: order.precio_unitario, 
+    precio_unitario: order.precio_unitario,
     sub_total: order.sub_total,
     iva: order.iva,
     ret_iva: order.ret_iva,
@@ -170,7 +166,6 @@ export const AdminDashboardPage = (): JSX.Element => {
         departamento:departamento_id(id, nombre)
       `;
 
-
       const { data: pendingRaw, error: pendingError } = await supabase
         .from('solicitudcompra')
         .select(commonSelectSolicitud)
@@ -203,7 +198,7 @@ export const AdminDashboardPage = (): JSX.Element => {
         .order('fecha_orden', { ascending: false })
         .returns<RawOrdenFromQuery[]>();
       if (ordersError) {
-        console.error("Error fetching admin dashboard data (orders):", ordersError.message, ordersError.details, ordersError.code, ordersError);
+        console.error("Error al obtener datos del panel de admin (órdenes):", ordersError.message, ordersError.details, ordersError.code, ordersError);
         throw ordersError;
       }
       setOrdenesHistorial((ordersRaw || []).map(mapOrdenData));
@@ -224,8 +219,8 @@ export const AdminDashboardPage = (): JSX.Element => {
       })));
     } catch (err) {
       const typedError = err as { message: string, details?: string, code?: string };
-      const errorMessage = `Error: ${typedError.message}${typedError.details ? ` Details: ${typedError.details}` : ''}${typedError.code ? ` Code: ${typedError.code}` : ''}`;
-      console.error("Error fetching admin dashboard data:", errorMessage, err);
+      const errorMessage = `Error: ${typedError.message}${typedError.details ? ` Detalles: ${typedError.details}` : ''}${typedError.code ? ` Código: ${typedError.code}` : ''}`;
+      console.error("Error al obtener datos del panel de admin:", errorMessage, err);
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -234,7 +229,6 @@ export const AdminDashboardPage = (): JSX.Element => {
 
   useEffect(() => {
     fetchData();
-
   }, []);
 
   const refreshAllData = () => {
@@ -246,7 +240,7 @@ export const AdminDashboardPage = (): JSX.Element => {
       producto_id: d.producto_id,
       descripcion: d.producto?.descripcion || 'Producto sin nombre',
       quantity: d.cantidad,
-      precio_unitario: 0 
+      precio_unitario: 0
     })) || [];
 
     setSelectedRequestForOrder({
@@ -270,7 +264,6 @@ export const AdminDashboardPage = (): JSX.Element => {
                               solicitudesHistorial.find(req => req.id === requestId);
       
       if (requestToNotify && requestToNotify.empleado_id) {
-       
         const {data: profileForNotif, error: profileError} = await supabase
             .from('user_profile')
             .select('id')
@@ -278,7 +271,7 @@ export const AdminDashboardPage = (): JSX.Element => {
             .single();
 
         if(profileError) {
-            console.warn("Could not fetch profile for notification:", profileError.message, profileError.details);
+            console.warn("No se pudo obtener el perfil para la notificación:", profileError.message, profileError.details);
         }
 
         if (profileForNotif) {
@@ -292,7 +285,7 @@ export const AdminDashboardPage = (): JSX.Element => {
             related_id: requestId
             }]);
             if (insertNotifError) {
-                console.error("Error inserting notification for rejection:", insertNotifError.message, insertNotifError.details, insertNotifError.code);
+                console.error("Error al insertar notificación por rechazo:", insertNotifError.message, insertNotifError.details, insertNotifError.code);
             }
         } else {
              console.warn("No se pudo enviar notificación de rechazo: perfil de usuario no encontrado para empleado ID", requestToNotify.empleado_id);
@@ -303,7 +296,7 @@ export const AdminDashboardPage = (): JSX.Element => {
       refreshAllData();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error("Error rejecting request:", errorMessage, err);
+      console.error("Error al rechazar solicitud:", errorMessage, err);
       alert("Error al rechazar la solicitud.");
     }
   };
@@ -315,15 +308,15 @@ export const AdminDashboardPage = (): JSX.Element => {
   const handleOrderCreated = (createdOrder: OrdenCompra) => {
     setNewlyCreatedOrder(createdOrder);
     setShowOrderForm(false);
-    setShowDirectOrderForm(false); 
-    setShowPDFConfirmationModal(true); 
+    setShowDirectOrderForm(false);
+    setShowPDFConfirmationModal(true);
     refreshAllData();
   };
   
   const handleConsolidationComplete = (newConsolidatedOrder: OrdenConsolidada) => {
     setOrdenesConsolidadas(prev => [newConsolidatedOrder, ...prev]);
     setShowConsolidationModal(false);
-    refreshAllData(); 
+    refreshAllData();
   };
 
   const handleConvertToRegularOrder = (consolidatedOrder: OrdenConsolidada) => {
@@ -339,7 +332,6 @@ export const AdminDashboardPage = (): JSX.Element => {
       proveedor_id: consolidatedOrder.proveedor_id
     });
     setShowOrderForm(true);
-
   };
 
 
@@ -411,7 +403,6 @@ export const AdminDashboardPage = (): JSX.Element => {
       case 'usuarios':
         return (
           <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
-           
             <UserManagement /> 
           </div>
         );
@@ -420,7 +411,7 @@ export const AdminDashboardPage = (): JSX.Element => {
     }
   };
   
-  if (loading) return <LoadingSpinner message="Cargando dashboard de administrador..." />;
+  if (loading) return <LoadingSpinner message="Cargando panel de administrador..." />;
   if (error) return <div className="p-4 text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900 rounded-md">{error}</div>;
 
   return (

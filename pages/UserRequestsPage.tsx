@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { SolicitudCompra, UserProfile, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, CategoriaProducto } from '../types';
@@ -100,7 +99,7 @@ const UserRequestsPage: React.FC = () => {
         const { data: rawRequests, error: fetchError } = await query.returns<RawSolicitudFromUserQuery[]>();
 
         if (fetchError) {
-          console.error("Error fetching user requests:", fetchError.message, fetchError.details, fetchError.code, fetchError);
+          console.error("Error al obtener solicitudes del usuario:", fetchError.message, fetchError.details, fetchError.code, fetchError);
           throw fetchError;
         }
         setRequests((rawRequests || []).map(mapSolicitudData));
@@ -135,7 +134,7 @@ const UserRequestsPage: React.FC = () => {
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">{getPageTitle()}</h2>
         <RequestTable
           requests={requests}
-          showStatus={true} 
+          showStatus={true}
           onRowClick={handleRowClick}
         />
       </div>

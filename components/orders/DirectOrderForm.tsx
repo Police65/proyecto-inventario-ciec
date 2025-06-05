@@ -1,16 +1,18 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { UserProfile, Proveedor, Producto, OrdenCompra, OrdenCompraUnidad, SolicitudCompra, OrdenCompraFormData } from '../../types';
-import { XMarkIcon, CheckIcon, PlusCircleIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckIcon, PlusCircleIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 import { v4 as uuidv4 } from 'uuid';
+import { useOrderCalculations } from '../../hooks/useOrderCalculations'; // Import the hook
 
 
 interface DirectProductLineItem {
-  id: string; 
+  id: string; // UUID for local state key
   producto_id: number | null;
-  descripcion?: string; 
-  customDescripcion?: string; 
+  descripcion?: string; // For display if product is selected
+  customDescripcion?: string; // For manually entered description
   quantity: number;
   precio_unitario: number;
 }
@@ -38,12 +40,16 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
     estado: 'Pendiente',
     observaciones: '',
   });
-  const [loading, setLoading] = useState(false);
+  const [loadingInitialData, setLoadingInitialData] = useState(false);
+  const [submittingOrder, setSubmittingOrder] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Use the new hook for calculations
+  const calculatedTotals = useOrderCalculations(productos, formData.retencion_porcentaje);
 
   useEffect(() => {
     if (show) {
-      setLoading(true);
+      setLoadingInitialData(true);
       const loadInitialData = async () => {
         try {
           const { data: provData, error: provError } = await supabase.from('proveedor').select('id, nombre');
@@ -58,7 +64,7 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
           setError("Error cargando datos iniciales.");
           console.error(err);
         } finally {
-          setLoading(false);
+          setLoadingInitialData(false);
         }
       };
       loadInitialData();
@@ -69,17 +75,16 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
     }
   }, [show]);
   
-  const calcularTotales = useCallback((currentProductos: DirectProductLineItem[], retencionPct: number) => {
-    const subtotal = currentProductos.reduce((acc, p) => acc + (Number(p.quantity) * Number(p.precio_unitario)), 0);
-    const iva = subtotal * 0.16;
-    const retencionIva = iva * (retencionPct / 100);
-    const neto = subtotal + iva - retencionIva;
-    setFormData(prev => ({ ...prev, sub_total: subtotal, iva, ret_iva: retencionIva, neto_a_pagar: neto }));
-  }, []);
-
+  // Update formData when calculatedTotals change
   useEffect(() => {
-    calcularTotales(productos, formData.retencion_porcentaje || 75);
-  }, [productos, formData.retencion_porcentaje, calcularTotales]);
+    setFormData(prev => ({
+      ...prev,
+      sub_total: calculatedTotals.sub_total,
+      iva: calculatedTotals.iva,
+      ret_iva: calculatedTotals.ret_iva,
+      neto_a_pagar: calculatedTotals.neto_a_pagar,
+    }));
+  }, [calculatedTotals]);
 
 
   const handleAddProductLine = () => {
@@ -101,10 +106,10 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
         if (field === 'producto_id') {
           const selectedDbProduct = fetchedDbProducts.find(dbP => dbP.id === Number(value));
           updatedProduct.descripcion = selectedDbProduct?.descripcion;
-          updatedProduct.customDescripcion = ''; // Clear custom if DB product selected
+          updatedProduct.customDescripcion = ''; 
         }
         if (field === 'customDescripcion') {
-             updatedProduct.producto_id = null; // Clear DB product if custom description is typed
+             updatedProduct.producto_id = null; 
              updatedProduct.descripcion = value;
         }
         return updatedProduct;
@@ -122,17 +127,17 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
+    setSubmittingOrder(true);
 
     if (!userProfile.empleado_id || !userProfile.departamento_id) {
-        setError("Perfil de empleado incompleto."); setLoading(false); return;
+        setError("Perfil de empleado incompleto."); setSubmittingOrder(false); return;
     }
     if (!formData.proveedor_id) {
-        setError("Debe seleccionar un proveedor."); setLoading(false); return;
+        setError("Debe seleccionar un proveedor."); setSubmittingOrder(false); return;
     }
     if (productos.length === 0 || productos.some(p => (!p.producto_id && !p.customDescripcion?.trim()) || p.quantity <= 0 || p.precio_unitario < 0)) {
         setError("Asegúrese de que todos los productos tengan descripción (seleccionada o manual), cantidad positiva y precio no negativo.");
-        setLoading(false); return;
+        setSubmittingOrder(false); return;
     }
 
     try {
@@ -140,7 +145,7 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
         .from('solicitudcompra')
         .insert({
           descripcion: `Orden Directa - ${formData.observaciones || new Date().toLocaleDateString()}`,
-          estado: 'Aprobada',
+          estado: 'Aprobada', 
           empleado_id: userProfile.empleado_id,
           departamento_id: userProfile.departamento_id,
           fecha_solicitud: new Date().toISOString(),
@@ -163,7 +168,7 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
         unidad: formData.unidad as OrdenCompraUnidad || 'Bs',
         observaciones: formData.observaciones || null,
         empleado_id: userProfile.empleado_id,
-        retencion_porcentaje: formData.retencion_porcentaje || 0,
+        retencion_porcentaje: formData.retencion_porcentaje === null ? 0 : formData.retencion_porcentaje,
         precio_unitario: 0, 
         changed_by: userProfile.empleado_id
       };
@@ -181,7 +186,7 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
         if (!productoRealId && p.customDescripcion?.trim()) {
           const { data: newProd, error: newProdError } = await supabase
             .from('producto')
-            .insert({ descripcion: p.customDescripcion.trim(), categoria_id: null  })
+            .insert({ descripcion: p.customDescripcion.trim(), categoria_id: null })
             .select('id')
             .single();
           if (newProdError) throw new Error(`Error creando producto personalizado '${p.customDescripcion}': ${newProdError.message}`);
@@ -201,17 +206,22 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
       const { error: detallesError } = await supabase.from('ordencompra_detalle').insert(detallesOrdenPayload);
       if (detallesError) throw detallesError;
       
- 
       await supabase.from('orden_solicitud').insert({ ordencompra_id: ordenId, solicitud_id: solicitudBaseId });
 
       onSuccess(ordenData as OrdenCompra);
       onHide();
 
     } catch (err) {
+      const supabaseError = err as { code?: string; message: string };
+      if (supabaseError.code === '23505') {
+           alert(`Error al crear la orden directa: Ya existe un registro con un valor único similar. (${supabaseError.message})`);
+      } else {
+          alert(`Error al crear la orden directa: ${supabaseError.message}`);
+      }
       console.error("Error creating direct order:", err);
-      setError(err instanceof Error ? err.message : "Error desconocido al crear la orden directa.");
+      setError(supabaseError.message || "Error desconocido al crear la orden directa.");
     } finally {
-      setLoading(false);
+      setSubmittingOrder(false);
     }
   };
 
@@ -222,18 +232,18 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 sm:p-5 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Crear Orden de Compra Directa</h3>
-          <button onClick={onHide} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md">
+          <button onClick={onHide} disabled={submittingOrder} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md">
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
 
-        {loading && productos.length === 1 && !productos[0].producto_id && !productos[0].customDescripcion ? <div className="p-10 flex-grow flex items-center justify-center"><LoadingSpinner message="Cargando formulario..." /></div> : (
+        {(loadingInitialData && productos.length === 1 && !productos[0].producto_id && !productos[0].customDescripcion) ? <div className="p-10 flex-grow flex items-center justify-center"><LoadingSpinner message="Cargando formulario..." /></div> : (
           <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-4 sm:p-5 space-y-5">
             {error && <div className="p-3 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 rounded-md text-sm">{error}</div>}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <div>
-                <label htmlFor="direct_proveedor_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor</label>
+                <label htmlFor="direct_proveedor_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span className="text-red-500">*</span></label>
                 <select id="direct_proveedor_id" name="proveedor_id" value={formData.proveedor_id || ''} onChange={handleFormInputChange} required
                     className="w-full px-3 py-2 border input-field">
                     <option value="">Seleccionar proveedor...</option>
@@ -251,7 +261,7 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-md font-semibold text-gray-700 dark:text-gray-200">Productos a Ordenar</h4>
+              <h4 className="text-md font-semibold text-gray-700 dark:text-gray-200">Productos a Ordenar <span className="text-red-500">*</span></h4>
               {productos.map((item, index) => (
                 <div key={item.id} className="p-3 border dark:border-gray-700 rounded-md space-y-2 bg-gray-50 dark:bg-gray-900/40 shadow-sm">
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
@@ -274,20 +284,20 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
                                disabled={!!item.producto_id} />
                     </div>
                     <div className="sm:col-span-2">
-                        <label htmlFor={`d_qty_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cantidad</label>
+                        <label htmlFor={`d_qty_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cantidad <span className="text-red-500">*</span></label>
                         <input type="number" id={`d_qty_${item.id}`} value={item.quantity} min="1"
                                onChange={(e) => handleProductLineChange(item.id, 'quantity', Number(e.target.value))}
                                className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" required />
                     </div>
                     <div className="sm:col-span-2">
-                        <label htmlFor={`d_price_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Precio Unit.</label>
+                        <label htmlFor={`d_price_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Precio Unit. <span className="text-red-500">*</span></label>
                         <input type="number" id={`d_price_${item.id}`} value={item.precio_unitario} step="0.01" min="0"
                                onChange={(e) => handleProductLineChange(item.id, 'precio_unitario', Number(e.target.value))}
                                className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" required />
                     </div>
                     {productos.length > 0 && ( 
                         <button type="button" onClick={() => handleRemoveProductLine(item.id)} 
-                                className="sm:col-span-12 md:col-span-1 p-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded-md hover:bg-red-100 dark:hover:bg-red-900 self-center mt-1 md:mt-0" title="Eliminar producto">
+                                className="sm:col-span-12 md:col-span-1 p-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded-md hover:bg-red-100 dark:hover:bg-red-900 self-center mt-1 md:mt-0" title="Eliminar producto" disabled={submittingOrder}>
                             <TrashIcon className="w-5 h-5 mx-auto" />
                         </button>
                     )}
@@ -295,12 +305,12 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
                 </div>
               ))}
               <button type="button" onClick={handleAddProductLine}
-                className="mt-2 flex items-center px-3 py-1.5 border border-dashed border-gray-400 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none">
+                disabled={submittingOrder}
+                className="mt-2 flex items-center px-3 py-1.5 border border-dashed border-gray-400 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none disabled:opacity-50">
                 <PlusCircleIcon className="w-5 h-5 mr-2" />Añadir Otro Producto
               </button>
             </div>
             
-
             <div className="p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg space-y-2 border dark:border-gray-600">
                 <h4 className="text-md font-semibold text-gray-800 dark:text-gray-100 mb-2">Resumen de Pago</h4>
                 <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300">
@@ -314,7 +324,7 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
                 <div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300">
                 <label htmlFor="direct_retencion_porcentaje" className="whitespace-nowrap mr-2">Retención IVA (%):</label>
                 <input type="number" id="direct_retencion_porcentaje" name="retencion_porcentaje" 
-                        value={formData.retencion_porcentaje || 0} min="0" max="100" onChange={handleFormInputChange}
+                        value={formData.retencion_porcentaje === null ? '' : formData.retencion_porcentaje} min="0" max="100" onChange={handleFormInputChange}
                         className="w-20 px-2 py-1 border input-field text-sm" />
                 <span className="ml-auto">{formData.ret_iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span>
                 </div>
@@ -332,14 +342,14 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
             </div>
         
             <div className="pt-5 flex justify-end space-x-3 sticky bottom-0 bg-white dark:bg-gray-800 py-3 z-10 border-t dark:border-gray-700">
-              <button type="button" onClick={onHide}
+              <button type="button" onClick={onHide} disabled={submittingOrder}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">
                 Cancelar
               </button>
-              <button type="submit" disabled={loading}
+              <button type="submit" disabled={submittingOrder || loadingInitialData}
                 className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none disabled:opacity-50">
-                {loading ? <LoadingSpinner size="sm"/> : <CheckIcon className="w-5 h-5 mr-1.5 -ml-1" />}
-                {loading ? "Creando..." : "Crear Orden Directa"}
+                {submittingOrder ? <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" /> : <CheckIcon className="w-5 h-5 mr-1.5 -ml-1" />}
+                {submittingOrder ? "Creando..." : "Crear Orden Directa"}
               </button>
             </div>
           </form>
@@ -349,7 +359,6 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
         .input-field {
           display: block;
           width: 100%;
-          /* padding: 0.5rem 0.75rem; already there */
           font-size: 0.875rem;
           line-height: 1.25rem;
           border-width: 1px;
@@ -357,12 +366,12 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
           box-shadow: sm;
         }
         .dark .input-field {
-          background-color: #374151; /* gray-700 */
-          border-color: #4B5563; /* gray-600 */
-          color: #F3F4F6; /* gray-100 */
+          background-color: #374151; 
+          border-color: #4B5563; 
+          color: #F3F4F6; 
         }
         .dark .input-field::placeholder {
-            color: #9CA3AF; /* gray-400 */
+            color: #9CA3AF; 
         }
       `}</style>
     </div>

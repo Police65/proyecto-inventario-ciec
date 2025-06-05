@@ -1,10 +1,12 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { OrdenCompra, Camaraindustriales, Proveedor, Empleado, OrdenCompraDetalle, Producto } from '../../types'; 
+import { OrdenCompra, Camaraindustriales, Proveedor, Empleado, OrdenCompraDetalle, Producto } from '../../types'; // Asegúrate que las rutas y tipos sean correctos
+
 interface PDFOrdenCompra extends OrdenCompra {
-  proveedor: Proveedor | undefined; 
-  productos: (OrdenCompraDetalle & { producto: Producto | undefined })[]; 
+  proveedor: Proveedor | undefined; // Supabase might return this as an object or undefined
+  productos: (OrdenCompraDetalle & { producto: Producto | undefined })[]; // Alias from user's query
+  empleado: Empleado | undefined;
 }
 
 interface PDFTemplateProps {
@@ -17,25 +19,22 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
     if (value === undefined || value === null) return 'N/A';
     return new Intl.NumberFormat('es-VE', {
       style: 'currency',
-      currency: unidad === 'USD' ? 'USD' : 'VES', 
+      currency: unidad === 'USD' ? 'USD' : 'VES', // Default to VES if unidad is not USD
       minimumFractionDigits: 2,
     }).format(value);
   };
 
-  // Estilos base para compatibilidad con html2canvas, necesito que esto este lo mas simple posible 
-  // para hacer la planilla, si un tutor, profesor, jefe mio, directivo, gerente o etc ve esto, COMPRENDAN JAJAS
-  //Uso objetos de estilo de React en lugar de strings CSS directos para mejor mantenibilidad 
-  // literalmente estoy capturando un html y convirtiendolo en pdf para los reportes, 
-  // es la solucion que encontre no me juzgue JASKJ
+  // Estilos base para compatibilidad con html2canvas
+  // Usar objetos de estilo de React en lugar de strings CSS directos para mejor mantenibilidad
   const styles: { [key: string]: React.CSSProperties } = {
     page: {
       width: '210mm',
-      minHeight: '297mm', 
+      minHeight: '297mm', // Opcional si el contenido define la altura
       padding: '20px',
       fontFamily: 'Arial, sans-serif',
-      fontSize: '10px', 
+      fontSize: '10px', // Reducido para mejor encaje
       color: '#000000',
-      backgroundColor: '#FFFFFF', 
+      backgroundColor: '#FFFFFF', // Importante para html2canvas
     },
     header: {
       textAlign: 'center',
@@ -44,20 +43,20 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
       paddingBottom: '10px',
     },
     headerTitle: {
-        fontSize: '20px', 
+        fontSize: '20px', // Reducido
         margin: '5px 0',
         color: '#000000',
         fontWeight: 'bold',
     },
     headerSubtitle: {
-        fontSize: '16px', 
+        fontSize: '16px', // Reducido
         margin: '5px 0',
         color: '#000000',
     },
     contactInfo: {
       textAlign: 'center',
       marginBottom: '20px',
-      fontSize: '9px', 
+      fontSize: '9px', // Reducido
     },
     contactInfoP: {
         margin: '2px 0',
@@ -67,21 +66,21 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
       width: '100%',
       borderCollapse: 'collapse',
       margin: '15px 0',
-      backgroundColor: '#FFFFFF', 
-      fontSize: '9px', 
+      backgroundColor: '#FFFFFF', // Importante para html2canvas
+      fontSize: '9px', // Reducido
     },
     th: {
-      backgroundColor: '#EAEAEA', 
-      border: '1px solid #333333', 
-      padding: '6px', 
+      backgroundColor: '#EAEAEA', // Un gris más claro
+      border: '1px solid #333333', // Bordes más oscuros para mejor visibilidad
+      padding: '6px', // Reducido
       textAlign: 'left',
       color: '#000000',
       fontWeight: 'bold',
     },
     td: {
       border: '1px solid #333333',
-      padding: '6px', 
-      backgroundColor: '#FFFFFF', 
+      padding: '6px', // Reducido
+      backgroundColor: '#FFFFFF', // Asegurar fondo blanco para celdas
       color: '#000000',
       verticalAlign: 'top',
     },
@@ -89,7 +88,7 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
       margin: '15px 0',
       padding: '8px',
       border: '1px solid #000000',
-      fontSize: '10px', 
+      fontSize: '10px', // Reducido
       fontWeight: 'bold',
       color: '#000000',
       textAlign: 'center',
@@ -97,7 +96,7 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
     totals: {
       marginTop: '15px',
       textAlign: 'right',
-      fontSize: '10px', 
+      fontSize: '10px', // Reducido
     },
     totalsP: {
         margin: '3px 0',
@@ -106,25 +105,25 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
     totalsBoldP: {
         margin: '3px 0',
         color: '#000000',
-        fontSize: '11px',
+        fontSize: '11px', // Ligeramente más grande para el total neto
         fontWeight: 'bold',
     },
     signatures: {
-        display: 'flex', 
-        justifyContent: 'space-around', 
-        marginTop: '40px', 
+        display: 'flex', // Usar flexbox para alinear
+        justifyContent: 'space-around', // Distribuir espacio
+        marginTop: '40px', // Más espacio antes de las firmas
         paddingTop: '15px',
         borderTop: '1px solid #000000',
-        fontSize: '10px', 
+        fontSize: '10px', // Reducido
     },
     signatureBlock: {
-        width: '40%', 
+        width: '40%', // Ancho de cada bloque de firma
         textAlign: 'center',
         color: '#000000',
     },
     signatureLine: {
         borderBottom: '1px solid #000000',
-        height: '40px', 
+        height: '40px', // Espacio para la firma
         marginBottom: '8px'
     }
   };

@@ -86,7 +86,8 @@ const OrderPDF = ({
         useCORS: true,
         logging: true,
         backgroundColor: '#ffffff',
-    
+        // Removed explicit width, height, windowWidth, windowHeight
+        // Let html2canvas use the element's computed dimensions
       });
 
       contentRef.current.style.cssText = originalStyle;
@@ -166,7 +167,7 @@ const OrderPDF = ({
         ref={contentRef}
         style={{
             width: '210mm', 
-            minHeight: pdfData ? '297mm' : 'auto', 
+            minHeight: pdfData ? '297mm' : 'auto', // Ensures min height when data is present for capture
             visibility: 'hidden',
             position: 'absolute',
             left: '-9999px', 

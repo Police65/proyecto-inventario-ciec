@@ -1,3 +1,6 @@
+// types.ts
+
+// Basado en el esquema SQL
 export interface Camaraindustriales {
   id: number;
   nombre: string;
@@ -50,8 +53,8 @@ export interface EmpleadoCargoHistorial {
   id: number;
   empleado_id: number;
   cargo_id: number;
-  fecha_inicio: string; 
-  fecha_fin?: string | null; 
+  fecha_inicio: string; // Cadena de fecha
+  fecha_fin?: string | null; // Cadena de fecha
   cargo?: Cargo;
 }
 
@@ -59,8 +62,8 @@ export interface FacturaOrden {
   id: number;
   orden_compra_id?: number | null;
   numero_factura?: string | null;
-  fecha_recepcion?: string | null; 
-  documento_factura?: string | null; 
+  fecha_recepcion?: string | null; // Cadena de fecha
+  documento_factura?: string | null; // URL o ruta
   total_recepcionado?: number | null;
 }
 
@@ -68,7 +71,7 @@ export interface Inventario {
   id: number;
   producto_id: number;
   ubicacion: string;
-  fecha_actualizacion: string; 
+  fecha_actualizacion: string; // Cadena de marca de tiempo
   existencias?: number | null;
   producto?: Producto;
 }
@@ -83,11 +86,11 @@ export type OrdenCompraUnidad = 'Bs' | 'USD';
 
 export interface OrdenCompra {
   id: number;
-  solicitud_compra_id: number | null; 
+  solicitud_compra_id: number | null; // Puede ser nulo para órdenes directas
   proveedor_id: number;
-  fecha_orden: string; 
+  fecha_orden: string; // Cadena de marca de tiempo
   estado: OrdenCompraEstado;
-  precio_unitario: number; 
+  precio_unitario: number; // Valor por defecto '0' - Considerar remover si siempre se usan detalles
   sub_total: number;
   iva: number;
   ret_iva?: number | null;
@@ -96,9 +99,10 @@ export interface OrdenCompra {
   observaciones?: string | null;
   empleado_id: number;
   changed_by?: number | null;
-  fecha_modificacion: string; 
-  retencion_porcentaje?: number | null; 
+  fecha_modificacion: string; // Cadena de marca de tiempo
+  retencion_porcentaje?: number | null; // Valor por defecto '0'
   
+  // Relaciones
   proveedor?: Proveedor;
   detalles?: OrdenCompraDetalle[]; 
   empleado?: Empleado; 
@@ -112,17 +116,17 @@ export interface OrdenCompraDetalle {
   producto_id?: number | null;
   cantidad: number;
   precio_unitario: number;
-  monto_total?: number | null;
+  monto_total?: number | null; // Columna generada
   producto?: Producto;
 }
 
 export interface OrdenConsolidada {
   id: number;
   proveedor_id?: number | null;
-  productos: any; 
-  estado: string; 
-  fecha_creacion: string; 
-  solicitudes: any; 
+  productos: any; // JSONB - Definir más estrictamente si es posible { producto_id: number, descripcion: string, cantidad: number }[]
+  estado: string; // Valor por defecto 'Pendiente'
+  fecha_creacion: string; // Cadena de marca de tiempo
+  solicitudes: any; // JSONB - Definir más estrictamente si es posible number[] (array de solicitud_id)
   proveedor?: Proveedor;
 }
 
@@ -131,7 +135,7 @@ export interface Producto {
   descripcion: string;
   categoria_id?: number | null;
   categoria?: CategoriaProducto;
-  inventario?: Inventario; 
+  inventario?: Inventario; // si se obtiene
 }
 
 export interface ProductoNoRecibido {
@@ -151,7 +155,7 @@ export interface ProductoRezagado {
   cantidad: number;
   motivo?: string | null;
   solicitud_id?: number | null;
-  created_at: string; 
+  created_at: string; // Cadena de marca de tiempo
   producto?: Producto;
   solicitud?: SolicitudCompra;
   orden_compra?: OrdenCompra;
@@ -179,14 +183,15 @@ export type SolicitudCompraEstado = 'Pendiente' | 'Aprobada' | 'Rechazada';
 export interface SolicitudCompra {
   id: number;
   descripcion?: string | null;
-  fecha_solicitud: string; 
+  fecha_solicitud: string; // Cadena de marca de tiempo
   estado: SolicitudCompraEstado;
   empleado_id: number;
   departamento_id: number;
-
+  
+  // Relaciones
   detalles?: SolicitudCompraDetalle[];
   empleado?: Empleado; 
-  departamento?: Departamento;
+  departamento?: Departamento; 
 }
 
 export interface SolicitudCompraDetalle {
@@ -200,7 +205,7 @@ export interface SolicitudCompraDetalle {
 export type UserProfileRol = 'admin' | 'usuario';
 
 export interface UserProfile {
-  id: string; 
+  id: string; // UUID de auth.users
   empleado_id?: number | null;
   departamento_id?: number | null;
   rol?: UserProfileRol | null;
@@ -213,13 +218,16 @@ export interface Notificacion {
   user_id: string; // UUID
   title: string;
   description: string;
-  created_at: string; 
+  created_at: string; // Cadena de fecha ISO
   type?: string;
   read: boolean;
-  related_id?: number; 
+  related_id?: number; // ej., solicitud_id u orden_id
 }
 
 
+// Esta es una estructura base para tu esquema de Supabase.
+// Deberías generar esto usando `supabase gen types typescript > types.ts`
+// Por ahora, definiremos las tablas que conocemos del SQL.
 export interface Database {
   public: {
     Tables: {
@@ -325,7 +333,7 @@ export interface Database {
       };
       user_profile: {
         Row: UserProfile;
-        Insert: UserProfile; 
+        Insert: UserProfile; // Si todos los campos son requeridos para inserción
         Update: Partial<UserProfile>;
       };
       notificaciones: { 
@@ -349,9 +357,9 @@ export interface Database {
   };
 }
 
-
+// Tipo de utilidad para datos de formulario para evitar deep partials si no son necesarios
 export type OrdenCompraFormData = Omit<OrdenCompra, 'id' | 'fecha_orden' | 'fecha_modificacion' | 'sub_total' | 'iva' | 'ret_iva' | 'neto_a_pagar' | 'proveedor' | 'detalles' | 'empleado' | 'solicitud_compra'> & {
-  proveedor_id: number | null; 
+  proveedor_id: number | null; // Hacerlo nullable para el estado inicial
   sub_total?: number;
   iva?: number;
   ret_iva?: number;
@@ -363,7 +371,7 @@ export interface ProductSelectionItem extends Producto {
   quantity: number;
   selected: boolean;
   motivo?: string;
-  precio_unitario: number; 
+  precio_unitario: number; // Añadido para consistencia con OrderForm
 }
 
 export interface AISummaryStat {

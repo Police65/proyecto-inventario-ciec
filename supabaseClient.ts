@@ -1,13 +1,12 @@
-
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config';
 import { Database, SolicitudCompra, SolicitudCompraDetalle, Producto } from './types';
 
 if (!SUPABASE_URL) {
-  throw new Error("Supabase URL is not defined. Please check your configuration.");
+  throw new Error("La URL de Supabase no está definida. Por favor, verifica tu configuración.");
 }
 if (!SUPABASE_ANON_KEY) {
-  throw new Error("Supabase Anon Key is not defined. Please check your configuration.");
+  throw new Error("La Clave Anónima de Supabase no está definida. Por favor, verifica tu configuración.");
 }
 
 export const supabase: SupabaseClient<Database> = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -20,7 +19,6 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(SUPABAS
 });
 
 export const agruparSolicitudes = async (solicitudId: number) => {
-
   type FetchedSolicitudConDetalles = Pick<SolicitudCompra, 'id' | 'fecha_solicitud' | 'estado' | 'empleado_id' | 'departamento_id' | 'descripcion'> & {
     detalles: Array<{
       producto_id: number | null;
@@ -35,14 +33,14 @@ export const agruparSolicitudes = async (solicitudId: number) => {
     .single<FetchedSolicitudConDetalles>();
 
   if (currentSolicitudError || !currentSolicitudData) {
-    console.error("Error fetching current solicitud:", currentSolicitudError);
+    console.error("Error al obtener la solicitud actual para agrupación:", currentSolicitudError);
     return { porProducto: [], porCategoria: [] };
   }
 
-  const currentSolicitud = currentSolicitudData; 
+  const currentSolicitud = currentSolicitudData;
 
   if (!currentSolicitud.detalles || currentSolicitud.detalles.length === 0) {
-    console.warn("Current solicitud has no details or details array is empty:", currentSolicitud);
+    console.warn("La solicitud actual no tiene detalles o el array de detalles está vacío para agrupación:", currentSolicitud);
     return { porProducto: [], porCategoria: [] };
   }
 
@@ -52,7 +50,7 @@ export const agruparSolicitudes = async (solicitudId: number) => {
 
   const categoriasIds = currentSolicitud.detalles
     .filter(d => d.producto?.categoria_id !== null && d.producto?.categoria_id !== undefined)
-    .map(d => d.producto!.categoria_id) as number[]; 
+    .map(d => d.producto!.categoria_id) as number[];
 
   if (productosIds.length === 0 && categoriasIds.length === 0) {
     return { porProducto: [], porCategoria: [] };
@@ -80,7 +78,7 @@ export const agruparSolicitudes = async (solicitudId: number) => {
   const { data: agrupables, error: agrupablesError } = await query;
 
   if (agrupablesError) {
-    console.error("Error fetching agrupables:", agrupablesError);
+    console.error("Error al obtener solicitudes agrupables:", agrupablesError);
     return { porProducto: [], porCategoria: [] };
   }
 
@@ -96,7 +94,7 @@ const agruparPorProducto = (solicitudes: any[]) => {
     solicitud.detalles?.forEach((detalle: any) => {
       if (!detalle.producto_id) return;
       const productoId = detalle.producto_id;
-      const descripcionProducto = detalle.producto?.descripcion || 'N/A';
+      const descripcionProducto = detalle.producto?.descripcion || 'N/D';
 
       if (!grupos[productoId]) {
         grupos[productoId] = {

@@ -6,9 +6,9 @@ import { supabase } from '../../supabaseClient';
 
 interface ConsolidatedOrderTableProps {
   orders: OrdenConsolidada[];
-  onOrderClick: (order: OrdenConsolidada) => void; 
+  onOrderClick: (order: OrdenConsolidada) => void; // For details modal
   onConvertToRegularOrder: (order: OrdenConsolidada) => void;
-  onUpdate: () => void; 
+  onUpdate: () => void; // To refresh data after actions
 }
 
 const ConsolidatedOrderTable: React.FC<ConsolidatedOrderTableProps> = ({ orders, onOrderClick, onConvertToRegularOrder, onUpdate }) => {
@@ -16,8 +16,8 @@ const ConsolidatedOrderTable: React.FC<ConsolidatedOrderTableProps> = ({ orders,
   const getStatusBadge = (estado: string) => {
     const variants: { [key: string]: string } = {
       Pendiente: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100',
-      Procesada: 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100', 
-      Completada: 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100', 
+      Procesada: 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100', // Assuming 'Procesada' when converted
+      Completada: 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100', // If consolidated order can be completed
       Anulada: 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-100',
     };
     return (
@@ -32,7 +32,7 @@ const ConsolidatedOrderTable: React.FC<ConsolidatedOrderTableProps> = ({ orders,
         try {
             const { error } = await supabase.from('ordenes_consolidadas').delete().eq('id', id);
             if (error) throw error;
-            onUpdate(); 
+            onUpdate(); // Refresh data
         } catch (err) {
             console.error("Error eliminando consolidación:", err);
             alert(`Error al eliminar orden consolidada: ${err instanceof Error ? err.message : String(err)}`);

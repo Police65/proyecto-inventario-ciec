@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Producto } from '../../types';
-import { PlusCircleIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusCircleIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ProductLine {
@@ -13,9 +13,10 @@ interface ProductLine {
 interface RequestFormProps {
   onSubmit: (data: { products: ProductLine[] | null; description: string | null, customRequest: boolean }) => void;
   onCancel: () => void;
+  isSubmitting: boolean;
 }
 
-const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
+const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, isSubmitting }) => {
   const [products, setProducts] = useState<ProductLine[]>([{ id: uuidv4(), productId: '', quantity: 1 }]);
   const [customRequest, setCustomRequest] = useState(false);
   const [description, setDescription] = useState('');
@@ -27,7 +28,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
       setLoadingProducts(true);
       const { data, error } = await supabase.from('producto').select('id, descripcion');
       if (error) {
-        console.error('Error fetching products:', error);
+        console.error('Error al obtener productos:', error);
       } else {
         setFetchedProducts(data || []);
       }
@@ -52,6 +53,8 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     if (customRequest && !description.trim()) {
       alert('Por favor, ingrese una descripción para la requisición especial.');
       return;
@@ -61,7 +64,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
       return;
     }
     onSubmit({
-      products: customRequest ? null : products.map(p => ({...p, quantity: Number(p.quantity)})), // ensure quantity is number
+      products: customRequest ? null : products.map(p => ({...p, quantity: Number(p.quantity)})),
       description: customRequest ? description : null,
       customRequest: customRequest
     });
@@ -75,7 +78,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
             <div key={product.id} className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
               <div className="flex-grow">
                 <label htmlFor={`product-${product.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Producto
+                  Producto <span className="text-red-500">*</span>
                 </label>
                 <select
                   id={`product-${product.id}`}
@@ -92,7 +95,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
               </div>
               <div className="w-24">
                 <label htmlFor={`quantity-${product.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Cantidad
+                  Cantidad <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -110,6 +113,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
                   onClick={() => handleRemoveProduct(product.id)}
                   className="p-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 self-end mb-0.5"
                   title="Eliminar producto"
+                  disabled={isSubmitting}
                 >
                   <TrashIcon className="w-5 h-5" />
                 </button>
@@ -119,7 +123,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
           <button
             type="button"
             onClick={handleAddProduct}
-            disabled={customRequest}
+            disabled={customRequest || isSubmitting}
             className="flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-300 dark:disabled:bg-gray-600"
           >
             <PlusCircleIcon className="w-5 h-5 mr-2" />
@@ -136,6 +140,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
           checked={customRequest}
           onChange={(e) => setCustomRequest(e.target.checked)}
           className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700"
+          disabled={isSubmitting}
         />
         <label htmlFor="customRequest" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
           Requisición especial (describir abajo)
@@ -145,7 +150,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
       {customRequest && (
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Descripción de la Requisición Especial
+            Descripción de la Requisición Especial <span className="text-red-500">*</span>
           </label>
           <textarea
             id="description"
@@ -163,15 +168,18 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          disabled={isSubmitting}
+          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          disabled={isSubmitting || loadingProducts}
+          className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-primary-400 dark:disabled:bg-primary-800"
         >
-          Enviar Solicitud
+          {isSubmitting ? <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" /> : null}
+          {isSubmitting ? 'Enviando...' : 'Enviar Solicitud'}
         </button>
       </div>
     </form>
@@ -179,4 +187,3 @@ const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel }) => {
 };
 
 export default RequestForm;
-    

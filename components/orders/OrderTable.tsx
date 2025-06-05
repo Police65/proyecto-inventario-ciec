@@ -3,7 +3,8 @@ import React from 'react';
 import { OrdenCompra, OrdenCompraEstado } from '../../types';
 import { EyeIcon } from '@heroicons/react/24/outline';
 import OrderActions from './OrderActions'; 
-import OrderPDF from './OrderPDF'; 
+import OrderPDF from './OrderPDF'; // Import the new OrderPDF component
+
 interface OrderTableProps {
   orders: OrdenCompra[];
   onOrderClick: (order: OrdenCompra) => void; 
@@ -68,7 +69,7 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, onOrderClick, onUpdate 
               <td className="px-4 py-3 whitespace-nowrap text-sm">{getStatusBadge(order.estado)}</td>
               <td 
                 className="px-4 py-3 whitespace-nowrap text-sm font-medium"
-                onClick={(e) => e.stopPropagation()} 
+                onClick={(e) => e.stopPropagation()} // Prevent row click when interacting with actions
               >
                 <div className="flex items-center space-x-2">
                   <OrderPDF order={order} />

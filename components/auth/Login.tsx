@@ -1,8 +1,6 @@
-
 import React, { useState } from 'react';
-import { useAuth } from '../../hooks/useAuth'; 
-// @ts-ignore
-import { useNavigate } from 'react-router-dom'; 
+import { useAuth } from '../../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 
@@ -14,9 +12,8 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   
   const navigate = useNavigate();
-  const { login: authLogin, userProfile } = useAuth(); 
+  const { login: authLogin, userProfile } = useAuth();
 
-  
   React.useEffect(() => {
     if (userProfile) {
       navigate('/home');
@@ -30,7 +27,6 @@ const Login: React.FC = () => {
     setError(null);
     try {
       await authLogin(email, password);
-     
       navigate('/home'); 
     } catch (err) {
       if (err instanceof Error) {
@@ -38,7 +34,7 @@ const Login: React.FC = () => {
       } else {
         setError("Un error desconocido ocurrió.");
       }
-      console.error("Login failed:", err);
+      console.error("Falló el inicio de sesión:", err);
     } finally {
       setLoading(false);
     }
@@ -51,7 +47,7 @@ const Login: React.FC = () => {
           <img
             className="mx-auto h-16 w-auto"
             src="/assets/logo_png.png" 
-            alt="RequiSoftware Logo"
+            alt="Logo RequiSoftware"
           />
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
             Iniciar Sesión
@@ -102,6 +98,7 @@ const Login: React.FC = () => {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
               >
                 {showPassword ? (
                   <EyeSlashIcon className="h-5 w-5" />

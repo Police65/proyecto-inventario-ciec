@@ -2,7 +2,7 @@
 import React from 'react';
 import { OrdenCompra } from '../../types';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import OrderPDF from './OrderPDF'; 
+import OrderPDF from './OrderPDF'; // Import the new OrderPDF component
 
 interface OrderDetailsModalProps {
   show: boolean;

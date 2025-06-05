@@ -19,8 +19,8 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
       .in('id', productIds);
 
     if (error) {
-      console.error('Supabase error fetching product names:', error.message, error.details, error.code);
-      return productIds.map(id => `Error fetching Producto ID ${id}`);
+      console.error('Error de Supabase al obtener nombres de productos:', error.message, error.details, error.code);
+      return productIds.map(id => `Error al obtener Producto ID ${id}`);
     }
 
     const nameMap = new Map(
@@ -40,14 +40,14 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
 
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : String(e);
-    console.error('Failed in getProductNames:', errorMessage, e);
+    console.error('Fallo en getProductNames:', errorMessage, e);
     return productIds.map(id => `Error para Producto ID ${id}`);
   }
 }
 
 async function generateDescription(products: ProductInput[]): Promise<string> {
   if (!OPENROUTER_API_KEY) {
-    console.warn("OpenRouter API Key is not configured. Using default description.");
+    console.warn("La clave API de OpenRouter no está configurada. Usando descripción predeterminada.");
     return "Solicitud de compra de varios artículos";
   }
 
@@ -79,7 +79,7 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
 
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error(`Error en la API de OpenRouter: ${response.status} ${response.statusText} - Body: ${errorBody}`);
+      console.error(`Error en la API de OpenRouter: ${response.status} ${response.statusText} - Cuerpo: ${errorBody}`);
       throw new Error(`Error en la API de OpenRouter: ${response.status} ${response.statusText}`);
     }
 
@@ -91,10 +91,10 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
       if (firstChoice.message && typeof firstChoice.message.content === 'string') {
         if (firstChoice.message.content.trim() === "") {
           if (firstChoice.finish_reason === 'length') {
-            console.warn("AI API response was an empty string and finish_reason was 'length'. max_tokens might be too low or prompt needs adjustment. Using fallback description.", "Full choice:", JSON.stringify(firstChoice, null, 2));
+            console.warn("La respuesta de la API de IA fue una cadena vacía y finish_reason fue 'length'. max_tokens podría ser demasiado bajo o el prompt necesita ajuste. Usando descripción de respaldo.", "Respuesta completa:", JSON.stringify(firstChoice, null, 2));
             return "Solicitud (Respuesta IA truncada)";
           } else {
-            console.warn("AI API response was an empty string. Using fallback description.", "Full choice:", JSON.stringify(firstChoice, null, 2));
+            console.warn("La respuesta de la API de IA fue una cadena vacía. Usando descripción de respaldo.", "Respuesta completa:", JSON.stringify(firstChoice, null, 2));
             return "Solicitud (Respuesta IA vacía)";
           }
         }
@@ -106,11 +106,11 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
         }
         return generatedDesc || "Solicitud Múltiple";
       } else {
-        console.error("API response's first choice is missing 'content' string property or 'message' object. Full choice:", JSON.stringify(firstChoice, null, 2), "Full data:", JSON.stringify(data, null, 2));
+        console.error("La primera opción de la respuesta de la API no tiene la propiedad 'content' como cadena o el objeto 'message'. Respuesta completa:", JSON.stringify(firstChoice, null, 2), "Datos completos:", JSON.stringify(data, null, 2));
         throw new Error("Estructura de mensaje inválida en la respuesta de la API (sin 'content' o 'message').");
       }
     } else {
-      console.error("API response is missing 'choices' array or it's empty. Full data:", JSON.stringify(data, null, 2));
+      console.error("La respuesta de la API no tiene el array 'choices' o está vacío. Datos completos:", JSON.stringify(data, null, 2));
       throw new Error("Estructura de respuesta inválida de la API (sin 'choices' o 'choices' vacío).");
     }
   } catch (error) {

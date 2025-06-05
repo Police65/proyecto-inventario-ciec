@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface LoadingSpinnerProps {
@@ -24,4 +23,3 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'md', message })
 };
 
 export default LoadingSpinner;
-    
