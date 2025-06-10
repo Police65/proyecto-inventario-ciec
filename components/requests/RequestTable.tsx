@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { SolicitudCompra, SolicitudCompraEstado } from '../../types';
-import { CheckCircleIcon, XCircleIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, XCircleIcon, EyeIcon, DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 interface RequestTableProps {
   requests: SolicitudCompra[];
@@ -67,20 +66,20 @@ const RequestTable: React.FC<RequestTableProps> = ({
               onClick={() => onRowClick && onRowClick(request)}
             >
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{request.id}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 truncate max-w-xs">{request.descripcion || 'N/A'}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{request.departamento?.nombre || 'N/A'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 truncate max-w-xs">{request.descripcion || 'N/D'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{request.departamento?.nombre || 'N/D'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{request.empleado?.nombre} {request.empleado?.apellido}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                 {request.detalles && request.detalles.length > 0 ? (
                   <ul className="list-disc list-inside space-y-1">
-                    {request.detalles.slice(0,2).map((detalle, i) => ( // Show first 2, add more indicator
+                    {request.detalles.slice(0,2).map((detalle, i) => ( 
                       <li key={i} className="truncate">
                         {detalle.producto?.descripcion || 'Producto no especificado'} (x{detalle.cantidad})
                       </li>
                     ))}
                     {request.detalles.length > 2 && <li className="text-xs text-gray-400">...y {request.detalles.length - 2} más</li>}
                   </ul>
-                ) : 'N/A'}
+                ) : 'N/D'}
               </td>
               {showStatus && (
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -103,9 +102,9 @@ const RequestTable: React.FC<RequestTableProps> = ({
                   >
                     <XCircleIcon className="w-5 h-5" />
                   </button>
-                   {!onRowClick && ( // Show view icon only if no global onRowClick
+                   {!onRowClick && ( 
                      <button
-                        onClick={() => onRowClick && onRowClick(request)} // If there's a dedicated onRowClick for details
+                        onClick={() => onRowClick && onRowClick(request)} 
                         className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 rounded-md hover:bg-blue-100 dark:hover:bg-blue-700 transition-colors"
                         title="Ver Detalles"
                       >
@@ -121,11 +120,5 @@ const RequestTable: React.FC<RequestTableProps> = ({
     </div>
   );
 };
-// Placeholder for icon, replace with actual import or SVG
-const DocumentMagnifyingGlassIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zm3.75 11.625a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-  </svg>
-);
+
 export default RequestTable;
-    

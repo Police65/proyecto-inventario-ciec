@@ -1,19 +1,18 @@
 import React from 'react';
-// @ts-ignore
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import ViewInventory from '../components/inventory/ViewInventory';
 import ProductManagement from '../components/inventory/ProductManagement';
 import ProviderManagement from '../components/inventory/ProviderManagement';
 import InventoryStats from '../components/inventory/InventoryStats';
 import DetailedStats from '../components/inventory/DetailedStats';
-import AIInsights from '../components/ai/AIInsights';
+import { AIInsights } from '../components/ai/AIInsights';
 import { HomeIcon, CircleStackIcon, SquaresPlusIcon, BuildingLibraryIcon, ChartBarIcon, SparklesIcon } from '@heroicons/react/24/outline';
 
 const InventoryPage: React.FC = () => {
   const location = useLocation();
 
   const navLinks = [
-    { key: "dashboard", path: "/inventory", label: "Dashboard Inventario", icon: HomeIcon },
+    { key: "dashboard", path: "/inventory", label: "Panel de Inventario", icon: HomeIcon },
     { key: "view", path: "/inventory/view", label: "Ver Inventario", icon: CircleStackIcon },
     { key: "add-product", path: "/inventory/add-product", label: "Productos", icon: SquaresPlusIcon },
     { key: "add-provider", path: "/inventory/add-provider", label: "Proveedores", icon: BuildingLibraryIcon },
@@ -64,10 +63,9 @@ const InventoryPage: React.FC = () => {
   );
 };
 
-// Content for the main /inventory path (index route)
 const InventoryDashboardContent: React.FC = () => (
   <div>
-    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Dashboard de Inventario</h1>
+    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Panel de Control de Inventario</h1>
     <InventoryStats />
     <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>

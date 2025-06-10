@@ -1,9 +1,8 @@
 import React from 'react';
-// @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { UserProfile, SolicitudCompra } from '../../types';
+import { UserProfile } from '../../types';
 import { 
-  HomeIcon, ListBulletIcon, ClockIcon, DocumentTextIcon, ArchiveBoxIcon, UsersIcon, BuildingStorefrontIcon, PlusCircleIcon, Cog6ToothIcon, CircleStackIcon, SquaresPlusIcon, BuildingLibraryIcon, ArrowRightOnRectangleIcon, ChartPieIcon
+  HomeIcon, ListBulletIcon, ClockIcon, DocumentTextIcon, ArchiveBoxIcon, UsersIcon, BuildingStorefrontIcon, PlusCircleIcon, Cog6ToothIcon, CircleStackIcon, SquaresPlusIcon, BuildingLibraryIcon, ArrowRightOnRectangleIcon, ChartPieIcon, UserCircleIcon as UserSummaryIcon
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
@@ -13,12 +12,13 @@ interface SidebarProps {
   onNewRequestClick: () => void;
   onSelectTab: (tab: string) => void;
   onLogout: () => void; 
-  activeUITab: string; // Added to determine active tab for specific routes
+  activeUITab: string; 
+  setHasInteracted: (interacted: boolean) => void;
 }
 
 interface NavItem {
-  to?: string; // Optional for buttons like logout
-  onClick?: () => void; // For buttons like logout
+  to?: string; 
+  onClick?: () => void; 
   icon: React.ElementType;
   label: string;
   adminOnly?: boolean;
@@ -27,67 +27,91 @@ interface NavItem {
   badgeCount?: number;
   isExternalLink?: boolean;
   subItems?: NavItem[];
-  isActionButton?: boolean; // To style logout differently if needed
+  isActionButton?: boolean; 
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingRequestsCount, onNewRequestClick, onSelectTab, onLogout, activeUITab }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingRequestsCount, onNewRequestClick, onSelectTab, onLogout, activeUITab, setHasInteracted }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
 
+  const handleNavigation = (action: () => void) => {
+    setHasInteracted(true);
+    action();
+  };
+
   const navItems: NavItem[] = [
-    { to: '/home', icon: HomeIcon, label: 'Inicio' },
     { 
-      to: '/solicitudes', 
+      onClick: () => handleNavigation(() => navigate('/home')), 
+      icon: HomeIcon, 
+      label: 'Menú Principal' 
+    },
+    { 
+      onClick: () => handleNavigation(() => navigate('/admin-stats-dashboard')), 
+      icon: ChartPieIcon, 
+      label: 'Dashboard Admin',
+      adminOnly: true 
+    },
+    { 
+      onClick: () => handleNavigation(() => navigate('/user-activity-summary')), 
+      icon: UserSummaryIcon, 
+      label: 'Mi Resumen',
+      userOnly: true 
+    },
+    { 
+      onClick: () => handleNavigation(() => {
+        if (currentPath !== '/solicitudes') navigate('/solicitudes');
+        onSelectTab('solicitudes');
+      }), 
       icon: ListBulletIcon, 
       label: 'Solicitudes', 
-      tabKey: 'solicitudes', // For Admin: pending requests tab; For User: their pending requests
+      tabKey: 'solicitudes', 
       badgeCount: userProfile?.rol === 'usuario' ? pendingRequestsCount : undefined
     },
     { 
-      to: '/solicitudes', 
+      onClick: () => handleNavigation(() => {
+        if (currentPath !== '/solicitudes') navigate('/solicitudes');
+        onSelectTab('historial-solicitudes');
+      }),
       icon: ClockIcon, 
-      label: 'Historial Solicitudes', // For Admin: approved/rejected; For User: their history
+      label: 'Historial Solicitudes', 
       tabKey: 'historial-solicitudes'
     },
-    // { // Removed Mis Estadísticas
-    //   to: '/mis-estadisticas',
-    //   icon: ChartPieIcon,
-    //   label: 'Mis Estadísticas',
-    //   userOnly: true, 
-    // },
-    // Admin specific items
     { 
-      to: '/solicitudes', 
+      onClick: () => handleNavigation(() => {
+        if (currentPath !== '/solicitudes') navigate('/solicitudes');
+        onSelectTab('ordenes');
+      }),
       icon: DocumentTextIcon, 
       label: 'Historial Órdenes', 
       adminOnly: true,
       tabKey: 'ordenes'
     },
     { 
-      to: '/solicitudes', 
+      onClick: () => handleNavigation(() => {
+        if (currentPath !== '/solicitudes') navigate('/solicitudes');
+        onSelectTab('ordenes-consolidadas');
+      }),
       icon: ArchiveBoxIcon, 
       label: 'Órdenes Consolidadas', 
       adminOnly: true,
       tabKey: 'ordenes-consolidadas'
     },
     { 
-      to: '/solicitudes', 
+      onClick: () => handleNavigation(() => {
+        if (currentPath !== '/solicitudes') navigate('/solicitudes');
+        onSelectTab('usuarios');
+      }),
       icon: UsersIcon, 
       label: 'Gestión de Usuarios', 
       adminOnly: true,
       tabKey: 'usuarios'
     },
     { 
-      to: '/inventory', 
+      onClick: () => handleNavigation(() => navigate('/inventory')),
       icon: BuildingStorefrontIcon, 
       label: 'Gestión de Inventario', 
       adminOnly: true,
-      subItems: [
-        { to: '/inventory/view', icon: CircleStackIcon, label: 'Ver Inventario', adminOnly: true },
-        { to: '/inventory/add-product', icon: SquaresPlusIcon, label: 'Añadir Producto', adminOnly: true },
-        { to: '/inventory/add-provider', icon: BuildingLibraryIcon, label: 'Añadir Proveedor', adminOnly: true },
-      ]
     },
   ];
   
@@ -107,15 +131,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
     if (item.userOnly && userProfile?.rol !== 'usuario') return null;
 
     let calculatedIsActive = false;
-    if (item.tabKey && item.to) {
-      // For items that manage tabs on a page (e.g., different views under /solicitudes)
-      calculatedIsActive = currentPath === item.to && activeUITab === item.tabKey;
-    } else if (item.to === '/inventory' && item.subItems && item.subItems.length > 0) {
-      // For the parent "Gestión de Inventario" item
-      calculatedIsActive = currentPath.startsWith(item.to);
+    if (item.tabKey) {
+      calculatedIsActive = currentPath.includes('/solicitudes') && activeUITab === item.tabKey;
+    } else if (item.to && item.to === '/inventory') { 
+        calculatedIsActive = currentPath.startsWith('/inventory');
     } else if (item.to) {
-      // For simple direct links (e.g., /home or sub-items like /inventory/view)
       calculatedIsActive = currentPath === item.to;
+    } else if (item.onClick) { 
+        if (item.label === "Menú Principal" && currentPath === '/home') calculatedIsActive = true;
+        if (item.label === "Dashboard Admin" && currentPath === '/admin-stats-dashboard') calculatedIsActive = true;
+        if (item.label === "Mi Resumen" && currentPath === '/user-activity-summary') calculatedIsActive = true;
     }
     
     const baseClasses = `flex items-center px-3 py-3 text-sm rounded-lg transition-colors duration-150 w-full text-left`;
@@ -144,45 +169,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
            <button onClick={item.onClick} className={linkClasses}>
             {content}
           </button>
-        ) : item.tabKey ? (
-          <button 
-            onClick={() => {
-              if (item.to && currentPath !== item.to) {
-                navigate(item.to); 
-              }
-              onSelectTab(item.tabKey!); 
-            }} 
-            className={linkClasses}
-          >
-            {content}
-          </button>
-        ) : item.to ? (
-          <Link to={item.to} className={linkClasses} >
-            {content}
-          </Link>
         ) : null}
-        {item.subItems && item.subItems.length > 0 && (
-          <ul className="mt-1 space-y-1">
-            {item.subItems.map((subItem, subIndex) => renderNavItem(subItem, subIndex, true))}
-          </ul>
-        )}
       </li>
     );
   };
 
   return (
     <aside 
-      className={`fixed inset-y-0 left-0 z-20 flex-shrink-0 w-64 overflow-y-auto bg-white dark:bg-gray-800 border-r dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${
-        isVisible ? 'translate-x-0' : '-translate-x-full'
-      }`}
+      className={`fixed inset-y-0 left-0 z-40 flex-shrink-0 w-64 overflow-y-auto bg-white dark:bg-gray-800 border-r dark:border-gray-700 transform transition-transform duration-300 ease-in-out 
+        ${isVisible ? 'translate-x-0 shadow-lg' : '-translate-x-full'}
+      `}
       aria-label="Barra lateral principal"
+      aria-hidden={!isVisible}
     >
       <div className="py-4 text-gray-500 dark:text-gray-400 flex flex-col h-full">
         <div>
-          <Link to="/home" className="ml-6 text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center">
+          <button onClick={() => handleNavigation(() => navigate('/home'))} className="ml-6 text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center hover:text-primary-600 dark:hover:text-primary-400">
             <Cog6ToothIcon className="w-7 h-7 mr-2 text-primary-500"/>
             RequiSoftware
-          </Link>
+          </button>
           <nav className="mt-8 px-3" aria-label="Navegación principal">
             <ul>
               {navItems.map((item, index) => renderNavItem(item, index))}
@@ -194,7 +199,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
            {userProfile?.rol === 'usuario' && (
             <div className="px-3 my-6">
               <button
-                onClick={onNewRequestClick}
+                onClick={() => handleNavigation(onNewRequestClick)}
                 className="flex items-center justify-center w-full px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-primary-600 border border-transparent rounded-lg active:bg-primary-600 hover:bg-primary-700 focus:outline-none focus:shadow-outline-primary"
               >
                 <PlusCircleIcon className="w-5 h-5 mr-2" />
@@ -211,4 +216,5 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
   );
 };
 
+export { Sidebar };
 export default Sidebar;

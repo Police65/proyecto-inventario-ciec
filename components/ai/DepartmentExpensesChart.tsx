@@ -49,4 +49,3 @@ const DepartmentExpensesChart: React.FC<DepartmentExpensesChartProps> = ({ data 
 };
 
 export default DepartmentExpensesChart;
-    

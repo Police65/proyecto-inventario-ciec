@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import { SolicitudCompra, Proveedor, OrdenConsolidada, CategoriaProducto, Producto, Empleado } from '../../types';
-import { XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 
 interface ConsolidationModalProps {
@@ -40,12 +41,13 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
   const [selectedProveedorId, setSelectedProveedorId] = useState<string>('');
   const [selectedCategoriaFiltro, setSelectedCategoriaFiltro] = useState<string>('');
   
-  const [loading, setLoading] = useState(false);
+  const [loadingInitialData, setLoadingInitialData] = useState(false);
+  const [submittingConsolidation, setSubmittingConsolidation] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (show) {
-      setLoading(true);
+      setLoadingInitialData(true);
       setError(null);
       const fetchData = async () => {
         try {
@@ -77,12 +79,11 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
           console.error("Error fetching data for consolidation:", err);
           setError("Error al cargar datos.");
         } finally {
-          setLoading(false);
+          setLoadingInitialData(false);
         }
       };
       fetchData();
     } else {
-        // Reset state when modal is hidden
         setSelectedSolicitudIds(new Set());
         setSelectedProveedorId('');
         setSelectedCategoriaFiltro('');
@@ -136,20 +137,20 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
       alert("Debe seleccionar un proveedor y al menos una solicitud con productos.");
       return;
     }
-    setLoading(true);
+    setSubmittingConsolidation(true);
     setError(null);
     try {
       const payload = {
         proveedor_id: parseInt(selectedProveedorId),
         productos: productosConsolidados.map(p => ({ producto_id: p.producto_id, descripcion: p.descripcion, cantidad: p.cantidadTotal })),
         solicitudes: Array.from(selectedSolicitudIds),
-        estado: 'Pendiente', // Initial state for consolidated order
+        estado: 'Pendiente', 
         fecha_creacion: new Date().toISOString()
       };
       const { data: newOrder, error } = await supabase
         .from('ordenes_consolidadas')
         .insert(payload)
-        .select('*, proveedor:proveedor_id(id, nombre)') // Fetch back to pass to onConsolidate
+        .select('*, proveedor:proveedor_id(id, nombre)') 
         .single();
       if (error) throw error;
       if (newOrder) {
@@ -157,10 +158,16 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
         onHide();
       }
     } catch (err) {
+        const supabaseError = err as { code?: string; message: string };
+        if (supabaseError.code === '23505') {
+             alert(`Error al consolidar: Ya existe un registro con un valor único similar. (${supabaseError.message})`);
+        } else {
+            alert(`Error al consolidar: ${supabaseError.message}`);
+        }
       console.error("Error creating consolidated order:", err);
-      setError(`Error al consolidar: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Error al consolidar: ${supabaseError.message}`);
     } finally {
-      setLoading(false);
+      setSubmittingConsolidation(false);
     }
   };
 
@@ -172,19 +179,19 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 sm:p-5 border-b dark:border-gray-700">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Consolidar Solicitudes de Compra</h3>
-          <button onClick={onHide} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md">
+          <button onClick={onHide} disabled={submittingConsolidation} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md">
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
 
-        {loading && !solicitudesPendientes.length ? <div className="p-10 flex-grow flex items-center justify-center"><LoadingSpinner message="Cargando datos..." /></div> : (
+        {(loadingInitialData && !solicitudesPendientes.length) ? <div className="p-10 flex-grow flex items-center justify-center"><LoadingSpinner message="Cargando datos..." /></div> : (
           <div className="flex-grow overflow-y-auto p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Columna de Solicitudes */}
             <div className="space-y-4">
               <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100">1. Seleccionar Solicitudes</h4>
                <div className="mb-3">
                 <label htmlFor="categoriaFiltro" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Filtrar por Categoría de Producto:</label>
                 <select id="categoriaFiltro" value={selectedCategoriaFiltro} onChange={(e) => setSelectedCategoriaFiltro(e.target.value)}
+                    disabled={submittingConsolidation}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                     <option value="">Todas las Categorías</option>
                     {categoriasProducto.map(cat => <option key={cat.id} value={cat.id}>{cat.nombre}</option>)}
@@ -194,7 +201,7 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
                 {filteredSolicitudes.length > 0 ? filteredSolicitudes.map(sol => (
                   <div key={sol.id} className={`p-2.5 rounded-md cursor-pointer transition-colors
                     ${selectedSolicitudIds.has(sol.id) ? 'bg-primary-100 dark:bg-primary-700 border border-primary-400 dark:border-primary-500' : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-600/50 border dark:border-transparent'}`}
-                    onClick={() => handleSolicitudSelect(sol.id)}
+                    onClick={() => !submittingConsolidation && handleSolicitudSelect(sol.id)}
                   >
                     <div className="flex justify-between items-center">
                         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Solicitud #{sol.id} <span className="text-xs font-normal text-gray-500 dark:text-gray-400">({sol.empleado?.nombre || 'N/A'})</span></p>
@@ -210,7 +217,6 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
               </div>
             </div>
 
-            {/* Columna de Resumen y Proveedor */}
             <div className="space-y-4">
               <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100">2. Productos Consolidados</h4>
               <div className="max-h-60 overflow-y-auto border dark:border-gray-600 rounded-md p-2 text-sm space-y-1">
@@ -222,10 +228,11 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
                 )) : <p className="text-gray-500 dark:text-gray-400 text-center py-3">Seleccione solicitudes para ver productos.</p>}
               </div>
 
-              <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100 mt-3">3. Seleccionar Proveedor</h4>
+              <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100 mt-3">3. Seleccionar Proveedor <span className="text-red-500">*</span></h4>
               <div>
                 <label htmlFor="proveedorId" className="sr-only">Proveedor</label>
                 <select id="proveedorId" value={selectedProveedorId} onChange={(e) => setSelectedProveedorId(e.target.value)} required
+                  disabled={submittingConsolidation}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                   <option value="">-- Elegir Proveedor --</option>
                   {proveedores.map(prov => <option key={prov.id} value={prov.id}>{prov.nombre}</option>)}
@@ -238,13 +245,14 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
 
         <div className="p-4 sm:p-5 border-t dark:border-gray-700 flex justify-end space-x-3">
           <button type="button" onClick={onHide}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">
+            disabled={submittingConsolidation}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none disabled:opacity-50">
             Cancelar
           </button>
-          <button type="button" onClick={handleSubmitConsolidacion} disabled={loading || !selectedProveedorId || productosConsolidados.length === 0}
+          <button type="button" onClick={handleSubmitConsolidacion} disabled={submittingConsolidation || loadingInitialData || !selectedProveedorId || productosConsolidados.length === 0}
             className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none disabled:opacity-50">
-            {loading ? <LoadingSpinner size="sm" /> : <CheckCircleIcon className="w-5 h-5 mr-1.5 -ml-1" />}
-            {loading ? "Procesando..." : "Crear Orden Consolidada"}
+            {submittingConsolidation ? <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" /> : <CheckCircleIcon className="w-5 h-5 mr-1.5 -ml-1" />}
+            {submittingConsolidation ? "Procesando..." : "Crear Orden Consolidada"}
           </button>
         </div>
       </div>

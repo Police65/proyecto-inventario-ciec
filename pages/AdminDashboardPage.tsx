@@ -1,12 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
-// @ts-ignore
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { SolicitudCompra, OrdenCompra, UserProfile, OrdenConsolidada, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, Proveedor, OrdenCompraDetalle as OrdenCompraDetalleType, CategoriaProducto } from '../types';
 import LoadingSpinner from '../components/core/LoadingSpinner';
 
-// Import individual components that make up the dashboard
 import RequestTable from '../components/requests/RequestTable';
 import OrderTable from '../components/orders/OrderTable';
 import UserManagement from '../components/admin/UserManagement';
@@ -18,7 +15,6 @@ import ConsolidationModal from '../components/orders/ConsolidationModal';
 import OrderDetailsModal from '../components/orders/OrderDetailsModal';
 import RequestDetailsModal from '../components/requests/RequestDetailsModal';
 import ConsolidatedOrderDetailsModal from '../components/orders/ConsolidatedOrderDetailsModal';
-// OrderPDF is now part of OrderTable/OrderDetailsModal or its own button, OrderActions is used by OrderTable.
 
 
 interface AdminDashboardContext {
@@ -27,9 +23,8 @@ interface AdminDashboardContext {
   setActiveUITab: (tab: string) => void;
 }
 
-// Type definitions for raw data from Supabase queries to help with mapping
 type RawSolicitudFromQuery = Omit<SolicitudCompra, 'empleado' | 'departamento' | 'detalles'> & {
-  empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null; // Removed nested user_profile from here
+  empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null; 
   departamento: Pick<Departamento, 'id' | 'nombre'> | null;
   detalles: Array<
     Pick<SolicitudCompraDetalleType, 'id' | 'solicitud_compra_id' | 'producto_id' | 'cantidad'> & {
@@ -48,7 +43,7 @@ type RawOrdenFromQuery = Omit<OrdenCompra, 'proveedor' | 'detalles' | 'empleado'
     }
   > | null;
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
-  solicitud_compra: Pick<SolicitudCompra, 'id' | 'descripcion'> | null; // This field will be populated by the aliased select
+  solicitud_compra: Pick<SolicitudCompra, 'id' | 'descripcion'> | null;
 };
 
 
@@ -63,7 +58,6 @@ export const AdminDashboardPage = (): JSX.Element => {
   const [ordenesHistorial, setOrdenesHistorial] = useState<OrdenCompra[]>([]);
   const [ordenesConsolidadas, setOrdenesConsolidadas] = useState<OrdenConsolidada[]>([]);
 
-  // Modals states
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [showDirectOrderForm, setShowDirectOrderForm] = useState(false);
   const [showConsolidationModal, setShowConsolidationModal] = useState(false);
@@ -80,7 +74,7 @@ export const AdminDashboardPage = (): JSX.Element => {
   const [selectedConsolidatedOrderDetail, setSelectedConsolidatedOrderDetail] = useState<OrdenConsolidada | null>(null);
 
   const [newlyCreatedOrder, setNewlyCreatedOrder] = useState<OrdenCompra | null>(null);
-  const [showPDFConfirmationModal, setShowPDFConfirmationModal] = useState(false); // For confirming PDF generation after order creation
+  const [showPDFConfirmationModal, setShowPDFConfirmationModal] = useState(false);
 
   const mapSolicitudData = (req: RawSolicitudFromQuery): SolicitudCompra => ({
     id: req.id,
@@ -93,11 +87,10 @@ export const AdminDashboardPage = (): JSX.Element => {
       id: req.empleado.id,
       nombre: req.empleado.nombre,
       apellido: req.empleado.apellido,
-      cedula: '', // Default filler, not fetched in this query
-      cargo_actual_id: null, // Default filler
-      departamento_id: req.empleado_id, // This is incorrect, should be from empleado's own dept if needed, or leave as default. For now, use empleado_id as placeholder for required field
-      estado: 'activo', // Default filler
-      // user_profile will be undefined as it's not fetched in RawSolicitudFromQuery.empleado
+      cedula: '', 
+      cargo_actual_id: null, 
+      departamento_id: req.empleado_id, 
+      estado: 'activo', 
       user_profile: undefined, 
     } : undefined,
     departamento: req.departamento ? { id: req.departamento.id, nombre: req.departamento.nombre } : undefined,
@@ -112,7 +105,7 @@ export const AdminDashboardPage = (): JSX.Element => {
         categoria_id: d.producto.categoria_id,
         categoria: d.producto.categoria || undefined,
       } : undefined,
-    })) : [], // Ensure detalles is always an array or undefined if appropriate
+    })) : [], 
   });
   
   const mapOrdenData = (order: RawOrdenFromQuery): OrdenCompra => ({
@@ -121,7 +114,7 @@ export const AdminDashboardPage = (): JSX.Element => {
     proveedor_id: order.proveedor_id,
     fecha_orden: order.fecha_orden,
     estado: order.estado,
-    precio_unitario: order.precio_unitario, // This is on the main table, might be an aggregate or default.
+    precio_unitario: order.precio_unitario,
     sub_total: order.sub_total,
     iva: order.iva,
     ret_iva: order.ret_iva,
@@ -136,7 +129,7 @@ export const AdminDashboardPage = (): JSX.Element => {
       id: order.proveedor.id,
       nombre: order.proveedor.nombre,
       rif: order.proveedor.rif,
-      direccion: order.proveedor.direccion, // Added direccion
+      direccion: order.proveedor.direccion, 
     } : undefined,
     empleado: order.empleado ? {
       id: order.empleado.id,
@@ -144,14 +137,13 @@ export const AdminDashboardPage = (): JSX.Element => {
       apellido: order.empleado.apellido,
       cedula: '', cargo_actual_id: null, departamento_id: 0, estado: 'activo',
     } : undefined,
-    solicitud_compra: order.solicitud_compra ? { // Access the aliased 'solicitud_compra' field
+    solicitud_compra: order.solicitud_compra ? { 
         id: order.solicitud_compra.id,
         descripcion: order.solicitud_compra.descripcion,
-        // Fill other mandatory SolicitudCompra fields with defaults or fetch them if needed
         fecha_solicitud: '', estado: 'Pendiente', empleado_id:0, departamento_id:0, 
-    } : undefined, // Made it potentially undefined based on if it's always present
+    } : undefined, 
     detalles: order.detalles ? order.detalles.map(d => ({
-      id: d.id, // This is ordencompra_detalle.id
+      id: d.id, 
       producto_id: d.producto_id,
       cantidad: d.cantidad,
       precio_unitario: d.precio_unitario,
@@ -160,7 +152,7 @@ export const AdminDashboardPage = (): JSX.Element => {
         id: d.producto.id,
         descripcion: d.producto.descripcion,
       } : undefined,
-    })) : [], // Ensure detalles is always an array
+    })) : [], 
   });
 
   const fetchData = async () => {
@@ -173,7 +165,6 @@ export const AdminDashboardPage = (): JSX.Element => {
         empleado:empleado_id(id, nombre, apellido), 
         departamento:departamento_id(id, nombre)
       `;
-      // Removed ", user_profile!empleado_id!left(id)" from empleado select ^
 
       const { data: pendingRaw, error: pendingError } = await supabase
         .from('solicitudcompra')
@@ -200,7 +191,6 @@ export const AdminDashboardPage = (): JSX.Element => {
           empleado:empleado_id(id, nombre, apellido),
           solicitud_compra:solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, descripcion)
         `;
-        // ^ Corrected line: aliased and explicitly using the FK constraint name
 
       const { data: ordersRaw, error: ordersError } = await supabase
         .from('ordencompra')
@@ -208,7 +198,7 @@ export const AdminDashboardPage = (): JSX.Element => {
         .order('fecha_orden', { ascending: false })
         .returns<RawOrdenFromQuery[]>();
       if (ordersError) {
-        console.error("Error fetching admin dashboard data (orders):", ordersError.message, ordersError.details, ordersError.code, ordersError);
+        console.error("Error al obtener datos del panel de admin (órdenes):", ordersError.message, ordersError.details, ordersError.code, ordersError);
         throw ordersError;
       }
       setOrdenesHistorial((ordersRaw || []).map(mapOrdenData));
@@ -229,8 +219,8 @@ export const AdminDashboardPage = (): JSX.Element => {
       })));
     } catch (err) {
       const typedError = err as { message: string, details?: string, code?: string };
-      const errorMessage = `Error: ${typedError.message}${typedError.details ? ` Details: ${typedError.details}` : ''}${typedError.code ? ` Code: ${typedError.code}` : ''}`;
-      console.error("Error fetching admin dashboard data:", errorMessage, err);
+      const errorMessage = `Error: ${typedError.message}${typedError.details ? ` Detalles: ${typedError.details}` : ''}${typedError.code ? ` Código: ${typedError.code}` : ''}`;
+      console.error("Error al obtener datos del panel de admin:", errorMessage, err);
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -239,7 +229,6 @@ export const AdminDashboardPage = (): JSX.Element => {
 
   useEffect(() => {
     fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refreshAllData = () => {
@@ -251,13 +240,13 @@ export const AdminDashboardPage = (): JSX.Element => {
       producto_id: d.producto_id,
       descripcion: d.producto?.descripcion || 'Producto sin nombre',
       quantity: d.cantidad,
-      precio_unitario: 0 // Admin will fill this in OrderForm
+      precio_unitario: 0
     })) || [];
 
     setSelectedRequestForOrder({
       initialProducts: initialProducts,
-      solicitudes: [request.id], // Link this order to the originating request
-      proveedor_id: null // Admin will select provider in OrderForm
+      solicitudes: [request.id], 
+      proveedor_id: null 
     });
     setShowOrderForm(true);
   };
@@ -275,7 +264,6 @@ export const AdminDashboardPage = (): JSX.Element => {
                               solicitudesHistorial.find(req => req.id === requestId);
       
       if (requestToNotify && requestToNotify.empleado_id) {
-        // Fetch the user_id (auth.users.id) from user_profile based on empleado_id
         const {data: profileForNotif, error: profileError} = await supabase
             .from('user_profile')
             .select('id')
@@ -283,7 +271,7 @@ export const AdminDashboardPage = (): JSX.Element => {
             .single();
 
         if(profileError) {
-            console.warn("Could not fetch profile for notification:", profileError.message, profileError.details);
+            console.warn("No se pudo obtener el perfil para la notificación:", profileError.message, profileError.details);
         }
 
         if (profileForNotif) {
@@ -297,7 +285,7 @@ export const AdminDashboardPage = (): JSX.Element => {
             related_id: requestId
             }]);
             if (insertNotifError) {
-                console.error("Error inserting notification for rejection:", insertNotifError.message, insertNotifError.details, insertNotifError.code);
+                console.error("Error al insertar notificación por rechazo:", insertNotifError.message, insertNotifError.details, insertNotifError.code);
             }
         } else {
              console.warn("No se pudo enviar notificación de rechazo: perfil de usuario no encontrado para empleado ID", requestToNotify.empleado_id);
@@ -308,7 +296,7 @@ export const AdminDashboardPage = (): JSX.Element => {
       refreshAllData();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error("Error rejecting request:", errorMessage, err);
+      console.error("Error al rechazar solicitud:", errorMessage, err);
       alert("Error al rechazar la solicitud.");
     }
   };
@@ -320,15 +308,15 @@ export const AdminDashboardPage = (): JSX.Element => {
   const handleOrderCreated = (createdOrder: OrdenCompra) => {
     setNewlyCreatedOrder(createdOrder);
     setShowOrderForm(false);
-    setShowDirectOrderForm(false); // Close direct form too
-    setShowPDFConfirmationModal(true); // Maybe just show a success message
+    setShowDirectOrderForm(false);
+    setShowPDFConfirmationModal(true);
     refreshAllData();
   };
   
   const handleConsolidationComplete = (newConsolidatedOrder: OrdenConsolidada) => {
     setOrdenesConsolidadas(prev => [newConsolidatedOrder, ...prev]);
     setShowConsolidationModal(false);
-    refreshAllData(); // Refresh pending requests as they might have been used
+    refreshAllData();
   };
 
   const handleConvertToRegularOrder = (consolidatedOrder: OrdenConsolidada) => {
@@ -336,7 +324,7 @@ export const AdminDashboardPage = (): JSX.Element => {
       producto_id: p.producto_id,
       descripcion: p.descripcion,
       quantity: p.cantidad,
-      precio_unitario: 0 // Admin to fill
+      precio_unitario: 0 
     }));
     setSelectedRequestForOrder({
       initialProducts: initialProducts,
@@ -344,8 +332,6 @@ export const AdminDashboardPage = (): JSX.Element => {
       proveedor_id: consolidatedOrder.proveedor_id
     });
     setShowOrderForm(true);
-    // Optionally, update the consolidated order status to 'Procesada'
-    // supabase.from('ordenes_consolidadas').update({ estado: 'Procesada' }).eq('id', consolidatedOrder.id);
   };
 
 
@@ -417,7 +403,6 @@ export const AdminDashboardPage = (): JSX.Element => {
       case 'usuarios':
         return (
           <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
-            {/* UserManagement is self-contained for data fetching */}
             <UserManagement /> 
           </div>
         );
@@ -426,7 +411,7 @@ export const AdminDashboardPage = (): JSX.Element => {
     }
   };
   
-  if (loading) return <LoadingSpinner message="Cargando dashboard de administrador..." />;
+  if (loading) return <LoadingSpinner message="Cargando panel de administrador..." />;
   if (error) return <div className="p-4 text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900 rounded-md">{error}</div>;
 
   return (

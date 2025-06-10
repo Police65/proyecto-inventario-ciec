@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import DOMPurify from 'dompurify';
@@ -29,18 +28,14 @@ const TABS_CONFIG: TabConfig[] = [
 
 type OrderForAuditor = Pick<OrdenCompra, 'neto_a_pagar'> & {
   solicitudcompra: (Pick<SolicitudCompra, 'id'> & {
-    departamento: Pick<Departamento, 'id' | 'nombre'> | null; // departamento can be null based on schema if FK is nullable
-  }) | null; // solicitudcompra itself can be null if FK is nullable, but !inner makes it non-null
+    departamento: Pick<Departamento, 'id' | 'nombre'> | null; 
+  }) | null; 
 };
 
-
-const KNOWN_PLACEHOLDER_KEYS_AI_INSIGHTS = [
-  "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", // Old placeholder
-  "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", // Previous "new" key, now considered placeholder
-];
+const SITE_URL_AI_INSIGHTS = typeof window !== 'undefined' ? window.location.origin : "https://example.com";
 
 
-const AIInsights: React.FC = () => {
+export const AIInsights: React.FC = () => {
   const [activeTab, setActiveTab] = useState<InsightType>("auditor");
   const [insights, setInsights] = useState<Partial<Record<InsightType, string>>>({});
   const [loading, setLoading] = useState<Partial<Record<InsightType, boolean>>>({});
@@ -105,36 +100,55 @@ const AIInsights: React.FC = () => {
   };
 
   const fetchAIResponse = async (prompt: string, type: InsightType): Promise<string> => {
-    if (!OPENROUTER_API_KEY || KNOWN_PLACEHOLDER_KEYS_AI_INSIGHTS.includes(OPENROUTER_API_KEY)) {
-      console.warn("OpenRouter API Key is not configured or is a placeholder. AI insights will be mocked.");
-      return `**Información Simulada para ${type}**\n- Esta es una respuesta simulada porque la clave API no está configurada o es la clave de ejemplo.\n- Configure su clave API de OpenRouter en config.ts para obtener información real.\n- Asegúrate de que las respuestas estén en ESPAÑOL.`;
+    if (!OPENROUTER_API_KEY) {
+      console.warn("La clave API de OpenRouter no está configurada. Las perspectivas de IA serán simuladas.");
+      return `**Información Simulada para ${type}**\n- Esta es una respuesta simulada porque la clave API no está configurada.\n- Configure su clave API de OpenRouter en config.ts para obtener información real.\n- Asegúrate de que las respuestas estén en ESPAÑOL.`;
     }
     try {
         const response = await fetch(OPENROUTER_API_URL, {
         method: "POST",
         headers: {
             "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-            "HTTP-Referer": "YOUR_SITE_URL_PLACEHOLDER",
+            "HTTP-Referer": SITE_URL_AI_INSIGHTS,
             "X-Title": "RequiSoftware CIEC",
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            model: "qwen/qwen3-30b-a3b:free", // Updated model
+            model: "qwen/qwen3-30b-a3b:free",
             messages: [{ role: "user", content: prompt }],
-            max_tokens: 500
+            max_tokens: 1500 
         }),
         });
         if (!response.ok) {
             const errorBody = await response.text();
-            console.error(`AI API Error for ${type}: ${response.status} - ${errorBody}`, response);
-            throw new Error(`AI API Error: ${response.status} - ${errorBody}`);
+            console.error(`Error de API de IA para ${type}: ${response.status} - ${errorBody}`, response);
+            throw new Error(`Error de API de IA (${response.status}): ${errorBody}`);
         }
         const data = await response.json();
-        return data.choices[0].message.content;
+
+        if (data && data.choices && data.choices.length > 0 && data.choices[0].message && typeof data.choices[0].message.content === 'string') {
+            const content = data.choices[0].message.content;
+            const finishReason = data.choices[0].finish_reason;
+
+            if (content.trim() === "") {
+                if (finishReason === 'length') {
+                     console.warn(`La respuesta de IA para ${type} fue una cadena vacía debido a 'length' como motivo de finalización. max_tokens podría ser demasiado bajo. Respuesta completa:`, JSON.stringify(data.choices[0], null, 2));
+                     return `**Respuesta Incompleta de la IA**\n- La IA comenzó a generar una respuesta pero fue interrumpida porque se alcanzó el límite de tokens.\n- El límite de tokens ha sido aumentado, intente generar de nuevo. Si el problema persiste, la consulta podría ser demasiado compleja o requerir aún más tokens.`;
+                } else {
+                    console.warn(`La respuesta de IA para ${type} fue una cadena vacía (motivo de finalización: ${finishReason}). Respuesta completa:`, JSON.stringify(data.choices[0], null, 2));
+                    return `**Respuesta Vacía de la IA**\n- La IA no generó un análisis de texto para esta consulta.\n- Esto podría deberse a la naturaleza de los datos, la configuración del modelo, o un error inesperado de la IA.`;
+                }
+            }
+            return content;
+        } else {
+            console.error(`Estructura de respuesta de IA inválida para ${type}. Se esperaba 'data.choices[0].message.content' como cadena. Recibido:`, JSON.stringify(data, null, 2));
+            throw new Error("Estructura de respuesta inválida o inesperada de la API de IA.");
+        }
+
     } catch (fetchError) {
         const errorMessageText = fetchError instanceof Error ? fetchError.message : String(fetchError);
-        console.error(`Fetch AI response error for ${type}: ${errorMessageText}`, fetchError);
-        throw new Error(`Network or fetch error for AI API: ${errorMessageText}`);
+        console.error(`Error de fetch para respuesta de IA para ${type}: ${errorMessageText}`, fetchError);
+        throw new Error(`Error de red o de fetch para la API de IA: ${errorMessageText}`);
     }
   };
 
@@ -152,45 +166,43 @@ const AIInsights: React.FC = () => {
             .select(`neto_a_pagar, solicitudcompra!ordencompra_solicitud_compra_id_fkey!inner(id, departamento!inner(id, nombre))`)
             .returns<OrderForAuditor[]>();
           if (ordersError) {
-            console.error("Error fetching orders for AI auditor:", ordersError.message, ordersError.details, ordersError.code, ordersError);
+            console.error("Error al obtener órdenes para auditor IA:", ordersError.message, ordersError.details, ordersError.code, ordersError);
             throw ordersError;
           }
           if (!orders || orders.length === 0) {
-            generatedInsight = "No hay datos de órdenes para analizar.";
+            generatedInsight = "**Sin Datos Suficientes**\n- No hay datos de órdenes completas (con departamento asociado) para analizar y generar un informe de auditoría.";
             setDepartmentStatsForChart([]);
             setAnomalyChartData([]);
-            break;
+          } else {
+            const expensesByDept: { [key: string]: number[] } = (orders || []).reduce((acc, order) => {
+              const deptName = order.solicitudcompra?.departamento?.nombre || "Sin_Departamento_Asignado";
+              if (!acc[deptName]) acc[deptName] = [];
+              acc[deptName].push(order.neto_a_pagar || 0);
+              return acc;
+            }, {} as { [key: string]: number[] });
+
+            const localAuditorStats: AISummaryStat[] = Object.entries(expensesByDept).map(([dept, amounts]) => {
+              const mean = calculateMean(amounts);
+              const stdDev = calculateStandardDeviation(amounts, mean);
+              const zAnomalies = detectAnomaliesZScore(amounts, mean, stdDev);
+              const iqrAnomalies = detectAnomaliesIQR(amounts);
+              const anomalies = amounts.map((_, i) => zAnomalies[i] || iqrAnomalies[i]);
+              return { dept, total: amounts.reduce((s, v) => s + v, 0), mean, stdDev, amounts, anomalies };
+            });
+            setDepartmentStatsForChart(localAuditorStats);
+
+            const overallAnomalies = localAuditorStats.reduce((sum, stat) => sum + stat.anomalies.filter(Boolean).length, 0);
+            const overallTransactions = localAuditorStats.reduce((sum, stat) => sum + stat.amounts.length, 0);
+            setAnomalyChartData([
+              { name: "Anomalías", value: overallAnomalies },
+              { name: "Normales", value: overallTransactions - overallAnomalies },
+            ]);
+
+            prompt = `Eres un asistente de auditoría financiera para una empresa. Analiza los siguientes datos de gastos por departamento. Cada departamento tiene un total gastado, un promedio de gasto por transacción, y una lista de montos de transacciones individuales, con un indicador booleano de si cada transacción es una anomalía.
+                      Datos: ${JSON.stringify(localAuditorStats.map(s => ({ departamento: s.dept, total_gastado: s.total, promedio_transaccion: s.mean, numero_transacciones: s.amounts.length, numero_anomalias: s.anomalies.filter(Boolean).length })))}
+                      Proporciona un resumen conciso (1-2 párrafos), identifica departamentos con gastos inusualmente altos o con muchas anomalías (menciona al menos 1-2 departamentos específicos si aplica). Ofrece 2-3 recomendaciones generales y accionables para mejorar el control de gastos o investigar más a fondo. Formatea tu respuesta en ESPAÑOL con títulos en markdown (ej. **Resumen General**) y listas con viñetas o numeradas. Si no hay anomalías significativas o los datos son muy uniformes, indícalo. Sé claro y profesional.`;
+            generatedInsight = await fetchAIResponse(prompt, type);
           }
-
-          const expensesByDept: { [key: string]: number[] } = (orders || []).reduce((acc, order) => {
-            // Since solicitudcompra and departamento are !inner, they should exist.
-            const dept = order.solicitudcompra!.departamento!.nombre || "Sin_Departamento_Asignado";
-            if (!acc[dept]) acc[dept] = [];
-            acc[dept].push(order.neto_a_pagar || 0);
-            return acc;
-          }, {} as { [key: string]: number[] });
-
-          const localAuditorStats: AISummaryStat[] = Object.entries(expensesByDept).map(([dept, amounts]) => {
-            const mean = calculateMean(amounts);
-            const stdDev = calculateStandardDeviation(amounts, mean);
-            const zAnomalies = detectAnomaliesZScore(amounts, mean, stdDev);
-            const iqrAnomalies = detectAnomaliesIQR(amounts);
-            const anomalies = amounts.map((_, i) => zAnomalies[i] || iqrAnomalies[i]);
-            return { dept, total: amounts.reduce((s, v) => s + v, 0), mean, stdDev, amounts, anomalies };
-          });
-          setDepartmentStatsForChart(localAuditorStats);
-
-          const overallAnomalies = localAuditorStats.reduce((sum, stat) => sum + stat.anomalies.filter(Boolean).length, 0);
-          const overallTransactions = localAuditorStats.reduce((sum, stat) => sum + stat.amounts.length, 0);
-          setAnomalyChartData([
-            { name: "Anomalías", value: overallAnomalies },
-            { name: "Normales", value: overallTransactions - overallAnomalies },
-          ]);
-
-          prompt = `Eres un asistente de auditoría financiera para una empresa. Analiza los siguientes datos de gastos por departamento. Cada departamento tiene un total gastado, un promedio de gasto por transacción, y una lista de montos de transacciones individuales, con un indicador booleano de si cada transacción es una anomalía.
-                    Datos: ${JSON.stringify(localAuditorStats.map(s => ({ departamento: s.dept, total_gastado: s.total, promedio_transaccion: s.mean, numero_transacciones: s.amounts.length, numero_anomalias: s.anomalies.filter(Boolean).length })))}
-                    Proporciona un resumen conciso, identifica departamentos con gastos inusualmente altos o con muchas anomalías. Ofrece 2-3 recomendaciones generales para mejorar el control de gastos o investigar más a fondo. Formatea tu respuesta en ESPAÑOL con títulos en markdown (ej. **Resumen General**) y listas con viñetas o numeradas.`;
-          generatedInsight = await fetchAIResponse(prompt, type);
           break;
 
         case "proveedores":
@@ -198,7 +210,7 @@ const AIInsights: React.FC = () => {
                     - Proveedor A: 100 órdenes, 95% completadas a tiempo, costo promedio por orden $500.
                     - Proveedor B: 50 órdenes, 80% completadas a tiempo, costo promedio por orden $450.
                     - Proveedor C: 200 órdenes, 98% completadas a tiempo, costo promedio por orden $550.
-                    Identifica fortalezas y debilidades. Sugiere 2-3 estrategias para optimizar la selección y gestión de proveedores. Responde en ESPAÑOL.`;
+                    Identifica fortalezas y debilidades de cada uno. Sugiere 2-3 estrategias claras y concisas para optimizar la selección y gestión de proveedores en general. Responde en ESPAÑOL. Formatea tu respuesta con títulos en markdown para cada sección principal (ej. **Análisis de Proveedores**, **Estrategias de Optimización**) y usa listas para los detalles.`;
           generatedInsight = await fetchAIResponse(prompt, type);
           break;
         case "predictor":
@@ -206,36 +218,33 @@ const AIInsights: React.FC = () => {
                     - Producto X: Stock 100, Consumo mensual promedio 20.
                     - Producto Y: Stock 50, Consumo mensual promedio 30 (tendencia al alza).
                     - Producto Z: Stock 200, Consumo mensual promedio 10 (estable).
-                    Predice cuándo se agotará cada producto. Sugiere 2-3 acciones para optimizar niveles de inventario y evitar desabastecimientos o excesos. Responde en ESPAÑOL.`;
+                    Predice aproximadamente cuándo se agotará cada producto (en meses o semanas). Sugiere 2-3 acciones específicas y prácticas para optimizar niveles de inventario y evitar desabastecimientos o excesos para estos productos. Responde en ESPAÑOL. Formatea tu respuesta con títulos en markdown (ej. **Predicciones de Agotamiento**, **Recomendaciones de Inventario**) y usa listas.`;
            generatedInsight = await fetchAIResponse(prompt, type);
            break;
         case "asistente":
-            prompt = `Actúa como un asistente de gestión de compras inteligente. Revisa estos datos (ficticios):
-                    - Alerta: Producto 'Tóner XP-500' tiene solo 5 unidades en stock (umbral bajo es 10).
-                    - Nota: Las solicitudes del departamento de Marketing han aumentado un 30% este mes.
-                    - Info: El proveedor 'Suministros Rápidos' tiene una promoción en papel esta semana.
-                    Proporciona 2-3 recomendaciones accionables y prioritarias para el gerente de compras. Responde en ESPAÑOL.`;
+            prompt = `Actúa como un asistente de gestión de compras inteligente. Revisa estos datos (ficticios) y urgencias:
+                    - Alerta CRÍTICA: Producto 'Tóner XP-500' tiene solo 5 unidades en stock, y se consumen 10 por semana.
+                    - Información: Hay 3 solicitudes de compra pendientes de aprobación del departamento de Marketing.
+                    - Tendencia: El gasto en 'Material de Oficina' ha aumentado un 20% este mes.
+                    Proporciona un breve resumen ejecutivo (1-2 párrafos). Luego, ofrece 2-3 recomendaciones o alertas prioritarias basadas en esta información. Responde en ESPAÑOL. Usa títulos en markdown (ej. **Resumen Ejecutivo**, **Alertas y Recomendaciones**) y listas para las recomendaciones.`;
             generatedInsight = await fetchAIResponse(prompt, type);
             break;
         case "tendencias":
-            prompt = `Eres un analista de datos financieros. Observa estas tendencias (ficticias) de gasto total mensual de la empresa:
-                    - Enero: $10,000
-                    - Febrero: $12,000
-                    - Marzo: $9,000 (campaña de ahorro implementada)
-                    - Abril: $15,000 (proyecto grande iniciado)
-                    Identifica patrones significativos o anomalías en los gastos. Ofrece 2-3 insights o preguntas clave que el equipo de finanzas debería considerar. Responde en ESPAÑOL.`;
+            prompt = `Eres un analista de datos. Observa estos datos (ficticios) de gastos totales por departamento durante los últimos 3 meses:
+                    - Marketing: Mes 1: $1000, Mes 2: $1200, Mes 3: $1500
+                    - Ventas: Mes 1: $800, Mes 2: $850, Mes 3: $820
+                    - TI: Mes 1: $2000, Mes 2: $1800, Mes 3: $2200
+                    Identifica 1-2 tendencias clave de gasto (aumento, disminución, estabilidad) por departamento. Ofrece una breve explicación (1 frase) para cada tendencia observada. Responde en ESPAÑOL. Formatea con títulos y listas.`;
             generatedInsight = await fetchAIResponse(prompt, type);
             break;
         default:
-          generatedInsight = "Funcionalidad no implementada.";
+             generatedInsight = "Tipo de perspectiva no reconocida.";
       }
-      const cleanHTML = DOMPurify.sanitize(parseResponseToHTML(generatedInsight));
-      setInsights(prev => ({ ...prev, [type]: cleanHTML }));
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Error generando insight para ${type}: ${errorMessage}`, error);
-      setInsights(prev => ({ ...prev, [type]: `<p class="text-red-500">Error al procesar datos para ${type}: ${errorMessage}</p>` }));
+      setInsights(prev => ({ ...prev, [type]: generatedInsight }));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error(`Error en handleGenerateInsight para ${type}:`, errorMessage, err);
+      setInsights(prev => ({ ...prev, [type]: `**Error al generar la perspectiva:**\n- ${errorMessage}` }));
     } finally {
       setLoading(prev => ({ ...prev, [type]: false }));
     }
@@ -244,80 +253,60 @@ const AIInsights: React.FC = () => {
   const currentTabConfig = TABS_CONFIG.find(tab => tab.key === activeTab);
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-4 sm:p-6">
-      <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">Perspectivas con IA</h2>
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-        Utiliza la inteligencia artificial para obtener análisis y recomendaciones sobre tus datos de compras e inventario.
-      </p>
-
-      <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-4 sm:space-x-6 overflow-x-auto" aria-label="Tabs">
-          {TABS_CONFIG.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors
-                ${activeTab === tab.key
-                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600'
-                } focus:outline-none flex items-center space-x-2`}
-            >
-              <tab.icon className="w-5 h-5" />
-              <span>{tab.title}</span>
-            </button>
-          ))}
-        </nav>
+    <div className="space-y-6">
+      <div className="flex border-b border-gray-200 dark:border-gray-700">
+        {TABS_CONFIG.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center px-3 py-3 text-sm font-medium focus:outline-none
+              ${activeTab === tab.key
+                ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
+                : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600'
+              }`}
+          >
+            <tab.icon className={`w-5 h-5 mr-2 ${activeTab === tab.key ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'}`} />
+            {tab.title}
+          </button>
+        ))}
       </div>
 
-      <div className="mt-4">
-        {currentTabConfig && (
-            <div className="p-1 mb-4 bg-blue-50 dark:bg-gray-700 border border-blue-200 dark:border-gray-600 rounded-lg">
-                <div className="flex items-start">
-                    <currentTabConfig.icon className="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3 mt-1 flex-shrink-0" />
-                    <div>
-                        <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">{currentTabConfig.title}</h3>
-                        <p className="text-sm text-blue-700 dark:text-blue-300">{currentTabConfig.description}</p>
-                    </div>
-                </div>
-            </div>
-        )}
-        <button
-          onClick={() => handleGenerateInsight(activeTab)}
-          disabled={loading[activeTab]}
-          className="mb-6 w-full sm:w-auto flex items-center justify-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-300 dark:disabled:bg-gray-600"
-        >
-          {loading[activeTab] ? (
-            <>
-              <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />
-              Generando...
-            </>
-          ) : (
-            `Analizar ${TABS_CONFIG.find(t => t.key === activeTab)?.title || ''}`
+      {currentTabConfig && (
+        <div className="p-1">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{currentTabConfig.description}</p>
+          <button
+            onClick={() => handleGenerateInsight(activeTab)}
+            disabled={loading[activeTab]}
+            className="mb-6 flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md shadow-sm text-sm disabled:bg-primary-400 dark:disabled:bg-primary-800"
+          >
+            {loading[activeTab] ? <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" /> : <CpuChipIcon className="h-5 w-5 mr-2" />}
+            {loading[activeTab] ? 'Generando...' : `Generar Análisis de ${currentTabConfig.title}`}
+          </button>
+
+          {loading[activeTab] && (
+            <div className="mt-4"><LoadingSpinner message={`Analizando datos para ${currentTabConfig.title}...`} /></div>
           )}
-        </button>
 
-        {loading[activeTab] && <div className="py-10"><LoadingSpinner message="Procesando con IA..." /></div>}
-
-        {!loading[activeTab] && insights[activeTab] && (
-          <div className="prose prose-sm dark:prose-invert max-w-none bg-gray-50 dark:bg-gray-900/50 p-4 rounded-md border dark:border-gray-700">
-            <div dangerouslySetInnerHTML={{ __html: insights[activeTab]! }} />
-          </div>
-        )}
-         {!loading[activeTab] && !insights[activeTab] && (
-            <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                Presiona el botón para generar el análisis de IA para "{TABS_CONFIG.find(t => t.key === activeTab)?.title}".
+          {insights[activeTab] && !loading[activeTab] && (
+            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg shadow prose prose-sm dark:prose-invert max-w-none">
+              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parseResponseToHTML(insights[activeTab]!)) }} />
+            </div>
+          )}
+          
+          {!insights[activeTab] && !loading[activeTab] && activeTab === "auditor" && (
+            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+              Haga clic en "Generar Análisis" para ver el informe del auditor de gastos y los gráficos asociados.
             </p>
-        )}
+          )}
 
-        {activeTab === 'auditor' && !loading.auditor && departmentStatsForChart.length > 0 && (
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <DepartmentExpensesChart data={departmentStatsForChart} />
-            <AnomalyPieChart data={anomalyChartData} title="Distribución General (Anomalías vs Normales)"/>
-          </div>
-        )}
-      </div>
+          {activeTab === "auditor" && (departmentStatsForChart.length > 0 || anomalyChartData.length > 0) && !loading[activeTab] && (
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {departmentStatsForChart.length > 0 && <DepartmentExpensesChart data={departmentStatsForChart} />}
+              {anomalyChartData.length > 0 && <AnomalyPieChart data={anomalyChartData} title="Distribución de Transacciones (Anomalías)" />}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
-
-export default AIInsights;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Inventario } from '../../types';
@@ -25,7 +24,7 @@ const ViewInventory: React.FC = () => {
       setInventory(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar inventario");
-      console.error(err);
+      console.error("Error al cargar inventario:", err);
     } finally {
       setLoading(false);
     }
@@ -41,7 +40,7 @@ const ViewInventory: React.FC = () => {
       sortableItems = sortableItems.filter(item =>
         item.producto?.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.ubicacion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.producto?.categoria?.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+        (item.producto?.categoria?.nombre && item.producto.categoria.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
@@ -134,9 +133,9 @@ const ViewInventory: React.FC = () => {
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {filteredAndSortedInventory.length > 0 ? filteredAndSortedInventory.map(item => (
               <tr key={item.id}>
-                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.producto?.descripcion || 'N/A'}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{item.ubicacion || 'N/A'}</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{item.producto?.categoria?.nombre || 'N/A'}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.producto?.descripcion || 'N/D'}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{item.ubicacion || 'N/D'}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{item.producto?.categoria?.nombre || 'N/D'}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{item.existencias ?? '0'}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{new Date(item.fecha_actualizacion).toLocaleDateString()}</td>
               </tr>
@@ -155,4 +154,3 @@ const ViewInventory: React.FC = () => {
 };
 
 export default ViewInventory;
-    

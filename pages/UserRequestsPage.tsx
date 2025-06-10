@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-// @ts-ignore
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { SolicitudCompra, UserProfile, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, CategoriaProducto } from '../types';
@@ -9,11 +8,9 @@ import RequestDetailsModal from '../components/requests/RequestDetailsModal';
 
 interface UserRequestsPageContext {
   userProfile: UserProfile;
-  activeUITab: string; // From Layout's Outlet context
+  activeUITab: string; 
 }
 
-// Type definitions for raw data from Supabase queries to help with mapping
-// Similar to AdminDashboardPage's RawSolicitudFromQuery
 type RawSolicitudFromUserQuery = Omit<SolicitudCompra, 'empleado' | 'departamento' | 'detalles'> & {
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
   departamento: Pick<Departamento, 'id' | 'nombre'> | null;
@@ -91,9 +88,9 @@ const UserRequestsPage: React.FC = () => {
           .select(commonSelectSolicitud)
           .eq('empleado_id', userProfile.empleado_id);
 
-        if (activeUITab === 'solicitudes') { // Pending requests for "Solicitudes" tab
+        if (activeUITab === 'solicitudes') { 
           query = query.eq('estado', 'Pendiente');
-        } else if (activeUITab === 'historial-solicitudes') { // History for "Historial Solicitudes" tab
+        } else if (activeUITab === 'historial-solicitudes') { 
           query = query.in('estado', ['Aprobada', 'Rechazada']);
         }
         
@@ -102,7 +99,7 @@ const UserRequestsPage: React.FC = () => {
         const { data: rawRequests, error: fetchError } = await query.returns<RawSolicitudFromUserQuery[]>();
 
         if (fetchError) {
-          console.error("Error fetching user requests:", fetchError.message, fetchError.details, fetchError.code, fetchError);
+          console.error("Error al obtener solicitudes del usuario:", fetchError.message, fetchError.details, fetchError.code, fetchError);
           throw fetchError;
         }
         setRequests((rawRequests || []).map(mapSolicitudData));
@@ -137,7 +134,7 @@ const UserRequestsPage: React.FC = () => {
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">{getPageTitle()}</h2>
         <RequestTable
           requests={requests}
-          showStatus={true} // Always show status for user's own requests
+          showStatus={true}
           onRowClick={handleRowClick}
         />
       </div>

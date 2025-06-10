@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-// @ts-ignore
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Inventario, SolicitudCompra, ProductoRezagado, UserProfile, Departamento, SolicitudCompraEstado, Empleado, SolicitudCompraDetalle, Producto } from '../types';
 import LoadingSpinner from '../components/core/LoadingSpinner';
-// Admin specific components - consider lazy loading if they are large
 import ProviderManagement from '../components/inventory/ProviderManagement'; 
 import ProductManagement from '../components/inventory/ProductManagement';
-import RequestTable from '../components/requests/RequestTable'; // For AdminHome functionality
+import RequestTable from '../components/requests/RequestTable'; 
 import { CheckCircleIcon, XCircleIcon, ListBulletIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 
 
@@ -81,14 +79,12 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // User specific states
   const [userInventory, setUserInventory] = useState<Inventario[]>([]);
   const [userSummaryStats, setUserSummaryStats] = useState<OverallStats>({ total: 0, aprobadas: 0, rechazadas: 0, pendientes: 0 });
   const [approvedProducts, setApprovedProducts] = useState<ProductStat[]>([]);
   const [rejectedProducts, setRejectedProducts] = useState<ProductStat[]>([]);
 
 
-  // Admin specific states
   const [departments, setDepartments] = useState<DepartmentStat[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentStat | null>(null);
   const [departmentRequests, setDepartmentRequests] = useState<SolicitudCompra[]>([]);
@@ -103,26 +99,24 @@ const HomePage: React.FC = () => {
       setError(null);
       try {
         if (userProfile.rol === 'usuario') {
-          // 1. Fetch inventory for user
           const { data: invData, error: invError } = await supabase
             .from('inventario')
             .select('*, producto:producto_id(descripcion, categoria:categoria_id(nombre))')
             .order('fecha_actualizacion', { ascending: false })
             .limit(10); 
           if (invError) {
-            console.error("Error fetching user inventory:", invError.message);
+            console.error("Error al obtener inventario de usuario:", invError.message);
             throw invError;
           }
           setUserInventory(invData || []);
 
-          // 2. Fetch overall request stats for user
           if (userProfile.empleado_id) {
             const { data: reqsData, error: reqsError } = await supabase
               .from('solicitudcompra')
               .select('id, estado')
               .eq('empleado_id', userProfile.empleado_id);
             if (reqsError) {
-                console.error("Error fetching user requests stats:", reqsError.message);
+                console.error("Error al obtener estadísticas de solicitudes de usuario:", reqsError.message);
                 throw reqsError;
             }
             
@@ -135,7 +129,6 @@ const HomePage: React.FC = () => {
             });
             setUserSummaryStats(summary);
 
-            // 3. Fetch product stats for user
             const fetchProductStats = async (status: SolicitudCompraEstado): Promise<ProductStat[]> => {
               const { data: requestsWithDetails, error: detailsError } = await supabase
                 .from('solicitudcompra')
@@ -143,7 +136,7 @@ const HomePage: React.FC = () => {
                 .eq('empleado_id', userProfile.empleado_id!)
                 .eq('estado', status);
               if (detailsError) {
-                console.error(`Error fetching product details for ${status} requests:`, detailsError); return [];
+                console.error(`Error al obtener detalles de productos para solicitudes ${status}:`, detailsError); return [];
               }
               const productMap = new Map<number, { descripcion: string; total_cantidad: number; solicitud_ids: Set<number> }>();
               (requestsWithDetails || []).forEach(req => {
@@ -176,7 +169,6 @@ const HomePage: React.FC = () => {
           }
 
         } else if (userProfile.rol === 'admin') {
-          // Admin data fetching logic (remains unchanged)
           const { data: deptsData, error: deptError } = await supabase
             .from('departamento')
             .select('id, nombre');
@@ -222,7 +214,7 @@ const HomePage: React.FC = () => {
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error("Error fetching home data:", errorMessage, err);
+        console.error("Error al obtener datos de inicio:", errorMessage, err);
         setError("Error al cargar datos de inicio: " + errorMessage);
       } finally {
         setLoading(false);
@@ -232,7 +224,6 @@ const HomePage: React.FC = () => {
     if (userProfile) {
       fetchData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile]);
 
 
@@ -244,7 +235,7 @@ const HomePage: React.FC = () => {
       setProductosRezagados(prev => prev.filter(p => p.id !== id));
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error("Failed to delete rezagado:", errorMessage, err);
+      console.error("Error al eliminar producto rezagado:", errorMessage, err);
       alert("Error al eliminar producto rezagado.");
     }
   };
@@ -254,7 +245,6 @@ const HomePage: React.FC = () => {
   if (!userProfile) return null; 
 
   if (userProfile.rol === 'admin') {
-    // Admin view (remains unchanged)
     if (selectedDepartment) {
       const filteredDeptRequests = departmentRequests.filter(r => 
         r.departamento_id === selectedDepartment.id && 
@@ -296,7 +286,7 @@ const HomePage: React.FC = () => {
     return (
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard de Administrador</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Panel de Administrador</h1>
           <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">Resumen general y gestión por departamento.</p>
         </div>
 
@@ -349,11 +339,11 @@ const HomePage: React.FC = () => {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {productosRezagados.length > 0 ? productosRezagados.map(p => (
                       <tr key={p.id}>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white">{p.producto?.descripcion || 'N/A'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white">{p.producto?.descripcion || 'N/D'}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{p.cantidad}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{p.motivo}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{p.solicitud?.descripcion || 'N/A'}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{p.orden_compra_id || 'N/A'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{p.solicitud?.descripcion || 'N/D'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{p.orden_compra_id || 'N/D'}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm">
                           <button 
                             onClick={() => p.id && handleDeleteRezagado(p.id)}
@@ -388,7 +378,6 @@ const HomePage: React.FC = () => {
     );
   }
 
-  // User view
   return (
     <div className="space-y-8">
       <div>
@@ -438,9 +427,9 @@ const HomePage: React.FC = () => {
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {userInventory.map((item) => (
                   <tr key={item.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.producto?.descripcion || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.producto?.categoria?.nombre || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.ubicacion || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.producto?.descripcion || 'N/D'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.producto?.categoria?.nombre || 'N/D'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.ubicacion || 'N/D'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{item.existencias ?? '0'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{new Date(item.fecha_actualizacion).toLocaleDateString()}</td>
                   </tr>

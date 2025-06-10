@@ -47,4 +47,3 @@ const AnomalyPieChart: React.FC<AnomalyPieChartProps> = ({ data, title = "Distri
 };
 
 export default AnomalyPieChart;
-    

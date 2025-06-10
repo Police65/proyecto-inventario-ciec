@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { UserProfile, Proveedor, Producto, OrdenCompra, OrdenCompraUnidad, OrdenCompraFormData } from '../../types';
-import { XMarkIcon, CheckIcon, MinusCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckIcon, MinusCircleIcon, InformationCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
+import { useOrderCalculations } from '../../hooks/useOrderCalculations'; // Import the hook
 
 interface ProductLineItem {
   id: number | string; 
@@ -29,7 +31,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
   initialProducts = [], proveedorId = null, solicitudesIds = [] 
 }) => {
   const [productosSeleccionados, setProductosSeleccionados] = useState<ProductLineItem[]>([]);
-  const [proveedores, setProveedores] = useState<Pick<Proveedor, 'id' | 'nombre'>[]>([]); // Changed type
+  const [proveedores, setProveedores] = useState<Pick<Proveedor, 'id' | 'nombre'>[]>([]);
   const [formData, setFormData] = useState<Partial<OrdenCompraFormData>>({
     proveedor_id: proveedorId,
     unidad: 'Bs',
@@ -41,7 +43,8 @@ const OrderForm: React.FC<OrderFormProps> = ({
     estado: 'Pendiente',
     observaciones: '',
   });
-  const [loading, setLoading] = useState(false);
+  const [loadingInitialData, setLoadingInitialData] = useState(false);
+  const [submittingOrder, setSubmittingOrder] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const formatInitialProducts = useCallback(() => {
@@ -56,64 +59,61 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }));
   }, [initialProducts]);
 
+  // Use the new hook for calculations
+  const productsForCalculation = productosSeleccionados.filter(p => p.seleccionado);
+  const calculatedTotals = useOrderCalculations(productsForCalculation, formData.retencion_porcentaje);
+
   useEffect(() => {
     if (show) {
-      setLoading(true);
+      setLoadingInitialData(true);
       const cargarDatos = async () => {
         try {
           const { data: proveedoresData, error: provError } = await supabase
             .from('proveedor')
             .select('id, nombre')
-            .returns<Pick<Proveedor, 'id' | 'nombre'>[]>(); // Ensure correct type for fetched data
+            .returns<Pick<Proveedor, 'id' | 'nombre'>[]>(); 
           if (provError) throw provError;
           setProveedores(proveedoresData || []);
           
           const formatted = formatInitialProducts();
           setProductosSeleccionados(formatted);
+          
           setFormData(prev => ({
             ...prev,
-            proveedor_id: proveedorId,
-            retencion_porcentaje: prev.retencion_porcentaje || 75, 
+            proveedor_id: proveedorId || prev.proveedor_id || null,
+            retencion_porcentaje: prev.retencion_porcentaje === undefined ? 75 : prev.retencion_porcentaje, 
             unidad: prev.unidad || 'Bs',
             estado: prev.estado || 'Pendiente',
-            observaciones: prev.observaciones || ''
           }));
-          // Pass formData.retencion_porcentaje directly, as formData state update might not be immediate
-          calcularTotales(formatted, formData.retencion_porcentaje || 75);
-
-
         } catch (err) {
           console.error("Error loading data for order form:", err);
           setError("Error al cargar datos necesarios.");
         } finally {
-          setLoading(false);
+          setLoadingInitialData(false);
         }
       };
       cargarDatos();
     } else {
       setProductosSeleccionados([]);
       setFormData({
-        proveedor_id: null, unidad: 'Bs', retencion_porcentaje: 75, sub_total: 0, iva: 0, ret_iva: 0, neto_a_pagar: 0, estado: 'Pendiente', observaciones: '',
+        proveedor_id: null, unidad: 'Bs', retencion_porcentaje: 75, 
+        sub_total: 0, iva: 0, ret_iva: 0, neto_a_pagar: 0, 
+        estado: 'Pendiente', observaciones: '',
       });
       setError(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show, proveedorId, formatInitialProducts]); // Added formData.retencion_porcentaje to deps of useEffect, or rather, ensure calcularTotales has the latest.
+  }, [show, proveedorId, formatInitialProducts]); 
 
-  const calcularTotales = useCallback((productos: ProductLineItem[], retencionPct: number) => {
-    const subtotal = productos
-      .filter(p => p.seleccionado)
-      .reduce((acc, p) => acc + (Number(p.quantity) * Number(p.precio_unitario)), 0);
-    const iva = subtotal * 0.16;
-    const retencionIva = iva * (retencionPct / 100);
-    const neto = subtotal + iva - retencionIva;
-    setFormData(prev => ({ ...prev, sub_total: subtotal, iva, ret_iva: retencionIva, neto_a_pagar: neto }));
-  }, []);
-  
+  // Update formData when calculatedTotals change
   useEffect(() => {
-    // This useEffect will run when productosSeleccionados or formData.retencion_porcentaje changes
-    calcularTotales(productosSeleccionados, formData.retencion_porcentaje || 75);
-  }, [productosSeleccionados, formData.retencion_porcentaje, calcularTotales]);
+    setFormData(prev => ({
+      ...prev,
+      sub_total: calculatedTotals.sub_total,
+      iva: calculatedTotals.iva,
+      ret_iva: calculatedTotals.ret_iva,
+      neto_a_pagar: calculatedTotals.neto_a_pagar,
+    }));
+  }, [calculatedTotals]);
 
 
   const handleProductChange = (id: number | string, field: keyof ProductLineItem, value: any) => {
@@ -133,27 +133,27 @@ const OrderForm: React.FC<OrderFormProps> = ({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
+    setSubmittingOrder(true);
 
     if (!userProfile.empleado_id) {
         setError("Perfil de empleado no encontrado.");
-        setLoading(false);
+        setSubmittingOrder(false);
         return;
     }
     if (!formData.proveedor_id) {
         setError("Debe seleccionar un proveedor.");
-        setLoading(false);
+        setSubmittingOrder(false);
         return;
     }
     const productosFinales = productosSeleccionados.filter(p => p.seleccionado);
     if (productosFinales.length === 0) {
         setError("Debe seleccionar al menos un producto para la orden.");
-        setLoading(false);
+        setSubmittingOrder(false);
         return;
     }
     if (productosFinales.some(p => !p.producto_id || p.quantity <= 0 || p.precio_unitario < 0)) {
       setError("Verifique que todos los productos seleccionados tengan ID, cantidad positiva y precio no negativo.");
-      setLoading(false);
+      setSubmittingOrder(false);
       return;
     }
 
@@ -170,10 +170,9 @@ const OrderForm: React.FC<OrderFormProps> = ({
             unidad: formData.unidad as OrdenCompraUnidad || 'Bs',
             observaciones: formData.observaciones || null,
             empleado_id: userProfile.empleado_id,
-            retencion_porcentaje: formData.retencion_porcentaje || 0,
-            // Campos requeridos por DB que pueden no estar en el form directamente
-            precio_unitario: 0, // This was on OrdenCompra, likely should be from details. Defaulting to 0 if it's for the main table.
-            changed_by: userProfile.empleado_id // Assuming the creator is the one changing it initially
+            retencion_porcentaje: formData.retencion_porcentaje === null ? 0 : formData.retencion_porcentaje,
+            precio_unitario: 0, 
+            changed_by: userProfile.empleado_id 
         };
 
         const { data: ordenData, error: ordenError } = await supabase
@@ -203,10 +202,9 @@ const OrderForm: React.FC<OrderFormProps> = ({
                 producto_id: p.producto_id,
                 cantidad: Number(p.quantity),
                 motivo: p.motivoRechazo || 'No especificado',
-                solicitud_id: solicitudesIds.length > 0 ? solicitudesIds[0] : null, // Link to the first solicitud if consolidating
+                solicitud_id: solicitudesIds.length > 0 ? solicitudesIds[0] : null, 
             }));
             await supabase.from('productos_rezagados').insert(rezagadosPayload);
-            // TODO: Consider notifying about rezagados items
         }
 
         if (solicitudesIds.length > 0) {
@@ -215,18 +213,23 @@ const OrderForm: React.FC<OrderFormProps> = ({
                 solicitud_id: solId,
             }));
             await supabase.from('orden_solicitud').insert(ordenSolicitudLinks);
-            // Update status of linked solicitudes
             await supabase.from('solicitudcompra').update({ estado: 'Aprobada' }).in('id', solicitudesIds);
         }
         
-        onSuccess(ordenData as OrdenCompra); // Cast to full OrdenCompra
+        onSuccess(ordenData as OrdenCompra); 
         onHide();
 
     } catch (err) {
+        const supabaseError = err as { code?: string; message: string };
+        if (supabaseError.code === '23505') {
+             alert(`Error al crear la orden: Ya existe un registro con un valor único similar. (${supabaseError.message})`);
+        } else {
+            alert(`Error al crear la orden: ${supabaseError.message}`);
+        }
         console.error("Error creating order:", err);
-        setError(err instanceof Error ? err.message : "Error desconocido al crear la orden.");
+        setError(supabaseError.message || "Error desconocido al crear la orden.");
     } finally {
-        setLoading(false);
+        setSubmittingOrder(false);
     }
   };
 
@@ -238,18 +241,18 @@ const OrderForm: React.FC<OrderFormProps> = ({
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 sm:p-5 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Crear Orden de Compra</h3>
-          <button onClick={onHide} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md">
+          <button onClick={onHide} disabled={submittingOrder} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md">
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
 
-        {(loading && !productosSeleccionados.length) ? <div className="p-10 flex-grow flex items-center justify-center"><LoadingSpinner message="Cargando formulario..." /></div> : (
+        {(loadingInitialData && !productosSeleccionados.length) ? <div className="p-10 flex-grow flex items-center justify-center"><LoadingSpinner message="Cargando formulario..." /></div> : (
         <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-4 sm:p-5 space-y-5">
           {error && <div className="p-3 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 rounded-md text-sm">{error}</div>}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="proveedor_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor</label>
+              <label htmlFor="proveedor_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span className="text-red-500">*</span></label>
               <select id="proveedor_id" name="proveedor_id" value={formData.proveedor_id || ''} onChange={handleFormInputChange} required
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                 <option value="">Seleccionar proveedor...</option>
@@ -267,7 +270,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
           </div>
 
           <div className="space-y-3">
-            <h4 className="text-md font-semibold text-gray-700 dark:text-gray-200">Productos</h4>
+            <h4 className="text-md font-semibold text-gray-700 dark:text-gray-200">Productos <span className="text-red-500">*</span></h4>
             {productosSeleccionados.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">No hay productos iniciales. Si es una orden directa, añada productos.</p>}
             {productosSeleccionados.map((item) => (
               <div key={item.id} className="p-3 border dark:border-gray-700 rounded-md space-y-3 bg-gray-50 dark:bg-gray-900/40 shadow-sm">
@@ -282,15 +285,15 @@ const OrderForm: React.FC<OrderFormProps> = ({
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label htmlFor={`quantity-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cantidad</label>
+                        <label htmlFor={`quantity-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cantidad <span className="text-red-500">*</span></label>
                         <input type="number" id={`quantity-${item.id}`} value={item.quantity} min="1"
-                               onChange={(e) => handleProductChange(item.id, 'quantity', e.target.value)}
+                               onChange={(e) => handleProductChange(item.id, 'quantity', e.target.value)} required
                                className="mt-0.5 w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
                     </div>
                     <div>
-                        <label htmlFor={`precio-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Precio Unit. ({formData.unidad})</label>
+                        <label htmlFor={`precio-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Precio Unit. ({formData.unidad}) <span className="text-red-500">*</span></label>
                         <input type="number" id={`precio-${item.id}`} value={item.precio_unitario} step="0.01" min="0"
-                               onChange={(e) => handleProductChange(item.id, 'precio_unitario', e.target.value)}
+                               onChange={(e) => handleProductChange(item.id, 'precio_unitario', e.target.value)} required
                                className="mt-0.5 w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
                     </div>
                 </div>
@@ -323,7 +326,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
             <div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300">
               <label htmlFor="retencion_porcentaje" className="whitespace-nowrap mr-2">Retención IVA (%):</label>
               <input type="number" id="retencion_porcentaje" name="retencion_porcentaje" 
-                     value={formData.retencion_porcentaje || 0} min="0" max="100" onChange={handleFormInputChange}
+                     value={formData.retencion_porcentaje === null ? '' : formData.retencion_porcentaje} min="0" max="100" onChange={handleFormInputChange}
                      className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
               <span className="ml-auto">{formData.ret_iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span>
             </div>
@@ -341,14 +344,14 @@ const OrderForm: React.FC<OrderFormProps> = ({
           </div>
         
             <div className="pt-5 flex justify-end space-x-3 sticky bottom-0 bg-white dark:bg-gray-800 py-3 z-10 border-t dark:border-gray-700">
-              <button type="button" onClick={onHide}
+              <button type="button" onClick={onHide} disabled={submittingOrder}
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">
                 Cancelar
               </button>
-              <button type="submit" disabled={loading}
+              <button type="submit" disabled={submittingOrder || loadingInitialData}
                 className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none disabled:opacity-50">
-                {loading ? <LoadingSpinner size="sm"/> : <CheckIcon className="w-5 h-5 mr-1.5 -ml-1" />}
-                {loading ? "Creando..." : "Crear Orden"}
+                {submittingOrder ? <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" /> : <CheckIcon className="w-5 h-5 mr-1.5 -ml-1" />}
+                {submittingOrder ? "Creando..." : "Crear Orden"}
               </button>
             </div>
         </form>

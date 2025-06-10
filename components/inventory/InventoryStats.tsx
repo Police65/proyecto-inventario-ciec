@@ -67,7 +67,7 @@ const InventoryStats: React.FC = () => {
           totalSpent,
         });
       } catch (error) {
-        console.error('Error fetching stats:', error);
+        console.error('Error al obtener estadísticas:', error);
         // Optionally set an error state to display to the user
       }
       setLoading(false);
@@ -101,4 +101,3 @@ const InventoryStats: React.FC = () => {
 };
 
 export default InventoryStats;
-    
