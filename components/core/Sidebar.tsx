@@ -1,4 +1,6 @@
+
 import React from 'react';
+// @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { UserProfile } from '../../types';
 import { 
@@ -13,7 +15,7 @@ interface SidebarProps {
   onSelectTab: (tab: string) => void;
   onLogout: () => void; 
   activeUITab: string; 
-  setHasInteracted: (interacted: boolean) => void;
+  setHasInteracted: (interacted: boolean) => void; 
 }
 
 interface NavItem {
@@ -108,7 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
       tabKey: 'usuarios'
     },
     { 
-      onClick: () => handleNavigation(() => navigate('/inventory')),
+      onClick: () => handleNavigation(() => navigate('/inventory')), 
       icon: BuildingStorefrontIcon, 
       label: 'Gestión de Inventario', 
       adminOnly: true,
@@ -118,7 +120,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
   const actionItems: NavItem[] = [
      { 
       onClick: () => {
-        onLogout();
+        onLogout(); // No necesita handleNavigation ya que cierra sesión
       }, 
       icon: ArrowRightOnRectangleIcon, 
       label: 'Cerrar sesión',
@@ -132,12 +134,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
 
     let calculatedIsActive = false;
     if (item.tabKey) {
+      // Activo si estamos en /solicitudes Y la pestaña activa coincide
       calculatedIsActive = currentPath.includes('/solicitudes') && activeUITab === item.tabKey;
-    } else if (item.to && item.to === '/inventory') { 
-        calculatedIsActive = currentPath.startsWith('/inventory');
+    } else if (item.to && (item.to === '/inventory' || item.to === '/external-events')) { 
+        // Para rutas con subrutas, verificar si la ruta actual *comienza* con la ruta del item
+        calculatedIsActive = currentPath.startsWith(item.to);
     } else if (item.to) {
+      // Para rutas exactas
       calculatedIsActive = currentPath === item.to;
     } else if (item.onClick) { 
+        // Casos especiales para rutas que no tienen 'to' pero sí 'onClick' y son páginas principales
         if (item.label === "Menú Principal" && currentPath === '/home') calculatedIsActive = true;
         if (item.label === "Dashboard Admin" && currentPath === '/admin-stats-dashboard') calculatedIsActive = true;
         if (item.label === "Mi Resumen" && currentPath === '/user-activity-summary') calculatedIsActive = true;
@@ -169,7 +175,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
            <button onClick={item.onClick} className={linkClasses}>
             {content}
           </button>
-        ) : null}
+        ) : null} 
       </li>
     );
   };
@@ -216,5 +222,5 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
   );
 };
 
-export { Sidebar };
+export { Sidebar }; // Exportar como nombrado
 export default Sidebar;

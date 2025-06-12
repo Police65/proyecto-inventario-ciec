@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { SunIcon, MoonIcon } from '@heroicons/react/24/outline';
 
@@ -7,7 +8,7 @@ const ThemeToggle: React.FC = () => {
       return localStorage.getItem('theme') === 'dark' || 
              (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
     }
-    return false; 
+    return false; // Por defecto a false si window no está definido (SSR)
   });
 
   useEffect(() => {

@@ -1,5 +1,7 @@
+
 import React, { useState } from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth'; 
+// @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
@@ -7,13 +9,15 @@ import { EyeIcon, EyeSlashIcon, ArrowPathIcon } from '@heroicons/react/24/outlin
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Controla si la contraseña es visible
+  const [error, setError] = useState<string | null>(null); // Mensaje de error para el usuario
+  const [loading, setLoading] = useState(false); // Estado de carga para el botón de login
   
   const navigate = useNavigate();
-  const { login: authLogin, userProfile } = useAuth();
+  const { login: authLogin, userProfile } = useAuth(); // Obtener función de login y perfil del hook useAuth
 
+  // Redirigir a /home si el usuario ya está logueado (tiene un userProfile).
+  // El hook useAuth maneja la verificación inicial de la sesión.
   React.useEffect(() => {
     if (userProfile) {
       navigate('/home');
@@ -22,21 +26,25 @@ const Login: React.FC = () => {
 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+    e.preventDefault(); // Evitar recarga de página
+    setLoading(true); // Mostrar indicador de carga
+    setError(null); // Limpiar errores anteriores
     try {
-      await authLogin(email, password);
+      await authLogin(email, password); // Llamar a la función de login del hook
+      // Si el login es exitoso, el hook useAuth (a través de onAuthStateChange)
+      // actualizará userProfile, y el useEffect anterior debería redirigir.
+      // Se puede añadir una navegación explícita aquí como respaldo o si se prefiere ese flujo.
       navigate('/home'); 
     } catch (err) {
+      // El hook useAuth ya debería formatear errores comunes de Supabase al español.
       if (err instanceof Error) {
         setError(err.message || "Error de inicio de sesión. Verifica tus credenciales.");
       } else {
-        setError("Un error desconocido ocurrió.");
+        setError("Ocurrió un error desconocido durante el inicio de sesión.");
       }
-      console.error("Falló el inicio de sesión:", err);
+      console.error("Falló el inicio de sesión (componente Login):", err);
     } finally {
-      setLoading(false);
+      setLoading(false); // Ocultar indicador de carga
     }
   };
 
@@ -45,8 +53,8 @@ const Login: React.FC = () => {
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-10 rounded-xl shadow-2xl">
         <div>
           <img
-            className="mx-auto h-16 w-auto"
-            src="/assets/logo_png.png" 
+            className="mx-auto h-16 w-auto" // Ajustar tamaño del logo según sea necesario
+            src="/assets/logo_png.png" // Asegúrate que esta ruta sea correcta
             alt="Logo RequiSoftware"
           />
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
@@ -57,14 +65,14 @@ const Login: React.FC = () => {
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          {error && (
+          {error && ( // Mostrar mensaje de error si existe
             <div className="p-3 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 rounded-md">
               <p>{error}</p>
             </div>
           )}
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="rounded-md shadow-sm -space-y-px"> {/* Contenedor para inputs */}
             <div>
-              <label htmlFor="email-address" className="sr-only">
+              <label htmlFor="email-address" className="sr-only"> {/* Etiqueta para accesibilidad */}
                 Correo Electrónico
               </label>
               <input
@@ -79,14 +87,14 @@ const Login: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="relative">
+            <div className="relative"> {/* Contenedor para input de contraseña y botón de mostrar/ocultar */}
               <label htmlFor="password" className="sr-only">
                 Contraseña
               </label>
               <input
                 id="password"
                 name="password"
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? "text" : "password"} // Cambiar tipo para mostrar/ocultar
                 autoComplete="current-password"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
@@ -95,8 +103,8 @@ const Login: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
               />
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                type="button" // Evitar que envíe el formulario
+                onClick={() => setShowPassword(!showPassword)} // Alternar visibilidad
                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
               >
@@ -109,7 +117,7 @@ const Login: React.FC = () => {
             </div>
           </div>
 
-          { <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
                 id="remember-me"
@@ -118,24 +126,24 @@ const Login: React.FC = () => {
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700"
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
-                Recordarme
+                Recordarme {/* Funcionalidad de "Recordarme" podría requerir lógica adicional con localStorage/cookies */}
               </label>
             </div>
 
             <div className="text-sm">
               <a href="#" className="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300">
-                ¿Olvidaste tu contraseña?
+                ¿Olvidaste tu contraseña? {/* Enlace a recuperación de contraseña (no implementado) */}
               </a>
             </div>
-          </div> }
+          </div>
 
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading} // Deshabilitar si está cargando
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-gray-800 disabled:bg-primary-300 dark:disabled:bg-primary-800"
             >
-              {loading ? (
+              {loading ? ( // Mostrar ícono de carga si `loading` es true
                 <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />
               ) : (
                 "Ingresar"
@@ -144,7 +152,7 @@ const Login: React.FC = () => {
           </div>
         </form>
          <p className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-            © {new Date().getFullYear()} Cámara de Industriales. Todos los derechos reservados.
+            © {new Date().getFullYear()} Cámara de Industriales del Estado Carabobo. Todos los derechos reservados.
           </p>
       </div>
     </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Inventario } from '../../types';
@@ -24,7 +25,7 @@ const ViewInventory: React.FC = () => {
       setInventory(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar inventario");
-      console.error("Error al cargar inventario:", err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -40,7 +41,7 @@ const ViewInventory: React.FC = () => {
       sortableItems = sortableItems.filter(item =>
         item.producto?.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.ubicacion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.producto?.categoria?.nombre && item.producto.categoria.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+        item.producto?.categoria?.nombre.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 

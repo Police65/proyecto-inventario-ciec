@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Producto, CategoriaProducto } from '../../types';
@@ -20,13 +21,11 @@ const ProductManagement: React.FC = () => {
   const [submittingProduct, setSubmittingProduct] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // State for Product Category Modal
   const [showProductCategoryModal, setShowProductCategoryModal] = useState(false);
   const [newProductCategoryName, setNewProductCategoryName] = useState('');
   const [submittingProductCategory, setSubmittingProductCategory] = useState(false);
   const [productCategoryError, setProductCategoryError] = useState<string | null>(null);
   
-  // State for Combobox in Product Modal
   const [productCategorySearchTerm, setProductCategorySearchTerm] = useState('');
   const [isProductCategoryDropdownOpen, setIsProductCategoryDropdownOpen] = useState(false);
   const productCategoryDropdownRef = useRef<HTMLDivElement>(null);
@@ -59,7 +58,6 @@ const ProductManagement: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  // Close dropdown when clicking outside (for product category combobox)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (productCategoryDropdownRef.current && !productCategoryDropdownRef.current.contains(event.target as Node)) {
@@ -72,7 +70,12 @@ const ProductManagement: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setCurrentProduct(prev => ({ ...prev, [name]: name === 'categoria_id' ? (value ? parseInt(value) : null) : value }));
+    setCurrentProduct(prev => ({ 
+      ...prev, 
+      [name]: name === 'categoria_id' || name === 'stock_minimo' || name === 'stock_maximo' 
+              ? (value ? parseInt(value) : null) 
+              : value 
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -89,10 +92,13 @@ const ProductManagement: React.FC = () => {
       return;
     }
 
-
     const productData = {
       descripcion: currentProduct.descripcion,
       categoria_id: currentProduct.categoria_id ? Number(currentProduct.categoria_id) : null,
+      stock_minimo: currentProduct.stock_minimo ? Number(currentProduct.stock_minimo) : null,
+      stock_maximo: currentProduct.stock_maximo ? Number(currentProduct.stock_maximo) : null,
+      unidad_medida: currentProduct.unidad_medida || null,
+      codigo_interno: currentProduct.codigo_interno || null,
     };
 
     try {
@@ -110,8 +116,8 @@ const ProductManagement: React.FC = () => {
     } catch (error) {
       const supabaseError = error as { code?: string; message: string };
       if (supabaseError.code === '23505') { 
-         if (supabaseError.message.includes('producto_descripcion_key')) { 
-            alert('Error: Ya existe un producto con esa descripción.');
+         if (supabaseError.message.includes('producto_descripcion_key') || supabaseError.message.includes('producto_codigo_interno_key')) { 
+            alert('Error: Ya existe un producto con esa descripción o código interno.');
          } else {
             alert(`Error guardando producto: Ya existe un registro con un valor único similar. (${supabaseError.message})`);
          }
@@ -133,47 +139,22 @@ const ProductManagement: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     if (submittingProduct) return; 
-    if (window.confirm('¿Está seguro de que desea eliminar este producto?')) {
+    if (window.confirm('¿Está seguro de que desea eliminar este producto? Verifique que no esté en uso.')) {
       setSubmittingProduct(true); 
       try {
-        // Check if product is in inventario
-        const { data: inventarioCheck, error: inventarioCheckError } = await supabase
-          .from('inventario')
-          .select('id')
-          .eq('producto_id', id)
-          .limit(1);
+        const linkedChecks = await Promise.all([
+          supabase.from('inventario').select('id', { count: 'exact', head: true }).eq('producto_id', id),
+          supabase.from('solicitudcompra_detalle').select('id', { count: 'exact', head: true }).eq('producto_id', id),
+          supabase.from('ordencompra_detalle').select('id', { count: 'exact', head: true }).eq('producto_id', id)
+        ]);
 
-        if (inventarioCheckError) throw inventarioCheckError;
-        if (inventarioCheck && inventarioCheck.length > 0) {
-          alert('Error: No se puede eliminar el producto porque está registrado en el inventario. Elimínelo primero del inventario.');
-          setSubmittingProduct(false);
-          return;
-        }
-        
-        // Check if product is in solicitudcompra_detalle
-        const { data: solicitudCheck, error: solicitudCheckError } = await supabase
-          .from('solicitudcompra_detalle')
-          .select('id')
-          .eq('producto_id', id)
-          .limit(1);
+        const errorMessages = [];
+        if (linkedChecks[0].count && linkedChecks[0].count > 0) errorMessages.push("inventario");
+        if (linkedChecks[1].count && linkedChecks[1].count > 0) errorMessages.push("solicitudes de compra");
+        if (linkedChecks[2].count && linkedChecks[2].count > 0) errorMessages.push("órdenes de compra");
 
-        if (solicitudCheckError) throw solicitudCheckError;
-        if (solicitudCheck && solicitudCheck.length > 0) {
-          alert('Error: No se puede eliminar el producto porque está asociado a detalles de solicitudes de compra. Elimine esas referencias primero.');
-           setSubmittingProduct(false);
-          return;
-        }
-        
-        // Check if product is in ordencompra_detalle
-        const { data: ordenCheck, error: ordenCheckError } = await supabase
-          .from('ordencompra_detalle')
-          .select('id')
-          .eq('producto_id', id)
-          .limit(1);
-
-        if (ordenCheckError) throw ordenCheckError;
-        if (ordenCheck && ordenCheck.length > 0) {
-          alert('Error: No se puede eliminar el producto porque está asociado a detalles de órdenes de compra. Elimine esas referencias primero.');
+        if (errorMessages.length > 0) {
+          alert(`Error: No se puede eliminar el producto porque está asociado a ${errorMessages.join(', ')}.`);
           setSubmittingProduct(false);
           return;
         }
@@ -191,7 +172,7 @@ const ProductManagement: React.FC = () => {
   };
 
   const openAddModal = () => {
-    setCurrentProduct({ categoria_id: categories[0]?.id || null }); // Default to first category or null
+    setCurrentProduct({ categoria_id: categories[0]?.id || null });
     setIsEditing(false);
     setShowModal(true);
     setProductCategorySearchTerm('');
@@ -199,10 +180,10 @@ const ProductManagement: React.FC = () => {
   
   const filteredProducts = products.filter(product =>
     product.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.categoria?.nombre && product.categoria.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+    (product.categoria?.nombre && product.categoria.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (product.codigo_interno && product.codigo_interno.toLowerCase().includes(searchTerm.toLowerCase()))
   );
   
-  // Product Category Modal Functions
   const openAddProductCategoryModal = () => {
     setNewProductCategoryName('');
     setProductCategoryError(null);
@@ -227,8 +208,8 @@ const ProductManagement: React.FC = () => {
         .insert({ nombre: newProductCategoryName.trim() });
       
       if (error) {
-        if (error.code === '23505') { // Unique violation for categoria_producto_nombre_key
-             if (error.message.includes('categoria_producto_nombre_key') || error.message.toLowerCase().includes('unique constraint') && error.message.toLowerCase().includes('nombre')) {
+        if (error.code === '23505') {
+             if (error.message.includes('categoria_producto_nombre_key')) {
                  setProductCategoryError('Error: Ya existe una categoría de producto con ese nombre.');
              } else {
                  setProductCategoryError(`Error al guardar: ${error.message}`);
@@ -241,7 +222,7 @@ const ProductManagement: React.FC = () => {
       
       setShowProductCategoryModal(false);
       setNewProductCategoryName('');
-      fetchData(); // This re-fetches categories as well
+      fetchData(); 
       alert('Categoría de producto añadida exitosamente.');
 
     } catch (err) {
@@ -300,6 +281,9 @@ const ProductManagement: React.FC = () => {
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Descripción</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Categoría</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Cód. Interno</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">U. Medida</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Stock Min/Max</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
@@ -308,6 +292,9 @@ const ProductManagement: React.FC = () => {
               <tr key={p.id}>
                 <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{p.descripcion}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.categoria?.nombre || 'N/D'}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.codigo_interno || 'N/D'}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.unidad_medida || 'N/D'}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.stock_minimo || '0'} / {p.stock_maximo || 'N/A'}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm font-medium space-x-2">
                   <button onClick={() => handleEdit(p)} className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 p-1 disabled:opacity-50" title="Editar" disabled={submittingProduct}>
                     <PencilIcon className="w-5 h-5" />
@@ -320,7 +307,7 @@ const ProductManagement: React.FC = () => {
             ))}
             {filteredProducts.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={6} className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
                   No se encontraron productos.
                 </td>
               </tr>
@@ -332,7 +319,7 @@ const ProductManagement: React.FC = () => {
       {/* Product Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               {isEditing ? 'Editar' : 'Añadir'} Producto
             </h3>
@@ -343,7 +330,6 @@ const ProductManagement: React.FC = () => {
                   className={`mt-1 ${inputFieldClasses}`} />
               </div>
               
-              {/* Product Category Combobox */}
               <div ref={productCategoryDropdownRef}>
                 <label htmlFor="categoria_id_combobox" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Categoría <span className="text-red-500">*</span></label>
                 <div className="relative mt-1">
@@ -356,7 +342,7 @@ const ProductManagement: React.FC = () => {
                       value={currentProduct.categoria_id ? categories.find(c => c.id === currentProduct.categoria_id)?.nombre || productCategorySearchTerm : productCategorySearchTerm}
                       onChange={(e) => { 
                         setProductCategorySearchTerm(e.target.value); 
-                        setCurrentProduct(prev => ({ ...prev, categoria_id: null })); // Clear selection if typing
+                        setCurrentProduct(prev => ({ ...prev, categoria_id: null }));
                         setIsProductCategoryDropdownOpen(true); 
                       }}
                       onFocus={() => setIsProductCategoryDropdownOpen(true)}
@@ -379,7 +365,7 @@ const ProductManagement: React.FC = () => {
                         <div key={cat.id}
                           onClick={() => { 
                             setCurrentProduct(prev => ({...prev, categoria_id: cat.id})); 
-                            setProductCategorySearchTerm(cat.nombre); // Show selected name
+                            setProductCategorySearchTerm(cat.nombre); 
                             setIsProductCategoryDropdownOpen(false); 
                           }}
                           className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${currentProduct.categoria_id === cat.id ? 'bg-primary-50 dark:bg-primary-600 font-medium text-primary-700 dark:text-primary-100' : 'text-gray-900 dark:text-gray-200'}`}
@@ -393,6 +379,29 @@ const ProductManagement: React.FC = () => {
                       )}
                     </div>
                   )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label htmlFor="codigo_interno" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Código Interno</label>
+                    <input type="text" name="codigo_interno" id="codigo_interno" value={currentProduct.codigo_interno || ''} onChange={handleInputChange} 
+                    className={`mt-1 ${inputFieldClasses}`} />
+                </div>
+                 <div>
+                    <label htmlFor="unidad_medida" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Unidad de Medida</label>
+                    <input type="text" name="unidad_medida" id="unidad_medida" value={currentProduct.unidad_medida || ''} onChange={handleInputChange} 
+                    className={`mt-1 ${inputFieldClasses}`} placeholder="Ej: Unidad, Caja, Kg" />
+                </div>
+                <div>
+                    <label htmlFor="stock_minimo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Stock Mínimo</label>
+                    <input type="number" name="stock_minimo" id="stock_minimo" value={currentProduct.stock_minimo || ''} onChange={handleInputChange} 
+                    className={`mt-1 ${inputFieldClasses}`} min="0" />
+                </div>
+                <div>
+                    <label htmlFor="stock_maximo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Stock Máximo</label>
+                    <input type="number" name="stock_maximo" id="stock_maximo" value={currentProduct.stock_maximo || ''} onChange={handleInputChange} 
+                    className={`mt-1 ${inputFieldClasses}`} min="0" />
                 </div>
               </div>
 
@@ -413,7 +422,6 @@ const ProductManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Product Category Modal */}
       {showProductCategoryModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">

@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react'; 
 import { supabase } from '../../supabaseClient';
 import DOMPurify from 'dompurify';
 import DepartmentExpensesChart from './DepartmentExpensesChart';
 import AnomalyPieChart from './AnomalyPieChart';
 import { OPENROUTER_API_KEY, OPENROUTER_API_URL } from '../../config';
-import { AISummaryStat, AIAnomalySummary, ChartDataItem, OrdenCompra, SolicitudCompra, Departamento } from '../../types';
-import { LightBulbIcon, BanknotesIcon, TruckIcon, CpuChipIcon, UserGroupIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { AISummaryStat, AIAnomalySummary, ChartDataItem, OrdenCompra, SolicitudCompra, Departamento, RendimientoProveedor, ConsumoHistoricoProducto, Producto, MetricasProductoMensual } from '../../types';
+import { LightBulbIcon, BanknotesIcon, TruckIcon, CpuChipIcon, UserGroupIcon, ArrowPathIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 
 
-type InsightType = "auditor" | "proveedores" | "predictor" | "asistente" | "tendencias";
+type InsightType = "auditor" | "proveedores" | "predictor" | "asistente" | "tendencias" | "eventos_externos";
 
 interface TabConfig {
   key: InsightType;
@@ -20,10 +21,11 @@ interface TabConfig {
 
 const TABS_CONFIG: TabConfig[] = [
   { key: "auditor", title: "Auditor de Gastos", icon: BanknotesIcon, description: "Analiza gastos por departamento, detecta anomalías y sugiere acciones." },
-  { key: "proveedores", title: "Optimizador de Proveedores", icon: TruckIcon, description: "Identifica proveedores eficientes y optimiza la selección." },
-  { key: "predictor", title: "Predictor de Consumo", icon: CpuChipIcon, description: "Predice necesidades futuras de productos y optimiza el inventario." },
+  { key: "proveedores", title: "Optimizador de Proveedores", icon: TruckIcon, description: "Analiza el rendimiento de proveedores y optimiza la selección." },
+  { key: "predictor", title: "Predictor de Consumo", icon: CpuChipIcon, description: "Predice necesidades futuras de productos basado en el consumo histórico." },
+  { key: "eventos_externos", title: "Análisis de Eventos Externos", icon: GlobeAltIcon, description: "Analiza el consumo y compras relacionadas con eventos externos." },
+  { key: "tendencias", title: "Análisis de Tendencias", icon: UserGroupIcon, description: "Analiza tendencias de gastos y solicitudes mensuales." },
   { key: "asistente", title: "Asistente Inteligente", icon: LightBulbIcon, description: "Proporciona recomendaciones generales y alertas de stock." },
-  { key: "tendencias", title: "Análisis de Tendencias", icon: UserGroupIcon, description: "Analiza tendencias de gastos mensuales e identifica patrones." },
 ];
 
 type OrderForAuditor = Pick<OrdenCompra, 'neto_a_pagar'> & {
@@ -42,18 +44,56 @@ export const AIInsights: React.FC = () => {
 
   const [departmentStatsForChart, setDepartmentStatsForChart] = useState<AISummaryStat[]>([]);
   const [anomalyChartData, setAnomalyChartData] = useState<ChartDataItem[]>([]);
+  const [providerPerformanceData, setProviderPerformanceData] = useState<RendimientoProveedor[]>([]);
+  const [consumptionData, setConsumptionData] = useState<ConsumoHistoricoProducto[]>([]);
+  const [monthlyMetricsData, setMonthlyMetricsData] = useState<MetricasProductoMensual[]>([]);
+
+
+  useEffect(() => {
+    const loadDataForTab = async (tab: InsightType) => {
+        setLoading(prev => ({ ...prev, [tab]: true }));
+        try {
+            if (tab === 'proveedores' && providerPerformanceData.length === 0) {
+                const { data, error } = await supabase.from('rendimiento_proveedor').select('*, proveedor:proveedor_id(nombre), orden_compra:orden_compra_id(id, fecha_orden)');
+                if (error) console.error("Error fetching provider performance:", error);
+                else setProviderPerformanceData(data || []);
+            } else if (tab === 'predictor') { // Load for predictor tab
+                 if (consumptionData.length === 0) {
+                    const { data: consumo, error: consumoErr } = await supabase.from('consumo_historico_producto').select('*, producto:producto_id(id, descripcion)');
+                    if (consumoErr) console.error("Error fetching consumption data:", consumoErr);
+                    else setConsumptionData(consumo || []);
+                 }
+                 if (monthlyMetricsData.length === 0) {
+                    const { data: metricas, error: metricasErr } = await supabase.from('metricas_producto_mensual').select('*, producto:producto_id(id, descripcion)');
+                    if (metricasErr) console.error("Error fetching monthly metrics:", metricasErr);
+                    else setMonthlyMetricsData(metricas || []);
+                 }
+            }
+            // Add similar data loading for "eventos_externos" if needed, fetching from consumo_para_evento_externo & compras_para_evento_externo
+        } catch (err) {
+            console.error(`Error loading data for tab ${tab}:`, err);
+            setInsights(prev => ({ ...prev, [tab]: `**Error al cargar datos para ${tab}:**\n- ${err instanceof Error ? err.message : String(err)}`}));
+        } finally {
+            setLoading(prev => ({ ...prev, [tab]: false }));
+        }
+    };
+    // Load data when tab becomes active if not already loaded or insight generated
+    if (!insights[activeTab]) { 
+      loadDataForTab(activeTab);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
 
   const calculateMean = (values: number[]): number => values.length === 0 ? 0 : values.reduce((acc, val) => acc + val, 0) / values.length;
   const calculateStandardDeviation = (values: number[], mean: number): number => values.length === 0 ? 0 : Math.sqrt(values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / values.length);
-  const detectAnomaliesZScore = (values: number[], mean: number, stdDev: number, threshold = 2): boolean[] => stdDev === 0 ? values.map(() => false) : values.map(val => Math.abs(val - mean) / stdDev > threshold);
   const detectAnomaliesIQR = (values: number[]): boolean[] => {
     if (values.length < 4) return values.map(() => false);
     const sorted = [...values].sort((a, b) => a - b);
     const q1 = sorted[Math.floor(sorted.length / 4)];
     const q3 = sorted[Math.floor((sorted.length * 3) / 4)];
     const iqr = q3 - q1;
-    if (iqr === 0) return values.map(() => false);
+    if (iqr === 0) return values.map(() => false); // Avoid division by zero or meaningless bounds
     const lowerBound = q1 - 1.5 * iqr;
     const upperBound = q3 + 1.5 * iqr;
     return values.map(val => val < lowerBound || val > upperBound);
@@ -66,16 +106,21 @@ export const AIInsights: React.FC = () => {
     let listType: 'ol' | 'ul' = 'ul';
 
     lines.forEach(line => {
-      line = line.trim();
-      if (line.startsWith('**') && line.endsWith('**') && line.length > 4) {
+      line = line.trim(); 
+      if (line.startsWith('### ') || line.startsWith('## ') || line.startsWith('# ')) {
         if (inList) html += `</${listType}>`;
         inList = false;
-        html += `<h4 class="text-lg font-semibold text-gray-800 dark:text-white mt-3 mb-1">${line.replace(/\*\*/g, '')}</h4>`;
+        const level = line.startsWith('### ') ? 5 : (line.startsWith('## ') ? 4 : 3);
+        html += `<h${level} class="text-lg font-semibold text-gray-800 dark:text-white mt-3 mb-1">${line.replace(/^#+\s*/, '')}</h${level}>`;
+      } else if (line.startsWith('**') && line.endsWith('**') && line.length > 4) {
+        if (inList) html += `</${listType}>`;
+        inList = false;
+        html += `<h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mt-2 mb-1">${line.substring(2, line.length - 2)}</h4>`;
       } else if (line.startsWith('* ') || line.startsWith('- ')) {
         if (!inList || listType === 'ol') {
           if (inList) html += `</${listType}>`;
           listType = 'ul';
-          html += `<ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">`;
+          html += `<ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300 ml-4">`;
           inList = true;
         }
         html += `<li>${line.substring(2)}</li>`;
@@ -83,11 +128,11 @@ export const AIInsights: React.FC = () => {
          if (!inList || listType === 'ul') {
           if (inList) html += `</${listType}>`;
           listType = 'ol';
-          html += `<ol class="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-300">`;
+          html += `<ol class="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-300 ml-4">`;
           inList = true;
         }
         html += `<li>${line.replace(/^\d+\.\s/, '')}</li>`;
-      } else if (line) {
+      } else if (line) { 
         if (inList) {
           html += `</${listType}>`;
           inList = false;
@@ -95,14 +140,14 @@ export const AIInsights: React.FC = () => {
         html += `<p class="text-gray-600 dark:text-gray-300 my-2">${line}</p>`;
       }
     });
-    if (inList) html += `</${listType}>`;
+    if (inList) html += `</${listType}>`; 
     return html;
   };
 
   const fetchAIResponse = async (prompt: string, type: InsightType): Promise<string> => {
     if (!OPENROUTER_API_KEY) {
       console.warn("La clave API de OpenRouter no está configurada. Las perspectivas de IA serán simuladas.");
-      return `**Información Simulada para ${type}**\n- Esta es una respuesta simulada porque la clave API no está configurada.\n- Configure su clave API de OpenRouter en config.ts para obtener información real.\n- Asegúrate de que las respuestas estén en ESPAÑOL.`;
+      return `**Información Simulada para ${type}**\n- Esta es una respuesta simulada porque la clave API no está configurada.\n- Configure su clave API de OpenRouter en config.ts para obtener información real.\n- Este es un ejemplo de formato con **markdown** y listas:\n  * Punto uno.\n  * Punto dos con *énfasis*.`;
     }
     try {
         const response = await fetch(OPENROUTER_API_URL, {
@@ -114,9 +159,9 @@ export const AIInsights: React.FC = () => {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            model: "qwen/qwen3-30b-a3b:free",
+            model: "qwen/qwen3-30b-a3b:free", 
             messages: [{ role: "user", content: prompt }],
-            max_tokens: 1500 
+            max_tokens: 2000 
         }),
         });
         if (!response.ok) {
@@ -127,21 +172,9 @@ export const AIInsights: React.FC = () => {
         const data = await response.json();
 
         if (data && data.choices && data.choices.length > 0 && data.choices[0].message && typeof data.choices[0].message.content === 'string') {
-            const content = data.choices[0].message.content;
-            const finishReason = data.choices[0].finish_reason;
-
-            if (content.trim() === "") {
-                if (finishReason === 'length') {
-                     console.warn(`La respuesta de IA para ${type} fue una cadena vacía debido a 'length' como motivo de finalización. max_tokens podría ser demasiado bajo. Respuesta completa:`, JSON.stringify(data.choices[0], null, 2));
-                     return `**Respuesta Incompleta de la IA**\n- La IA comenzó a generar una respuesta pero fue interrumpida porque se alcanzó el límite de tokens.\n- El límite de tokens ha sido aumentado, intente generar de nuevo. Si el problema persiste, la consulta podría ser demasiado compleja o requerir aún más tokens.`;
-                } else {
-                    console.warn(`La respuesta de IA para ${type} fue una cadena vacía (motivo de finalización: ${finishReason}). Respuesta completa:`, JSON.stringify(data.choices[0], null, 2));
-                    return `**Respuesta Vacía de la IA**\n- La IA no generó un análisis de texto para esta consulta.\n- Esto podría deberse a la naturaleza de los datos, la configuración del modelo, o un error inesperado de la IA.`;
-                }
-            }
-            return content;
+            return data.choices[0].message.content;
         } else {
-            console.error(`Estructura de respuesta de IA inválida para ${type}. Se esperaba 'data.choices[0].message.content' como cadena. Recibido:`, JSON.stringify(data, null, 2));
+            console.error(`Estructura de respuesta de IA inválida para ${type}. Recibido:`, JSON.stringify(data, null, 2));
             throw new Error("Estructura de respuesta inválida o inesperada de la API de IA.");
         }
 
@@ -154,79 +187,124 @@ export const AIInsights: React.FC = () => {
 
   const handleGenerateInsight = async (type: InsightType) => {
     setLoading(prev => ({ ...prev, [type]: true }));
-    setInsights(prev => ({ ...prev, [type]: undefined }));
+    setInsights(prev => ({ ...prev, [type]: undefined })); 
     let prompt = "";
     let generatedInsight = "";
 
     try {
       switch (type) {
         case "auditor":
-          const { data: orders, error: ordersError } = await supabase
+          const { data: ordersData, error: ordersError } = await supabase
             .from("ordencompra")
             .select(`neto_a_pagar, solicitudcompra!ordencompra_solicitud_compra_id_fkey!inner(id, departamento!inner(id, nombre))`)
+            .eq('estado', 'Completada')
             .returns<OrderForAuditor[]>();
-          if (ordersError) {
-            console.error("Error al obtener órdenes para auditor IA:", ordersError.message, ordersError.details, ordersError.code, ordersError);
-            throw ordersError;
-          }
-          if (!orders || orders.length === 0) {
-            generatedInsight = "**Sin Datos Suficientes**\n- No hay datos de órdenes completas (con departamento asociado) para analizar y generar un informe de auditoría.";
-            setDepartmentStatsForChart([]);
-            setAnomalyChartData([]);
-          } else {
-            const expensesByDept: { [key: string]: number[] } = (orders || []).reduce((acc, order) => {
-              const deptName = order.solicitudcompra?.departamento?.nombre || "Sin_Departamento_Asignado";
-              if (!acc[deptName]) acc[deptName] = [];
-              acc[deptName].push(order.neto_a_pagar || 0);
-              return acc;
-            }, {} as { [key: string]: number[] });
 
-            const localAuditorStats: AISummaryStat[] = Object.entries(expensesByDept).map(([dept, amounts]) => {
+          if (ordersError) throw ordersError;
+          if (!ordersData || ordersData.length === 0) {
+            generatedInsight = "**Sin Datos Suficientes**\n- No hay datos de órdenes completadas para analizar los gastos por departamento.";
+            setDepartmentStatsForChart([]); setAnomalyChartData([]);
+          } else {
+            const departmentExpensesMap: { [key: string]: number[] } = {};
+            ordersData.forEach(order => {
+              const deptName = order.solicitudcompra?.departamento?.nombre || 'Desconocido';
+              if (!departmentExpensesMap[deptName]) departmentExpensesMap[deptName] = [];
+              departmentExpensesMap[deptName].push(order.neto_a_pagar || 0);
+            });
+
+            const localStats: AISummaryStat[] = Object.entries(departmentExpensesMap).map(([dept, amounts]) => {
               const mean = calculateMean(amounts);
               const stdDev = calculateStandardDeviation(amounts, mean);
-              const zAnomalies = detectAnomaliesZScore(amounts, mean, stdDev);
-              const iqrAnomalies = detectAnomaliesIQR(amounts);
-              const anomalies = amounts.map((_, i) => zAnomalies[i] || iqrAnomalies[i]);
-              return { dept, total: amounts.reduce((s, v) => s + v, 0), mean, stdDev, amounts, anomalies };
+              const anomalies = detectAnomaliesIQR(amounts); 
+              return { dept, total: amounts.reduce((a, b) => a + b, 0), mean, stdDev, amounts, anomalies };
             });
-            setDepartmentStatsForChart(localAuditorStats);
+            setDepartmentStatsForChart(localStats);
 
-            const overallAnomalies = localAuditorStats.reduce((sum, stat) => sum + stat.anomalies.filter(Boolean).length, 0);
-            const overallTransactions = localAuditorStats.reduce((sum, stat) => sum + stat.amounts.length, 0);
+            const anomalyCounts = localStats.reduce((acc, deptStat) => {
+                acc.anomalyCount += deptStat.anomalies.filter(Boolean).length;
+                acc.normalCount += deptStat.anomalies.filter(a => !a).length;
+                return acc;
+            }, { anomalyCount: 0, normalCount: 0 });
             setAnomalyChartData([
-              { name: "Anomalías", value: overallAnomalies },
-              { name: "Normales", value: overallTransactions - overallAnomalies },
+                { name: "Anomalías Detectadas", value: anomalyCounts.anomalyCount },
+                { name: "Transacciones Normales", value: anomalyCounts.normalCount },
             ]);
 
-            prompt = `Eres un asistente de auditoría financiera para una empresa. Analiza los siguientes datos de gastos por departamento. Cada departamento tiene un total gastado, un promedio de gasto por transacción, y una lista de montos de transacciones individuales, con un indicador booleano de si cada transacción es una anomalía.
-                      Datos: ${JSON.stringify(localAuditorStats.map(s => ({ departamento: s.dept, total_gastado: s.total, promedio_transaccion: s.mean, numero_transacciones: s.amounts.length, numero_anomalias: s.anomalies.filter(Boolean).length })))}
-                      Proporciona un resumen conciso (1-2 párrafos), identifica departamentos con gastos inusualmente altos o con muchas anomalías (menciona al menos 1-2 departamentos específicos si aplica). Ofrece 2-3 recomendaciones generales y accionables para mejorar el control de gastos o investigar más a fondo. Formatea tu respuesta en ESPAÑOL con títulos en markdown (ej. **Resumen General**) y listas con viñetas o numeradas. Si no hay anomalías significativas o los datos son muy uniformes, indícalo. Sé claro y profesional.`;
+            const statsForPrompt = localStats.map(s => ({ departamento: s.dept, gasto_total: s.total, gasto_promedio: s.mean, desviacion_estandar: s.stdDev, numero_anomalias: s.anomalies.filter(Boolean).length, total_transacciones: s.amounts.length }));
+            prompt = `Actúa como un auditor financiero experto. Analiza estos datos de gastos por departamento (en Bs.): ${JSON.stringify(statsForPrompt)}.
+            Considera que una anomalía es un gasto significativamente diferente al promedio del departamento.
+            Proporciona un resumen ejecutivo (1-2 párrafos). Luego, identifica 2-3 departamentos con gastos notables o anomalías significativas. Para cada uno, sugiere una posible causa y una acción correctiva o de investigación.
+            Responde en ESPAÑOL. Formatea con títulos en markdown (ej. ## Resumen Ejecutivo, ## Análisis Detallado) y listas para las sugerencias.`;
             generatedInsight = await fetchAIResponse(prompt, type);
           }
           break;
 
         case "proveedores":
-          prompt = `Como experto en optimización de la cadena de suministro, analiza estos datos (ficticios) de proveedores:
-                    - Proveedor A: 100 órdenes, 95% completadas a tiempo, costo promedio por orden $500.
-                    - Proveedor B: 50 órdenes, 80% completadas a tiempo, costo promedio por orden $450.
-                    - Proveedor C: 200 órdenes, 98% completadas a tiempo, costo promedio por orden $550.
-                    Identifica fortalezas y debilidades de cada uno. Sugiere 2-3 estrategias claras y concisas para optimizar la selección y gestión de proveedores en general. Responde en ESPAÑOL. Formatea tu respuesta con títulos en markdown para cada sección principal (ej. **Análisis de Proveedores**, **Estrategias de Optimización**) y usa listas para los detalles.`;
-          generatedInsight = await fetchAIResponse(prompt, type);
+          const performanceSummary = providerPerformanceData.map(p => ({
+              proveedor: p.proveedor?.nombre || `ID ${p.proveedor_id}`,
+              calidad_producto: p.calidad_producto_evaluacion,
+              cumplimiento_pedido: p.cumplimiento_pedido_evaluacion,
+              competitividad_precio: p.precio_competitividad_evaluacion,
+              comunicacion: p.comunicacion_evaluacion,
+              tiempo_entrega_real_dias: p.tiempo_entrega_real_dias,
+              tiempo_entrega_estimado_dias: p.tiempo_entrega_estimado_dias,
+              observaciones: p.observaciones,
+          })).slice(0, 15); 
+
+          if (performanceSummary.length === 0) {
+             generatedInsight = "**Sin Datos de Rendimiento**\n- No hay evaluaciones de rendimiento de proveedores registradas. Complete evaluaciones después de que las órdenes sean completadas para habilitar este análisis detallado.";
+          } else {
+            prompt = `Como experto en optimización de la cadena de suministro, analiza estos datos de rendimiento de proveedores (calificaciones en escala 1-5 donde 5 es mejor; tiempo en días): ${JSON.stringify(performanceSummary)}.
+                    Identifica proveedores destacados (alta calificación general, buen cumplimiento de tiempos). También identifica proveedores con áreas claras de mejora (bajas calificaciones, retrasos consistentes).
+                    Sugiere 2-3 estrategias concisas y accionables para optimizar la selección y gestión de proveedores basadas en estos datos. Responde en ESPAÑOL. Formatea con títulos en markdown y listas.`;
+            generatedInsight = await fetchAIResponse(prompt, type);
+          }
           break;
+
         case "predictor":
-           prompt = `Eres un analista de inventario. Basado en estos datos (ficticios) de consumo y stock actual:
-                    - Producto X: Stock 100, Consumo mensual promedio 20.
-                    - Producto Y: Stock 50, Consumo mensual promedio 30 (tendencia al alza).
-                    - Producto Z: Stock 200, Consumo mensual promedio 10 (estable).
-                    Predice aproximadamente cuándo se agotará cada producto (en meses o semanas). Sugiere 2-3 acciones específicas y prácticas para optimizar niveles de inventario y evitar desabastecimientos o excesos para estos productos. Responde en ESPAÑOL. Formatea tu respuesta con títulos en markdown (ej. **Predicciones de Agotamiento**, **Recomendaciones de Inventario**) y usa listas.`;
-           generatedInsight = await fetchAIResponse(prompt, type);
-           break;
+            const consumoResumen = consumptionData.map(c => ({
+                producto: c.producto?.descripcion || `ID ${c.producto_id}`,
+                cantidad_total_consumida_historica: c.cantidad_consumida,
+                fecha_ultimo_consumo_registrado: c.fecha_consumo,
+                tipo_consumo: c.tipo_consumo,
+            })).slice(0, 15); 
+             const metricasResumen = monthlyMetricsData.map(m => ({
+                producto: m.producto?.descripcion || `ID ${m.producto_id}`,
+                mes: m.mes,
+                cantidad_comprada_ese_mes: m.cantidad_comprada_total,
+                gasto_en_producto_ese_mes: m.gasto_total_producto,
+                numero_ordenes_ese_mes_para_producto: m.numero_ordenes,
+            })).slice(0,15);
+
+            if(consumoResumen.length === 0 && metricasResumen.length === 0) {
+                generatedInsight = "**Sin Datos para Predicción**\n- No hay datos suficientes en 'consumo_historico_producto' o 'metricas_producto_mensual'. Registre consumos y complete órdenes para habilitar las predicciones."
+            } else {
+                prompt = `Eres un analista de inventario experto. Basado en este historial de consumo de productos: ${JSON.stringify(consumoResumen)} y estas métricas mensuales de compra/gasto de productos: ${JSON.stringify(metricasResumen)}.
+                        Identifica 2-3 productos con alto consumo o patrones de compra recurrentes. Para estos productos, predice posibles necesidades futuras a corto plazo (ej. próximo mes o trimestre).
+                        Sugiere 2-3 acciones específicas para optimizar los niveles de stock para estos productos clave (ej. ajustar stock mínimo/máximo, programar compras).
+                        Responde en ESPAÑOL. Formatea con títulos en markdown y listas para las predicciones y acciones.`;
+                generatedInsight = await fetchAIResponse(prompt, type);
+            }
+          break;
+        
+        case "eventos_externos":
+            prompt = `Como analista de eventos y logística, tu objetivo es entender cómo los eventos externos impactan el consumo de recursos de la empresa.
+                      Considera que tienes acceso a datos de eventos externos (nombre del evento, fecha, tipo, organizador) y a datos internos de consumo de productos y compras asociadas a estos eventos.
+                      Con base en esto, tu análisis debe incluir:
+                      1. **Patrones de Consumo por Evento:** ¿Qué tipos de eventos (ej. ferias, congresos, reuniones específicas) tienden a generar mayor consumo de qué tipos de productos (ej. material promocional, equipos tecnológicos, suministros de oficina)?
+                      2. **Productos Clave para Eventos:** Identifica si existen productos que se consumen recurrentemente o en grandes cantidades para tipos específicos de eventos.
+                      3. **Impacto en Compras:** ¿Las compras asociadas a eventos se realizan con suficiente antelación? ¿Hay sobrecostos por compras de última hora?
+                      4. **Recomendaciones de Optimización:** Ofrece 2-3 recomendaciones claras para mejorar la planificación de inventario, optimizar las compras y reducir costos relacionados con la participación en eventos externos.
+                      Responde en ESPAÑOL. Usa formato Markdown con títulos claros (ej. ## Patrones de Consumo, ## Recomendaciones) y listas para facilitar la lectura.`;
+            generatedInsight = await fetchAIResponse(prompt, type);
+            break;
+
         case "asistente":
             prompt = `Actúa como un asistente de gestión de compras inteligente. Revisa estos datos (ficticios) y urgencias:
-                    - Alerta CRÍTICA: Producto 'Tóner XP-500' tiene solo 5 unidades en stock, y se consumen 10 por semana.
-                    - Información: Hay 3 solicitudes de compra pendientes de aprobación del departamento de Marketing.
-                    - Tendencia: El gasto en 'Material de Oficina' ha aumentado un 20% este mes.
-                    Proporciona un breve resumen ejecutivo (1-2 párrafos). Luego, ofrece 2-3 recomendaciones o alertas prioritarias basadas en esta información. Responde en ESPAÑOL. Usa títulos en markdown (ej. **Resumen Ejecutivo**, **Alertas y Recomendaciones**) y listas para las recomendaciones.`;
+                    - Alerta CRÍTICA: Producto 'Tóner XP-500' tiene solo 5 unidades en stock (stock mínimo es 10), y se consumen 10 por semana.
+                    - Información: Hay 3 solicitudes de compra pendientes de aprobación del departamento de Marketing por un total de $2500.
+                    - Tendencia: El gasto en 'Material de Oficina' ha aumentado un 20% este mes en comparación con el promedio de los últimos 3 meses.
+                    Proporciona un breve resumen ejecutivo (1-2 párrafos). Luego, ofrece 2-3 recomendaciones o alertas prioritarias basadas en esta información. Responde en ESPAÑOL. Usa títulos en markdown (ej. ## Resumen Ejecutivo, ## Alertas y Recomendaciones) y listas para las recomendaciones.`;
             generatedInsight = await fetchAIResponse(prompt, type);
             break;
         case "tendencias":
@@ -237,6 +315,7 @@ export const AIInsights: React.FC = () => {
                     Identifica 1-2 tendencias clave de gasto (aumento, disminución, estabilidad) por departamento. Ofrece una breve explicación (1 frase) para cada tendencia observada. Responde en ESPAÑOL. Formatea con títulos y listas.`;
             generatedInsight = await fetchAIResponse(prompt, type);
             break;
+
         default:
              generatedInsight = "Tipo de perspectiva no reconocida.";
       }
@@ -254,12 +333,12 @@ export const AIInsights: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex border-b border-gray-200 dark:border-gray-700">
+      <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
         {TABS_CONFIG.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center px-3 py-3 text-sm font-medium focus:outline-none
+            className={`flex items-center px-3 py-3 text-sm font-medium focus:outline-none whitespace-nowrap
               ${activeTab === tab.key
                 ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400'
                 : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600'
@@ -293,9 +372,9 @@ export const AIInsights: React.FC = () => {
             </div>
           )}
           
-          {!insights[activeTab] && !loading[activeTab] && activeTab === "auditor" && (
+          {!insights[activeTab] && !loading[activeTab] && (
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-              Haga clic en "Generar Análisis" para ver el informe del auditor de gastos y los gráficos asociados.
+              Haga clic en "Generar Análisis" para ver la perspectiva de IA.
             </p>
           )}
 

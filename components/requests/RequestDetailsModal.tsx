@@ -30,7 +30,7 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ show, onHide,
         <div className="p-4 sm:p-6 space-y-4 overflow-y-auto">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="font-medium text-gray-500 dark:text-gray-400">Descripción:</p>
+              <p className="font-medium text-gray-500 dark:text-gray-400">Descripción General:</p>
               <p className="text-gray-800 dark:text-gray-200">{request.descripcion || 'N/A'}</p>
             </div>
             <div>
@@ -52,21 +52,23 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ show, onHide,
           </div>
           
           <div>
-            <h4 className="text-md font-semibold text-gray-700 dark:text-gray-200 mt-4 mb-2">Productos Solicitados</h4>
+            <h4 className="text-md font-semibold text-gray-700 dark:text-gray-200 mt-4 mb-2">Detalles de la Solicitud</h4>
             {request.detalles && request.detalles.length > 0 ? (
               <div className="overflow-x-auto border dark:border-gray-700 rounded-md">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Producto</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Ítem</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cantidad</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {request.detalles.map((detalle, i) => (
                       <tr key={detalle.id || i}>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                          {detalle.producto?.descripcion || 'Producto no especificado'}
+                        <td className="px-4 py-2 whitespace-normal text-sm text-gray-800 dark:text-gray-200">
+                          {detalle.producto_id 
+                            ? (detalle.producto?.descripcion || 'Producto no especificado') 
+                            : (detalle.descripcion_producto_personalizado || 'Descripción personalizada no especificada')}
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
                           {detalle.cantidad}
@@ -77,7 +79,7 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ show, onHide,
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">No hay productos detallados en esta solicitud.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No hay productos detallados en esta solicitud (podría ser una requisición especial descrita arriba).</p>
             )}
           </div>
         </div>
@@ -96,4 +98,3 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ show, onHide,
 };
 
 export default RequestDetailsModal;
-    

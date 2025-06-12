@@ -35,7 +35,7 @@ type ProductoConsolidadoItem = {
 const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, onConsolidate }) => {
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<SolicitudConDetallesParaConsolidar[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  const [categoriasProducto, setCategoriasProducto] = useState<CategoriaProducto[]>([]);
+  const [categoriasProducto, setCategoriasProducto] = useState<Pick<CategoriaProducto, 'id' | 'nombre'>[]>([]);
   
   const [selectedSolicitudIds, setSelectedSolicitudIds] = useState<Set<number>>(new Set());
   const [selectedProveedorId, setSelectedProveedorId] = useState<string>('');

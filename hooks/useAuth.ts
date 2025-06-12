@@ -2,12 +2,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Session, User, PostgrestSingleResponse, PostgrestError, AuthError } from '@supabase/supabase-js';
-import { UserProfile, Empleado, Departamento, UserProfileRol } from '../types';
+import { UserProfile, Empleado, UserProfileRol } from '../types'; // Departamento ya no se usa directamente aquí
 
-// Tiempos de espera ajustados para las operaciones de autenticación y perfil.
-const SESSION_FETCH_TIMEOUT_MS = 20000; 
-const USER_PROFILE_FETCH_TIMEOUT_MS = 90000; 
-const INTERNAL_QUERY_TIMEOUT_MS = 30000;
+// Tiempos de espera para operaciones asíncronas para evitar bloqueos indefinidos
+const SESSION_FETCH_TIMEOUT_MS = 20000; // 20 segundos para obtener sesión
+const USER_PROFILE_FETCH_TIMEOUT_MS = 90000; // 90 segundos para obtener perfil de usuario (puede ser largo si hay subconsultas)
+const INTERNAL_QUERY_TIMEOUT_MS = 30000; // 30 segundos para consultas internas como detalles de empleado
 
 interface AuthHookResult {
   session: Session | null;
@@ -19,33 +19,39 @@ interface AuthHookResult {
   logout: () => Promise<void>;
 }
 
+// Envuelve una promesa con un timeout. Si la promesa no se resuelve/rechaza
+// en `ms` milisegundos, se rechaza con `timeoutError`.
 const withTimeout = <T>(
-  promise: Promise<T>,
+  promise: PromiseLike<T>, // Changed from Promise<T> to PromiseLike<T>
   ms: number,
-  timeoutError = new Error('La operación ha tardado demasiado.')
+  timeoutError = new Error('La operación ha tardado demasiado y ha excedido el tiempo límite.')
 ): Promise<T> => {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => setTimeout(() => reject(timeoutError), ms)),
-  ]);
+  ]) as Promise<T>; // Cast to Promise<T> as Promise.race with PromiseLike<T> returns Promise<T>
 };
 
 type GetSessionResponse = { data: { session: Session | null }, error: AuthError | null };
 
+// Verifica si hay un perfil de usuario válido almacenado en localStorage.
+// Esto ayuda a mantener al usuario "logueado" visualmente mientras se verifica la sesión real.
 const checkStoredSession = (): UserProfile | null => {
   const storedUser = localStorage.getItem("userProfile");
   if (storedUser) {
     try {
       const parsedUser = JSON.parse(storedUser) as UserProfile;
-      if (parsedUser && typeof parsedUser.id === 'string' && (typeof parsedUser.rol === 'string' || parsedUser.rol === null)) { 
+      // Validación robusta del perfil almacenado: debe tener id, rol (o ser null), y email (o ser null/undefined).
+      if (parsedUser && typeof parsedUser.id === 'string' && (typeof parsedUser.rol === 'string' || parsedUser.rol === null) && (typeof parsedUser.email === 'string' || parsedUser.email === null || parsedUser.email === undefined)) {
         return parsedUser;
       } else {
-        console.warn("El perfil de usuario almacenado es inválido o incompleto. Limpiando.");
+        console.warn("[useAuth] Perfil de usuario almacenado es inválido o incompleto. Limpiando localStorage.");
         localStorage.removeItem("userProfile");
         return null;
       }
     } catch (e) {
-      console.error("Error al analizar el perfil de usuario almacenado:", e instanceof Error ? e.message : String(e));
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error("[useAuth] Error al analizar el perfil de usuario almacenado:", errorMsg);
       localStorage.removeItem("userProfile");
       return null;
     }
@@ -58,10 +64,14 @@ export function useAuth(): AuthHookResult {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(checkStoredSession());
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(true); // Inicia como true hasta que se complete la carga inicial.
   const [error, setError] = useState<Error | null>(null);
+  
+  // Ref para evitar procesamiento concurrente de eventos de autenticación (ej. múltiples onAuthStateChange).
   const isProcessingAuthEvent = useRef<boolean>(false);
 
+  // Refs para acceder al valor más reciente de userProfile y session en callbacks
+  // sin causar re-renders innecesarios o depender de closures obsoletas.
   const userProfileRef = useRef(userProfile);
   const sessionRef = useRef(session);
 
@@ -73,29 +83,25 @@ export function useAuth(): AuthHookResult {
     sessionRef.current = session;
   }, [session]);
 
-
-  const fetchUserProfile = useCallback(async (userId: string): Promise<UserProfile | null> => {
+  // Función para obtener el perfil completo del usuario, incluyendo datos del empleado y departamento asociados.
+  const fetchUserProfile = useCallback(async (userId: string, userEmail?: string | null): Promise<UserProfile | null> => {
+    // El email se pasa desde la sesión de Supabase Auth, no se selecciona de la tabla user_profile.
     type SelectedUserProfileData = {
       id: string;
       rol: UserProfileRol | null;
       empleado_id: number | null;
       departamento_id: number | null;
-      departamento: { id: number; nombre: string } | null;
+      // Supabase puede devolver un array de un solo elemento para relaciones anidadas con .single() si la FK no es única (aunque aquí debería serlo).
+      // O puede devolver el objeto directamente si la relación es correctamente inferida como uno-a-uno.
+      departamento: { id: number; nombre: string } | Array<{ id: number; nombre: string }> | null; 
     };
 
     let basicProfileData: SelectedUserProfileData | null = null;
     let rawBasicProfileError: PostgrestError | null = null;
     let rawEmpleadoError: PostgrestError | null = null;
 
-    let msgErrorBasicProfile: string;
-    let codePartErrorBasicProfile: string;
-    let detailsPartErrorBasicProfile: string;
-
-    let msgErrorEmpleado: string;
-    let codePartErrorEmpleado: string;
-    let detailsPartErrorEmpleado: string;
-
     try {
+      // Paso 1: Obtener datos básicos del perfil y su departamento.
       const userProfileQuery = supabase
         .from("user_profile")
         .select(`
@@ -103,123 +109,126 @@ export function useAuth(): AuthHookResult {
           rol,
           empleado_id,
           departamento_id,
-          departamento:departamento_id (id, nombre)
-        `)
+          departamento:departamento_id (id, nombre) 
+        `) 
         .eq("id", userId)
-        .single<SelectedUserProfileData>();
+        .single<SelectedUserProfileData>(); 
 
-      const userProfileResult = await withTimeout<PostgrestSingleResponse<SelectedUserProfileData>>(
-        Promise.resolve(userProfileQuery), // Wrapped with Promise.resolve()
+      const userProfileResult = await withTimeout<PostgrestSingleResponse<SelectedUserProfileData>>( // Explicitly type T for withTimeout
+        userProfileQuery, 
         USER_PROFILE_FETCH_TIMEOUT_MS,
-        new Error("Error al obtener perfil base: tiempo de espera excedido para datos básicos del perfil.")
+        new Error("Error al obtener perfil básico: tiempo de espera excedido.")
       );
 
       basicProfileData = userProfileResult.data;
       rawBasicProfileError = userProfileResult.error;
 
       if (rawBasicProfileError) {
-        msgErrorBasicProfile = String(rawBasicProfileError.message || "Error desconocido al obtener perfil básico.");
-        codePartErrorBasicProfile = (rawBasicProfileError as any).code ? `(Código: ${String((rawBasicProfileError as any).code)})` : '';
-        detailsPartErrorBasicProfile = (rawBasicProfileError as any).details ? `Detalles: ${String((rawBasicProfileError as any).details)}` : '';
-        console.error(`Error al obtener perfil de usuario básico: ${msgErrorBasicProfile} ${codePartErrorBasicProfile} ${detailsPartErrorBasicProfile}`, rawBasicProfileError);
-        throw rawBasicProfileError;
+        const msg = String(rawBasicProfileError.message || "Error desconocido al obtener perfil básico.");
+        const code = (rawBasicProfileError as any).code ? `(Código: ${String((rawBasicProfileError as any).code)})` : '';
+        const details = (rawBasicProfileError as any).details ? `Detalles: ${String((rawBasicProfileError as any).details)}` : '';
+        console.error(`[useAuth] Error al obtener perfil de usuario básico: ${msg} ${code} ${details}`, rawBasicProfileError);
+        throw rawBasicProfileError; // Lanzar para ser capturado por el catch principal de fetchUserProfile
       }
 
       if (!basicProfileData) {
-        console.warn("No se encontró perfil de usuario básico para ID:", userId);
+        console.warn("[useAuth] No se encontró perfil de usuario básico para ID:", userId);
         return null;
       }
+      
+      // Normalizar 'departamento': Supabase puede devolver un array incluso con .single() si la relación es compleja.
+      const departamentoData = Array.isArray(basicProfileData.departamento) 
+        ? basicProfileData.departamento[0] 
+        : basicProfileData.departamento;
 
       const completeProfile: UserProfile = {
         id: basicProfileData.id,
-        rol: basicProfileData.rol as UserProfileRol | null,
+        email: userEmail || undefined, // Poblar email desde el usuario de sesión
+        rol: basicProfileData.rol,
         empleado_id: basicProfileData.empleado_id,
         departamento_id: basicProfileData.departamento_id,
-        departamento: basicProfileData.departamento ? {
-             id: basicProfileData.departamento.id,
-             nombre: basicProfileData.departamento.nombre
+        created_at: new Date().toISOString(), // Placeholder, la DB tiene el valor real
+        updated_at: new Date().toISOString(), // Placeholder
+        departamento: departamentoData ? { // Construir objeto Departamento si existe
+             id: departamentoData.id,
+             nombre: departamentoData.nombre,
+             created_at: new Date().toISOString(), 
+             updated_at: new Date().toISOString(), 
         } : undefined,
-        empleado: undefined,
+        empleado: undefined, // Se cargará a continuación si existe empleado_id
       };
 
+      // Paso 2: Si hay empleado_id, obtener detalles del empleado.
       if (completeProfile.empleado_id) {
         const empleadoQuery = supabase
           .from("empleado")
           .select(`
-            id,
-            estado,
-            nombre,
-            apellido,
-            departamento_id,
-            cargo_actual_id,
-            cedula,
-            firma
+            id, estado, nombre, apellido, departamento_id, cargo_actual_id, cedula, firma
           `)
           .eq("id", completeProfile.empleado_id)
           .single<Partial<Empleado>>();
 
-        const empleadoResult = await withTimeout<PostgrestSingleResponse<Partial<Empleado>>>(
-          Promise.resolve(empleadoQuery), // Wrapped with Promise.resolve()
+        const empleadoResult = await withTimeout<PostgrestSingleResponse<Partial<Empleado>>>( // Explicitly type T for withTimeout
+          empleadoQuery, 
           INTERNAL_QUERY_TIMEOUT_MS,
           new Error("Error al obtener detalles del empleado: tiempo de espera excedido.")
         );
 
-        const empleadoData = empleadoResult.data; 
+        const empleadoData = empleadoResult.data;
         rawEmpleadoError = empleadoResult.error;
 
         if (rawEmpleadoError) {
-            msgErrorEmpleado = String(rawEmpleadoError.message || "Error desconocido al obtener detalles de empleado.");
-            codePartErrorEmpleado = (rawEmpleadoError as any).code ? `(Código: ${String((rawEmpleadoError as any).code)})` : '';
-            detailsPartErrorEmpleado = (rawEmpleadoError as any).details ? `Detalles: ${String((rawEmpleadoError as any).details)}` : '';
-            console.error(`Error al obtener detalles del empleado: ${msgErrorEmpleado} ${codePartErrorEmpleado} ${detailsPartErrorEmpleado}`, rawEmpleadoError);
+            const msg = String(rawEmpleadoError.message || "Error desconocido al obtener detalles de empleado.");
+            const code = (rawEmpleadoError as any).code ? `(Código: ${String((rawEmpleadoError as any).code)})` : '';
+            const details = (rawEmpleadoError as any).details ? `Detalles: ${String((rawEmpleadoError as any).details)}` : '';
+            console.error(`[useAuth] Error al obtener detalles del empleado: ${msg} ${code} ${details}`, rawEmpleadoError);
+            // No lanzar error aquí, el perfil básico ya se obtuvo. Se podría retornar el perfil parcial.
         }
 
         if (empleadoData) {
-          completeProfile.empleado = empleadoData;
-        } else if (!rawEmpleadoError) {
-            console.warn(`No se encontró empleado para empleado_id: ${completeProfile.empleado_id} asociado con el usuario ${userId}`);
+          completeProfile.empleado = {
+            ...empleadoData,
+            // Rellenar campos faltantes de Empleado si es necesario para la interfaz completa
+            created_at: new Date().toISOString(), 
+            updated_at: new Date().toISOString(), 
+          } as Empleado; 
+        } else if (!rawEmpleadoError) { 
+            console.warn(`[useAuth] No se encontró empleado para empleado_id: ${completeProfile.empleado_id} (Usuario ${userId})`);
         }
       }
       return completeProfile;
     } catch (e) {
-      let errorToLog: Error;
-      if (e instanceof Error) {
-        errorToLog = e;
-      } else {
-        errorToLog = new Error(String(e || "Error desconocido en fetchUserProfile"));
-      }
-      console.error("[useAuth] fetchUserProfile: Error procesando perfil para usuario " + userId + ". Error: " + errorToLog.message, errorToLog);
-      throw errorToLog;
+      const errorToLog = e instanceof Error ? e : new Error(String(e || "Error desconocido en fetchUserProfile"));
+      console.error(`[useAuth] fetchUserProfile: Error procesando perfil para usuario ${userId}. Error: ${errorToLog.message}`, errorToLog);
+      throw errorToLog; // Relanzar para que el llamador maneje el error
     }
-    // This line was originally reported as unreachable, which is correct.
-    // console.error("[useAuth] fetchUserProfile: Código inalcanzable alcanzado después del bloque try/catch.");
-    // return null; 
   }, []);
 
+  // Efecto para obtener la sesión inicial y el perfil del usuario al montar el hook.
   useEffect(() => {
     const getInitialSession = async () => {
       if (isProcessingAuthEvent.current) {
-        console.log("[useAuth] getInitialSession: Omitido debido a un procesamiento de autenticación en curso.");
+        console.log("[useAuth] getInitialSession: Omitido, procesamiento de autenticación en curso.");
         return;
       }
-      isProcessingAuthEvent.current = true;
+      isProcessingAuthEvent.current = true; // Bloquear para este proceso
       setLoading(true);
       setError(null);
-      let loginAbortedReasonForGetInitial = "Perfil de usuario no encontrado o carga fallida.";
+      let loginAbortedReason = "Perfil de usuario no encontrado o carga fallida.";
 
       try {
         const sessionResponse = await withTimeout<GetSessionResponse>(
             supabase.auth.getSession(),
             SESSION_FETCH_TIMEOUT_MS,
-            new Error("La obtención de la sesión inicial ha tardado demasiado.")
+            new Error("La obtención de la sesión inicial tardó demasiado.")
         );
 
         const currentSupabaseSession = sessionResponse.data.session;
         const sessionError = sessionResponse.error;
 
         if (sessionError) {
-          console.error("Error en getInitialSession (getSession):", sessionError.message, sessionError);
-          throw sessionError;
+          console.error("[useAuth] Error en getInitialSession (getSession):", sessionError.message, sessionError);
+          throw sessionError; // Terminar si hay error de sesión de Supabase
         }
 
         setSession(currentSupabaseSession);
@@ -228,246 +237,229 @@ export function useAuth(): AuthHookResult {
         if (currentSupabaseSession?.user) {
           let profile: UserProfile | null = null;
           try {
-              profile = await fetchUserProfile(currentSupabaseSession.user.id);
-          } catch (e) {
-              console.warn("[useAuth] getInitialSession: Falló fetchUserProfile durante la carga inicial.", e);
+              // Pasar el email desde la sesión de Supabase a fetchUserProfile
+              profile = await fetchUserProfile(currentSupabaseSession.user.id, currentSupabaseSession.user.email);
+          } catch (fetchProfileError) {
+              console.warn("[useAuth] getInitialSession: fetchUserProfile falló durante la carga inicial.", fetchProfileError);
+              // No es un error fatal para la sesión de Supabase, pero sí para el perfil de la app.
           }
-      
+
           if (profile && profile.empleado?.estado === 'activo') {
               setUserProfile(profile);
               localStorage.setItem("userProfile", JSON.stringify(profile));
           } else {
-              const stored = checkStoredSession();
-              if (stored && stored.id === currentSupabaseSession.user.id && stored.empleado?.estado === 'activo') {
-                  console.warn("[useAuth] getInitialSession: Falló la obtención del perfil en vivo/inactivo, usando perfil activo almacenado.");
-                  setUserProfile(stored);
+              const storedProfile = checkStoredSession(); 
+              if (storedProfile && storedProfile.id === currentSupabaseSession.user.id && storedProfile.empleado?.estado === 'activo' && storedProfile.email === currentSupabaseSession.user.email) {
+                  console.warn("[useAuth] getInitialSession: Falló la obtención del perfil en vivo / perfil inactivo. Usando perfil activo de localStorage.");
+                  setUserProfile(storedProfile);
                   setError(new Error(profile ? (profile.empleado?.estado !== 'activo' ? "Usuario inactivo. Usando datos locales." : "No se pudo obtener el perfil. Usando datos locales.") : "Error al obtener perfil. Usando datos locales."));
               } else {
-                  loginAbortedReasonForGetInitial = profile ? (profile.empleado?.estado === 'inactivo' ? "Usuario inactivo. Contacte al administrador." : "Perfil de usuario no encontrado, incompleto o empleado inactivo.") : "No se pudo cargar el perfil de usuario.";
+                  loginAbortedReason = profile ? (profile.empleado?.estado === 'inactivo' ? "Usuario inactivo. Contacte al administrador." : "Perfil de usuario no encontrado, incompleto o empleado inactivo.") : "No se pudo cargar el perfil de usuario.";
                   
+                  // Si el perfil obtenido explícitamente es inactivo, es un error que debe cerrar sesión.
                   if (profile && profile.empleado?.estado === 'inactivo') {
-                      console.warn(`[useAuth] getInitialSession: ${loginAbortedReasonForGetInitial}. Cerrando sesión.`);
-                      throw new Error(loginAbortedReasonForGetInitial); 
+                      console.warn(`[useAuth] getInitialSession: ${loginAbortedReason}. Cerrando sesión.`);
+                      throw new Error(loginAbortedReason); 
                   } else {
-                      console.warn(`[useAuth] getInitialSession: ${loginAbortedReasonForGetInitial}. La sesión de Supabase sigue siendo válida.`);
-                      setError(new Error(loginAbortedReasonForGetInitial));
-                      setUserProfile(null);
+                      // Otros casos: perfil no encontrado, error al obtenerlo, etc.
+                      // La sesión de Supabase sigue siendo válida, pero el perfil de la app no.
+                      console.warn(`[useAuth] getInitialSession: ${loginAbortedReason}. La sesión de Supabase sigue activa.`);
+                      setError(new Error(loginAbortedReason));
+                      setUserProfile(null); 
                       localStorage.removeItem("userProfile");
                   }
               }
           }
         } else { 
-          const stored = checkStoredSession();
-          if (stored && stored.empleado?.estado === 'activo') {
-             console.warn("[useAuth] getInitialSession: No hay sesión de Supabase, pero se encontró perfil activo almacenado. Usando perfil almacenado (podría estar desactualizado).");
-             setUserProfile(stored);
+          // No hay sesión de Supabase activa. Intentar cargar desde localStorage si es válido.
+          const storedProfile = checkStoredSession();
+          if (storedProfile && storedProfile.empleado?.estado === 'activo') {
+             console.warn("[useAuth] getInitialSession: No hay sesión de Supabase, pero se encontró un perfil activo almacenado. Usando perfil almacenado (podría estar desactualizado).");
+             setUserProfile(storedProfile);
+             // No hay sesión de Supabase, así que session y user permanecen null.
           } else {
-             if(stored && stored.empleado?.estado !== 'activo') {
-                console.warn("La sesión de usuario almacenada está inactiva. Limpiando.");
+             if(storedProfile && storedProfile.empleado?.estado !== 'activo') {
+                console.warn("[useAuth] Sesión de usuario almacenada está inactiva. Limpiando localStorage.");
                 localStorage.removeItem("userProfile");
              }
-             setUserProfile(null); 
+             setUserProfile(null); // No hay sesión de Supabase ni perfil válido en localStorage.
           }
         }
       } catch (e) { 
-          let finalErrorForInitialSession: Error;
-          if (e instanceof Error) {
-            finalErrorForInitialSession = e;
-          } else {
-            finalErrorForInitialSession = new Error(String(e || "Error desconocido durante la carga inicial de sesión."));
-          }
-          console.error("Error crítico en getInitialSession:", finalErrorForInitialSession.message, finalErrorForInitialSession);
-          setError(finalErrorForInitialSession);
-          setUserProfile(null);
-          setSession(null); 
-          setUser(null);    
+          const finalError = e instanceof Error ? e : new Error(String(e || "Error desconocido durante la carga inicial de sesión."));
+          console.error("[useAuth] Error crítico en getInitialSession:", finalError.message, finalError);
+          setError(finalError);
+          setUserProfile(null); setSession(null); setUser(null); 
           localStorage.removeItem("userProfile");
       } finally {
           setLoading(false);
-          console.log("[useAuth] getInitialSession: Bloque finally. Carga establecida a false.");
-          isProcessingAuthEvent.current = false;
+          console.log("[useAuth] getInitialSession: Carga inicial completada. Estado de carga: false.");
+          isProcessingAuthEvent.current = false; 
       }
     };
 
     getInitialSession();
-  }, [fetchUserProfile]); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchUserProfile]); // fetchUserProfile está memoizado con useCallback
 
-
+  // Efecto para escuchar cambios en el estado de autenticación de Supabase (login, logout, refresh token).
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (authChangeEvent, newSession) => {
-      console.log(`[useAuth] onAuthStateChange: Evento ${String(authChangeEvent)} recibido. Nuevo ID de usuario de sesión: ${newSession?.user?.id}`);
-      
+      console.log(`[useAuth] onAuthStateChange: Evento '${String(authChangeEvent)}'. Nuevo ID de sesión: ${newSession?.user?.id}, Email: ${newSession?.user?.email}`);
+
       if (isProcessingAuthEvent.current) {
-        console.log(`[useAuth] onAuthStateChange: Evento ${String(authChangeEvent)} omitido debido a un procesamiento de autenticación en curso.`);
+        console.log(`[useAuth] onAuthStateChange: Evento '${String(authChangeEvent)}' omitido, otro procesamiento en curso.`);
         return;
       }
-      isProcessingAuthEvent.current = true;
-      
-      const currentLocalProfile = userProfileRef.current;
-      const currentLocalSession = sessionRef.current;
+      isProcessingAuthEvent.current = true; 
 
+      const currentLocalProfile = userProfileRef.current; 
+      const currentLocalSession = sessionRef.current;   
+
+      // Lógica para refresco de perfil en segundo plano si ya hay sesión y perfil activos.
+      // Esto ocurre para eventos como TOKEN_REFRESHED, USER_UPDATED, o un SIGNED_IN redundante.
       if (currentLocalProfile && currentLocalSession && newSession?.user &&
           (authChangeEvent === 'SIGNED_IN' || authChangeEvent === 'TOKEN_REFRESHED' || authChangeEvent === 'USER_UPDATED')) {
-          
-          console.log(`[useAuth] onAuthStateChange: Actualización de perfil en segundo plano para usuario ${newSession.user.id}. ID de perfil actual: ${currentLocalProfile.id}`);
+
+          console.log(`[useAuth] onAuthStateChange: Refresco de perfil en segundo plano para usuario ${newSession.user.id}.`);
           try {
               setSession(newSession); 
               setUser(newSession.user);
 
-              const refreshedProfile = await fetchUserProfile(newSession.user.id);
+              const refreshedProfile = await fetchUserProfile(newSession.user.id, newSession.user.email);
               if (refreshedProfile && refreshedProfile.empleado?.estado === 'activo') {
                   setUserProfile(refreshedProfile);
                   localStorage.setItem("userProfile", JSON.stringify(refreshedProfile));
               } else if (refreshedProfile && refreshedProfile.empleado?.estado !== 'activo') {
                   console.warn("[useAuth] onAuthStateChange (segundo plano): Usuario se volvió inactivo. Cerrando sesión.");
-                  throw new Error("Usuario inactivo. Contacte al administrador."); 
+                  throw new Error("Usuario inactivo. Contacte al administrador."); // Esto forzará la limpieza.
               } else if (!refreshedProfile) {
-                  console.warn(`[useAuth] onAuthStateChange (segundo plano): Perfil para usuario ${newSession.user.id} no encontrado. Manteniendo perfil actual. Esto podría indicar un problema de datos.`);
+                  console.warn(`[useAuth] onAuthStateChange (segundo plano): Perfil para usuario ${newSession.user.id} no encontrado tras refresco. Manteniendo perfil local (podría estar desactualizado).`);
                   setError(new Error("No se pudo actualizar la información más reciente del perfil. Se utilizarán los datos locales."));
               }
           } catch (backgroundError) {
               const bgError = backgroundError instanceof Error ? backgroundError : new Error(String(backgroundError));
-              console.warn(`[useAuth] onAuthStateChange (segundo plano): Error actualizando perfil: ${bgError.message}.`);
+              console.warn(`[useAuth] onAuthStateChange (segundo plano): Error refrescando perfil: ${bgError.message}.`);
               if(bgError.message.includes("Usuario inactivo")){ 
                   setError(bgError);
                   setUserProfile(null); setSession(null); setUser(null); localStorage.removeItem("userProfile");
-              } else {
-                  setError(new Error(`No se pudo actualizar su perfil en este momento (${bgError.message}). Se está utilizando la información local.`));
+              } else { 
+                  setError(new Error(`No se pudo actualizar su perfil (${bgError.message}). Usando información local.`));
               }
           } finally {
-              isProcessingAuthEvent.current = false;
-              console.log(`[useAuth] onAuthStateChange (segundo plano): Evento ${String(authChangeEvent)} procesado.`);
+              isProcessingAuthEvent.current = false; 
+              console.log(`[useAuth] onAuthStateChange (segundo plano): Evento '${String(authChangeEvent)}' procesado.`);
           }
-      } else { 
-          console.log(`[useAuth] onAuthStateChange: Procesamiento completo para evento ${String(authChangeEvent)}.`);
-          setLoading(true);
-          setError(null); 
-          let authStateChangeReasonForHandler = "Perfil de usuario no encontrado o carga fallida tras cambio de estado.";
+      } else {
+          // Procesamiento completo para eventos como SIGNED_OUT o cuando no hay perfil/sesión local (primer SIGNED_IN).
+          console.log(`[useAuth] onAuthStateChange: Procesamiento completo para evento '${String(authChangeEvent)}'.`);
+          setLoading(true); 
+          setError(null);
+          let authStateChangeReason = "Perfil de usuario no encontrado o carga fallida tras cambio de estado.";
           try {
               setSession(newSession);
               setUser(newSession?.user ?? null);
 
               if (newSession?.user) {
-                  const profile = await fetchUserProfile(newSession.user.id);
+                  // Si hay nuevo usuario (ej. SIGNED_IN), obtener su perfil.
+                  const profile = await fetchUserProfile(newSession.user.id, newSession.user.email);
                   if (profile && profile.empleado?.estado === 'activo') {
                       setUserProfile(profile);
                       localStorage.setItem("userProfile", JSON.stringify(profile));
                   } else {
-                      authStateChangeReasonForHandler = profile ? (profile.empleado?.estado === 'inactivo' ? "Usuario inactivo. Contacte al administrador." : "Perfil de usuario no encontrado, incompleto o empleado inactivo tras cambio de estado.") : authStateChangeReasonForHandler;
-                      console.warn(`[useAuth] onAuthStateChange (completo): ${authStateChangeReasonForHandler}`);
-                      throw new Error(authStateChangeReasonForHandler);
+                      authStateChangeReason = profile ? (profile.empleado?.estado === 'inactivo' ? "Usuario inactivo. Contacte al administrador." : "Perfil de usuario no encontrado, incompleto o empleado inactivo tras cambio de estado.") : authStateChangeReason;
+                      console.warn(`[useAuth] onAuthStateChange (completo): ${authStateChangeReason}`);
+                      throw new Error(authStateChangeReason); // Forzar limpieza de sesión si el perfil no es válido.
                   }
-              } else { 
+              } else {
+                  // Si no hay nuevo usuario (ej. SIGNED_OUT), limpiar perfil local.
                   setUserProfile(null);
                   localStorage.removeItem("userProfile");
               }
           } catch (e) {
-              let finalErrorForAuthStateChange: Error;
-              if (e instanceof Error) {
-                  finalErrorForAuthStateChange = e;
-              } else {
-                  finalErrorForAuthStateChange = new Error(String(e || "Error desconocido durante el cambio de estado de autenticación."));
-              }
-              console.error("[useAuth] Error durante el procesamiento de onAuthStateChange (completo):", finalErrorForAuthStateChange.message, finalErrorForAuthStateChange);
-              setError(finalErrorForAuthStateChange);
-              setUserProfile(null); setSession(null); setUser(null); localStorage.removeItem("userProfile");
+              const finalError = e instanceof Error ? e : new Error(String(e || "Error desconocido durante cambio de estado de auth."));
+              console.error("[useAuth] Error durante procesamiento de onAuthStateChange (completo):", finalError.message, finalError);
+              setError(finalError);
+              setUserProfile(null); setSession(null); setUser(null); localStorage.removeItem("userProfile"); // Limpiar todo.
           } finally {
-              setLoading(false);
-              isProcessingAuthEvent.current = false;
-              console.log(`[useAuth] onAuthStateChange (completo): Evento ${String(authChangeEvent)} procesado. Carga establecida a false.`);
+              setLoading(false); 
+              isProcessingAuthEvent.current = false; 
+              console.log(`[useAuth] onAuthStateChange (completo): Evento '${String(authChangeEvent)}' procesado. Carga: false.`);
           }
       }
     });
 
     return () => {
-      authListener?.subscription.unsubscribe();
-      isProcessingAuthEvent.current = false; 
+      authListener?.subscription.unsubscribe(); 
+      isProcessingAuthEvent.current = false; // Asegurar liberación al desmontar.
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchUserProfile]); 
 
   const login = async (email: string, password: string) => {
     if (isProcessingAuthEvent.current) {
-        console.warn("[useAuth] login: Intento mientras otro evento de autenticación estaba en proceso.");
+        console.warn("[useAuth] Intento de login mientras otro evento de autenticación se procesaba.");
         throw new Error("Procesamiento de autenticación en curso. Intente de nuevo en un momento.");
     }
     isProcessingAuthEvent.current = true;
     setLoading(true);
     setError(null);
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // signInWithPassword de Supabase activará onAuthStateChange, que luego llama a fetchUserProfile.
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (signInError) {
-        console.error("Error de inicio de sesión (directo de Supabase):", signInError.message, signInError);
+        console.error("[useAuth] Error de inicio de sesión (directo de Supabase):", signInError.message, signInError);
         throw signInError; 
       }
+      // El éxito es manejado por onAuthStateChange. El loading y isProcessingAuthEvent se resetean allí.
     } catch (e) {
-      let caughtLoginError: Error;
-      if (e instanceof Error) {
-        caughtLoginError = e;
-      } else {
-        caughtLoginError = new Error(String(e || "Error desconocido durante el inicio de sesión."));
-      }
-      console.error("Error de inicio de sesión (captura del hook):", caughtLoginError.message, caughtLoginError);
+      const caughtLoginError = e instanceof Error ? e : new Error(String(e || "Error desconocido durante el inicio de sesión."));
+      console.error("[useAuth] Error de inicio de sesión (hook catch):", caughtLoginError.message, caughtLoginError);
 
       let finalErrorToThrow: Error;
       if ((e as AuthError).status === 400 || caughtLoginError.message.includes("Invalid login credentials")) {
         finalErrorToThrow = new Error("Credenciales inválidas. Por favor, verifica tu email y contraseña.");
       } else {
-        finalErrorToThrow = caughtLoginError;
+        finalErrorToThrow = caughtLoginError; 
       }
-      
+
       setError(finalErrorToThrow);
-      setUserProfile(null); 
-      setSession(null);
-      setUser(null);
+      setUserProfile(null); setSession(null); setUser(null); 
       localStorage.removeItem("userProfile");
-      throw finalErrorToThrow;
-    } finally {
       setLoading(false); 
-      isProcessingAuthEvent.current = false;
-    }
+      isProcessingAuthEvent.current = false; 
+      throw finalErrorToThrow; 
+    } 
   };
 
   const logout = async () => {
-    if (isProcessingAuthEvent.current && sessionRef.current === null) { 
-        console.warn("[useAuth] logout: Intento mientras otro evento de autenticación estaba en proceso Y la sesión ya es nula. Limpiando estado.");
+    if (isProcessingAuthEvent.current && sessionRef.current === null) {
+        console.warn("[useAuth] Intento de logout mientras otro evento de auth se procesaba Y la sesión ya es nula. Limpiando estado local.");
         setSession(null); setUser(null); setUserProfile(null); localStorage.removeItem("userProfile"); setLoading(false); setError(null);
-        isProcessingAuthEvent.current = false; 
+        isProcessingAuthEvent.current = false;
         return;
     }
     isProcessingAuthEvent.current = true; 
 
-    setLoading(true); 
+    setLoading(true);
     setError(null);
     try {
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) {
         console.error("[useAuth] logout: Error durante supabase.auth.signOut():", signOutError.message);
-        throw signOutError; 
+        throw signOutError;
       }
-      setSession(null);
-      setUser(null);
-      setUserProfile(null); 
-      localStorage.removeItem("userProfile"); 
+      // onAuthStateChange se encargará de establecer user/profile a null y resetear loading/isProcessingAuthEvent.
     } catch (e) {
-      let caughtLogoutError: Error;
-       if (e instanceof Error) {
-        caughtLogoutError = e;
-      } else {
-        caughtLogoutError = new Error(String(e || "Error desconocido durante el cierre de sesión."));
-      }
+      const caughtLogoutError = e instanceof Error ? e : new Error(String(e || "Error desconocido durante el cierre de sesión."));
       console.error("[useAuth] logout: Bloque catch. Error:", caughtLogoutError.message, caughtLogoutError);
       setError(caughtLogoutError);
-      setSession(null);
-      setUser(null);
-      setUserProfile(null);
+      // Asegurar que el estado se limpie incluso si onAuthStateChange tiene problemas o no se dispara como se espera.
+      setSession(null); setUser(null); setUserProfile(null);
       localStorage.removeItem("userProfile");
-    } finally {
-      setLoading(false); 
-      isProcessingAuthEvent.current = false; 
+      setLoading(false); // Terminar carga explícitamente en caso de error
+      isProcessingAuthEvent.current = false; // Liberar bloqueo
     }
   };
 

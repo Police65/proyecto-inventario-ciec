@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { UserProfile, Proveedor, Producto, OrdenCompra, OrdenCompraUnidad, OrdenCompraFormData } from '../../types';
-import { XMarkIcon, CheckIcon, MinusCircleIcon, InformationCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckIcon, MinusCircleIcon, InformationCircleIcon, ArrowPathIcon, CalendarDaysIcon } from '@heroicons/react/24/outline'; // Added CalendarDaysIcon
 import LoadingSpinner from '../core/LoadingSpinner';
-import { useOrderCalculations } from '../../hooks/useOrderCalculations'; // Import the hook
+import { useOrderCalculations } from '../../hooks/useOrderCalculations';
 
 interface ProductLineItem {
   id: number | string; 
@@ -42,6 +42,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
     neto_a_pagar: 0,
     estado: 'Pendiente',
     observaciones: '',
+    fecha_entrega_estimada: null,
   });
   const [loadingInitialData, setLoadingInitialData] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(false);
@@ -59,7 +60,6 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }));
   }, [initialProducts]);
 
-  // Use the new hook for calculations
   const productsForCalculation = productosSeleccionados.filter(p => p.seleccionado);
   const calculatedTotals = useOrderCalculations(productsForCalculation, formData.retencion_porcentaje);
 
@@ -84,6 +84,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
             retencion_porcentaje: prev.retencion_porcentaje === undefined ? 75 : prev.retencion_porcentaje, 
             unidad: prev.unidad || 'Bs',
             estado: prev.estado || 'Pendiente',
+            fecha_entrega_estimada: prev.fecha_entrega_estimada || null,
           }));
         } catch (err) {
           console.error("Error loading data for order form:", err);
@@ -98,13 +99,12 @@ const OrderForm: React.FC<OrderFormProps> = ({
       setFormData({
         proveedor_id: null, unidad: 'Bs', retencion_porcentaje: 75, 
         sub_total: 0, iva: 0, ret_iva: 0, neto_a_pagar: 0, 
-        estado: 'Pendiente', observaciones: '',
+        estado: 'Pendiente', observaciones: '', fecha_entrega_estimada: null
       });
       setError(null);
     }
   }, [show, proveedorId, formatInitialProducts]); 
 
-  // Update formData when calculatedTotals change
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
@@ -126,7 +126,12 @@ const OrderForm: React.FC<OrderFormProps> = ({
   const handleFormInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     const numericFields = ['retencion_porcentaje', 'proveedor_id'];
-    setFormData(prev => ({ ...prev, [name]: numericFields.includes(name) ? (value ? Number(value) : null) : value }));
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: name === 'fecha_entrega_estimada' 
+        ? (value === '' ? null : value) 
+        : (numericFields.includes(name) ? (value ? Number(value) : null) : value) 
+    }));
   };
 
 
@@ -158,10 +163,10 @@ const OrderForm: React.FC<OrderFormProps> = ({
     }
 
     try {
-        const ordenPayload: Omit<OrdenCompra, 'id'|'fecha_modificacion'|'detalles'|'empleado'|'proveedor'|'solicitud_compra' | 'factura'> = { 
+        const ordenPayload: Omit<OrdenCompra, 'id'|'fecha_modificacion'|'detalles'|'empleado'|'proveedor'|'solicitud_compra' | 'factura' | 'created_at' | 'updated_at' | 'fecha_orden'> = { 
             solicitud_compra_id: solicitudesIds[0] || null,
             proveedor_id: Number(formData.proveedor_id),
-            fecha_orden: new Date().toISOString(),
+            // fecha_orden is handled by DB default
             estado: formData.estado || 'Pendiente',
             sub_total: formData.sub_total || 0,
             iva: formData.iva || 0,
@@ -172,7 +177,9 @@ const OrderForm: React.FC<OrderFormProps> = ({
             empleado_id: userProfile.empleado_id,
             retencion_porcentaje: formData.retencion_porcentaje === null ? 0 : formData.retencion_porcentaje,
             precio_unitario: 0, 
-            changed_by: userProfile.empleado_id 
+            changed_by: userProfile.empleado_id,
+            fecha_entrega_estimada: formData.fecha_entrega_estimada || null,
+            fecha_entrega_real: null, // This will be set on completion
         };
 
         const { data: ordenData, error: ordenError } = await supabase
@@ -266,6 +273,20 @@ const OrderForm: React.FC<OrderFormProps> = ({
                 <option value="Bs">Bolívares (Bs)</option>
                 <option value="USD">Dólares (USD)</option>
               </select>
+            </div>
+            <div>
+                <label htmlFor="fecha_entrega_estimada" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Entrega Estimada</label>
+                <div className="relative">
+                    <input 
+                        type="date" 
+                        id="fecha_entrega_estimada" 
+                        name="fecha_entrega_estimada"
+                        value={formData.fecha_entrega_estimada || ''} 
+                        onChange={handleFormInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white pr-8" 
+                    />
+                    <CalendarDaysIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
+                </div>
             </div>
           </div>
 

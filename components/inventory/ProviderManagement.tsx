@@ -20,13 +20,11 @@ const ProviderManagement: React.FC = () => {
   const [submittingProvider, setSubmittingProvider] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // State for Add Category Modal
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [submittingCategory, setSubmittingCategory] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
-  // State for Combobox
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
@@ -60,7 +58,6 @@ const ProviderManagement: React.FC = () => {
     fetchProvidersAndCategories();
   }, [fetchProvidersAndCategories]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
@@ -72,9 +69,14 @@ const ProviderManagement: React.FC = () => {
   }, []);
 
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setCurrentProvider(prev => ({ ...prev, [name]: value }));
+    setCurrentProvider(prev => ({ 
+        ...prev, 
+        [name]: (name === 'tiempo_entrega_promedio_dias' || name === 'calificacion_promedio') 
+                ? (value ? parseFloat(value) : null) 
+                : value 
+    }));
   };
 
   const handleToggleCategorySelection = (categoryId: number) => {
@@ -125,6 +127,9 @@ const ProviderManagement: React.FC = () => {
       telefono: currentProvider.telefono || null,
       correo: currentProvider.correo || null,
       pagina_web: currentProvider.pagina_web || null,
+      tiempo_entrega_promedio_dias: currentProvider.tiempo_entrega_promedio_dias ? Number(currentProvider.tiempo_entrega_promedio_dias) : null,
+      calificacion_promedio: currentProvider.calificacion_promedio ? Number(currentProvider.calificacion_promedio) : null,
+      estado: currentProvider.estado || 'activo',
     };
 
     try {
@@ -198,6 +203,32 @@ const ProviderManagement: React.FC = () => {
     if (window.confirm('¿Está seguro de que desea eliminar este proveedor? Esta acción también eliminará sus asociaciones de categorías.')) {
       setSubmittingProvider(true);
       try {
+        // Check if provider is used in ordencompra
+        const { count: ordenCheckCount, error: ordenCheckError } = await supabase
+          .from('ordencompra')
+          .select('*', { count: 'exact', head: true })
+          .eq('proveedor_id', id);
+
+        if (ordenCheckError) throw ordenCheckError;
+        if (ordenCheckCount && ordenCheckCount > 0) {
+          alert('Error: No se puede eliminar el proveedor porque está asociado a órdenes de compra.');
+          setSubmittingProvider(false);
+          return;
+        }
+        
+        // Check if provider is used in ordenes_consolidadas
+        const { count: consolidadasCheckCount, error: consolidadasCheckError } = await supabase
+          .from('ordenes_consolidadas')
+          .select('*', { count: 'exact', head: true })
+          .eq('proveedor_id', id);
+        if (consolidadasCheckError) throw consolidadasCheckError;
+        if (consolidadasCheckCount && consolidadasCheckCount > 0) {
+           alert('Error: No se puede eliminar el proveedor porque está asociado a órdenes consolidadas.');
+           setSubmittingProvider(false);
+           return;
+        }
+
+
         await supabase.from('proveedor_categoria').delete().eq('proveedor_id', id);
         const { error } = await supabase.from('proveedor').delete().eq('id', id);
         if (error) throw error;
@@ -212,7 +243,7 @@ const ProviderManagement: React.FC = () => {
   };
 
   const openAddModal = () => {
-    setCurrentProvider({ selectedCategorias: [] });
+    setCurrentProvider({ selectedCategorias: [], estado: 'activo' });
     setIsEditing(false);
     setShowModal(true);
     setCategorySearchTerm('');
@@ -249,7 +280,7 @@ const ProviderManagement: React.FC = () => {
       
       if (error) {
         if (error.code === '23505') { 
-             if (error.message.includes('categoria_proveedor_nombre_key') || error.message.toLowerCase().includes('unique constraint') && error.message.toLowerCase().includes('nombre')) {
+             if (error.message.includes('categoria_proveedor_nombre_key')) {
                  setCategoryError('Error: Ya existe una categoría con ese nombre.');
              } else {
                 setCategoryError(`Error al guardar: ${error.message}`);
@@ -301,7 +332,7 @@ const ProviderManagement: React.FC = () => {
             disabled={submittingProvider || submittingCategory}
           >
             <TagIcon className="w-5 h-5 mr-2" />
-            Añadir Categoría
+            Añadir Categoría Prov.
           </button>
           <button
             onClick={openAddModal}
@@ -323,6 +354,7 @@ const ProviderManagement: React.FC = () => {
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Teléfono</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Correo</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Categorías</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
@@ -348,6 +380,11 @@ const ProviderManagement: React.FC = () => {
                         {(p.categorias?.length || 0) === 0 && 'N/D'}
                     </div>
                 </td>
+                 <td className="px-4 py-2 whitespace-nowrap text-sm">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${p.estado === 'activo' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'}`}>
+                        {p.estado}
+                    </span>
+                </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm font-medium space-x-2">
                   <button onClick={() => handleEdit(p)} className="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 p-1 disabled:opacity-50" title="Editar" disabled={submittingProvider}>
                     <PencilIcon className="w-5 h-5" />
@@ -360,7 +397,7 @@ const ProviderManagement: React.FC = () => {
             ))}
              {filteredProviders.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={7} className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
                   No se encontraron proveedores.
                 </td>
               </tr>
@@ -377,7 +414,6 @@ const ProviderManagement: React.FC = () => {
               {isEditing ? 'Editar' : 'Añadir'} Proveedor
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Input fields for provider details (nombre, rif, etc.) - Unchanged */}
               <div>
                 <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre <span className="text-red-500">*</span></label>
                 <input type="text" name="nombre" id="nombre" value={currentProvider.nombre || ''} onChange={handleInputChange} required 
@@ -396,23 +432,41 @@ const ProviderManagement: React.FC = () => {
                 <textarea name="direccion" id="direccion" value={currentProvider.direccion || ''} onChange={handleInputChange} 
                   className={`mt-1 ${inputFieldClasses}`} />
               </div>
-              <div>
-                <label htmlFor="telefono" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Teléfono</label>
-                <input type="tel" name="telefono" id="telefono" value={currentProvider.telefono || ''} onChange={handleInputChange} 
-                  className={`mt-1 ${inputFieldClasses}`} />
-              </div>
-              <div>
-                <label htmlFor="correo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Correo</label>
-                <input type="email" name="correo" id="correo" value={currentProvider.correo || ''} onChange={handleInputChange} 
-                  className={`mt-1 ${inputFieldClasses}`} />
-              </div>
-              <div>
-                <label htmlFor="pagina_web" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Página Web</label>
-                <input type="url" name="pagina_web" id="pagina_web" value={currentProvider.pagina_web || ''} onChange={handleInputChange} 
-                  className={`mt-1 ${inputFieldClasses}`} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label htmlFor="telefono" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Teléfono</label>
+                    <input type="tel" name="telefono" id="telefono" value={currentProvider.telefono || ''} onChange={handleInputChange} 
+                    className={`mt-1 ${inputFieldClasses}`} />
+                </div>
+                <div>
+                    <label htmlFor="correo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Correo</label>
+                    <input type="email" name="correo" id="correo" value={currentProvider.correo || ''} onChange={handleInputChange} 
+                    className={`mt-1 ${inputFieldClasses}`} />
+                </div>
+                <div>
+                    <label htmlFor="pagina_web" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Página Web</label>
+                    <input type="url" name="pagina_web" id="pagina_web" value={currentProvider.pagina_web || ''} onChange={handleInputChange} 
+                    className={`mt-1 ${inputFieldClasses}`} />
+                </div>
+                 <div>
+                    <label htmlFor="estado" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado</label>
+                    <select name="estado" id="estado" value={currentProvider.estado || 'activo'} onChange={handleInputChange} className={`mt-1 ${inputFieldClasses}`}>
+                        <option value="activo">Activo</option>
+                        <option value="inactivo">Inactivo</option>
+                    </select>
+                </div>
+                 <div>
+                    <label htmlFor="tiempo_entrega_promedio_dias" className="block text-sm font-medium text-gray-700 dark:text-gray-300">T. Entrega Prom. (días)</label>
+                    <input type="number" name="tiempo_entrega_promedio_dias" id="tiempo_entrega_promedio_dias" value={currentProvider.tiempo_entrega_promedio_dias || ''} onChange={handleInputChange} 
+                    className={`mt-1 ${inputFieldClasses}`} min="0" />
+                </div>
+                <div>
+                    <label htmlFor="calificacion_promedio" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Calificación (1-5)</label>
+                    <input type="number" name="calificacion_promedio" id="calificacion_promedio" value={currentProvider.calificacion_promedio || ''} onChange={handleInputChange} 
+                    className={`mt-1 ${inputFieldClasses}`} step="0.1" min="1" max="5"/>
+                </div>
               </div>
               
-              {/* Category Combobox */}
               <div ref={categoryDropdownRef}>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categorías de Proveedor</label>
                 <div className="relative">

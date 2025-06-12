@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { OrdenCompra, OrdenCompraEstado, ProductoNoRecibido, OrdenCompraDetalle, Producto } from '../../types'; 
 import { supabase } from '../../supabaseClient';
-import { XMarkIcon, CheckCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckCircleIcon, ArrowPathIcon, CalendarDaysIcon } from '@heroicons/react/24/outline'; // Added CalendarDaysIcon
 import LoadingSpinner from '../core/LoadingSpinner';
 
 interface OrderCompletionFormProps {
@@ -27,6 +28,8 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
   const [submittingCompletion, setSubmittingCompletion] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [facturaNumero, setFacturaNumero] = useState<string>('');
+  const [fechaEntregaReal, setFechaEntregaReal] = useState<string>(new Date().toISOString().split('T')[0]); // Default to today
+
 
   React.useEffect(() => {
     if (order && order.detalles) {
@@ -46,6 +49,8 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
           motivoFaltante: '',
         }))
       );
+      // Set fechaEntregaReal from order if it exists and is being edited, otherwise default to today
+      setFechaEntregaReal(order.fecha_entrega_real ? new Date(order.fecha_entrega_real).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
     }
   }, [order]);
 
@@ -79,22 +84,32 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
     setSubmittingCompletion(true);
     setError(null);
 
-    if (facturaNumero.trim() && facturaNumero.trim().length < 3) { 
+    if (facturaNumero.trim() && facturaNumero.trim().length < 3) {
         setError("El número de factura debe tener al menos 3 caracteres si se proporciona.");
         setSubmittingCompletion(false);
         return;
     }
+    if (!fechaEntregaReal) {
+      setError("La fecha de entrega real es obligatoria.");
+      setSubmittingCompletion(false);
+      return;
+    }
+
 
     try {
       const { data: updatedOrderData, error: orderUpdateError } = await supabase
         .from('ordencompra')
-        .update({ estado: 'Completada', fecha_modificacion: new Date().toISOString() })
+        .update({ 
+            estado: 'Completada', 
+            fecha_modificacion: new Date().toISOString(),
+            fecha_entrega_real: fechaEntregaReal 
+        })
         .eq('id', order.id)
         .select()
         .single();
 
       if (orderUpdateError) throw orderUpdateError;
-      if (!updatedOrderData) throw new Error('Falló la actualización del estado de la orden.');
+      if (!updatedOrderData) throw new Error('Failed to update order status.');
 
       for (const pStatus of productStatuses) {
         if (pStatus.cantidadRecibida > 0) {
@@ -105,7 +120,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
             .single();
 
           if (invError && invError.code !== 'PGRST116') { 
-            console.warn(`Error obteniendo inventario para producto ${pStatus.producto_id}: ${invError.message}`);
+            console.warn(`Error fetching inventory for product ${pStatus.producto_id}: ${invError.message}`);
             continue; 
           }
           if (invItem) {
@@ -127,7 +142,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
         }
       }
       
-      const missingProductsPayload: Omit<ProductoNoRecibido, 'id'>[] = productStatuses
+      const missingProductsPayload: Omit<ProductoNoRecibido, 'id' | 'created_at' | 'updated_at'>[] = productStatuses
         .filter(p => p.cantidadFaltante > 0) 
         .map(p => ({
             orden_compra_id: order.id,
@@ -138,7 +153,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
 
       if (missingProductsPayload.length > 0) {
         const { error: missingError } = await supabase.from('productos_no_recibidos').insert(missingProductsPayload);
-        if (missingError) console.warn("Error registrando productos faltantes:", missingError.message);
+        if (missingError) console.warn("Error recording missing products:", missingError.message);
       }
       
       if (facturaNumero.trim()) {
@@ -160,7 +175,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
       } else {
           alert(`Error al completar la orden: ${supabaseError.message}`);
       }
-      console.error('Error al completar la orden:', err);
+      console.error('Error completing order:', err);
       setError(supabaseError.message || 'Error desconocido');
     } finally {
       setSubmittingCompletion(false);
@@ -187,7 +202,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
                 <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{item.producto?.descripcion} (Ordenado: {item.cantidad})</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label htmlFor={`recibido-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-300">Cantidad Recibida:</label>
+                        <label htmlFor={`recibido-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-300">Cantidad Recibida <span className="text-red-500">*</span>:</label>
                         <input type="number" id={`recibido-${item.id}`} value={item.cantidadRecibida}
                                onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value) || 0)}
                                min="0" max={item.cantidad} required
@@ -207,10 +222,26 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
             ))}
           </div>
 
-          <div>
-            <label htmlFor="facturaNumero" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Número de Factura (Opcional)</label>
-            <input type="text" id="facturaNumero" value={facturaNumero} onChange={(e) => setFacturaNumero(e.target.value)}
-                   className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label htmlFor="facturaNumero" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Número de Factura (Opcional)</label>
+                <input type="text" id="facturaNumero" value={facturaNumero} onChange={(e) => setFacturaNumero(e.target.value)}
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+            </div>
+            <div>
+                <label htmlFor="fechaEntregaReal" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Fecha de Entrega Real <span className="text-red-500">*</span></label>
+                <div className="relative mt-1">
+                    <input 
+                        type="date" 
+                        id="fechaEntregaReal" 
+                        value={fechaEntregaReal} 
+                        onChange={(e) => setFechaEntregaReal(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white pr-8" 
+                    />
+                    <CalendarDaysIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
+                </div>
+            </div>
           </div>
           
           <div className="pt-5 flex justify-end space-x-3 sticky bottom-0 bg-white dark:bg-gray-800 py-3 z-10 border-t dark:border-gray-700">

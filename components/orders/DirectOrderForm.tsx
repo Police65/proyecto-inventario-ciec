@@ -2,17 +2,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { UserProfile, Proveedor, Producto, OrdenCompra, OrdenCompraUnidad, SolicitudCompra, OrdenCompraFormData } from '../../types';
-import { XMarkIcon, CheckIcon, PlusCircleIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckIcon, PlusCircleIcon, TrashIcon, ArrowPathIcon, CalendarDaysIcon } from '@heroicons/react/24/outline'; // Added CalendarDaysIcon
 import LoadingSpinner from '../core/LoadingSpinner';
 import { v4 as uuidv4 } from 'uuid';
-import { useOrderCalculations } from '../../hooks/useOrderCalculations'; // Import the hook
+import { useOrderCalculations } from '../../hooks/useOrderCalculations';
 
 
 interface DirectProductLineItem {
-  id: string; // UUID for local state key
+  id: string; 
   producto_id: number | null;
-  descripcion?: string; // For display if product is selected
-  customDescripcion?: string; // For manually entered description
+  descripcion?: string; 
+  customDescripcion?: string; 
   quantity: number;
   precio_unitario: number;
 }
@@ -39,12 +39,12 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
     neto_a_pagar: 0,
     estado: 'Pendiente',
     observaciones: '',
+    fecha_entrega_estimada: null,
   });
   const [loadingInitialData, setLoadingInitialData] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Use the new hook for calculations
   const calculatedTotals = useOrderCalculations(productos, formData.retencion_porcentaje);
 
   useEffect(() => {
@@ -70,12 +70,11 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
       loadInitialData();
     } else {
       setProductos([{ id: uuidv4(), producto_id: null, quantity: 1, precio_unitario: 0 }]);
-      setFormData({ proveedor_id: null, unidad: 'Bs', retencion_porcentaje: 75, sub_total: 0, iva: 0, ret_iva: 0, neto_a_pagar: 0, estado: 'Pendiente', observaciones: '' });
+      setFormData({ proveedor_id: null, unidad: 'Bs', retencion_porcentaje: 75, sub_total: 0, iva: 0, ret_iva: 0, neto_a_pagar: 0, estado: 'Pendiente', observaciones: '', fecha_entrega_estimada: null });
       setError(null);
     }
   }, [show]);
   
-  // Update formData when calculatedTotals change
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
@@ -121,7 +120,12 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
   const handleFormInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
      const numericFields = ['retencion_porcentaje', 'proveedor_id'];
-    setFormData(prev => ({ ...prev, [name]: numericFields.includes(name) ? (value ? Number(value) : null) : value }));
+    setFormData(prev => ({ 
+        ...prev, 
+        [name]: name === 'fecha_entrega_estimada' 
+        ? (value === '' ? null : value) 
+        : (numericFields.includes(name) ? (value ? Number(value) : null) : value) 
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -148,7 +152,7 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
           estado: 'Aprobada', 
           empleado_id: userProfile.empleado_id,
           departamento_id: userProfile.departamento_id,
-          fecha_solicitud: new Date().toISOString(),
+          // fecha_solicitud, created_at, updated_at handled by DB
         })
         .select('id')
         .single();
@@ -156,10 +160,10 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
       if (!solicitudData) throw new Error("No se pudo crear la solicitud base para la orden directa.");
       const solicitudBaseId = solicitudData.id;
 
-      const ordenPayload: Omit<OrdenCompra, 'id'|'fecha_modificacion'|'detalles'|'empleado'|'proveedor'|'solicitud_compra' | 'factura'> = {
+      const ordenPayload: Omit<OrdenCompra, 'id'|'fecha_modificacion'|'detalles'|'empleado'|'proveedor'|'solicitud_compra' | 'factura' | 'created_at' | 'updated_at' | 'fecha_orden'> = {
         solicitud_compra_id: solicitudBaseId,
         proveedor_id: Number(formData.proveedor_id),
-        fecha_orden: new Date().toISOString(),
+        // fecha_orden handled by DB
         estado: formData.estado || 'Pendiente',
         sub_total: formData.sub_total || 0,
         iva: formData.iva || 0,
@@ -170,7 +174,9 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
         empleado_id: userProfile.empleado_id,
         retencion_porcentaje: formData.retencion_porcentaje === null ? 0 : formData.retencion_porcentaje,
         precio_unitario: 0, 
-        changed_by: userProfile.empleado_id
+        changed_by: userProfile.empleado_id,
+        fecha_entrega_estimada: formData.fecha_entrega_estimada || null,
+        fecha_entrega_real: null,
       };
       const { data: ordenData, error: ordenError } = await supabase
         .from('ordencompra')
@@ -184,9 +190,10 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
       const detallesOrdenPayload = await Promise.all(productos.map(async p => {
         let productoRealId = p.producto_id;
         if (!productoRealId && p.customDescripcion?.trim()) {
+          // Ensure categoria_id from selected product (if any) or default is handled by DB or explicitly set here
           const { data: newProd, error: newProdError } = await supabase
             .from('producto')
-            .insert({ descripcion: p.customDescripcion.trim(), categoria_id: null })
+            .insert({ descripcion: p.customDescripcion.trim(), categoria_id: null }) // Or a default categoria_id if applicable
             .select('id')
             .single();
           if (newProdError) throw new Error(`Error creando producto personalizado '${p.customDescripcion}': ${newProdError.message}`);
@@ -257,6 +264,20 @@ const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, userPro
                     <option value="Bs">Bolívares (Bs)</option>
                     <option value="USD">Dólares (USD)</option>
                 </select>
+                </div>
+                <div>
+                    <label htmlFor="direct_fecha_entrega_estimada" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Entrega Estimada</label>
+                    <div className="relative">
+                        <input 
+                            type="date" 
+                            id="direct_fecha_entrega_estimada" 
+                            name="fecha_entrega_estimada"
+                            value={formData.fecha_entrega_estimada || ''} 
+                            onChange={handleFormInputChange}
+                            className="w-full px-3 py-2 border input-field pr-8" 
+                        />
+                        <CalendarDaysIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
+                    </div>
                 </div>
             </div>
 
