@@ -1,12 +1,11 @@
-
 import React from 'react';
 import { format } from 'date-fns';
-import { OrdenCompra, Camaraindustriales, Proveedor, Empleado, OrdenCompraDetalle, Producto as ProductoType } from '../../types';
+import { OrdenCompra, Camaraindustriales, Proveedor, Empleado, OrdenCompraDetalle, Producto as ProductoType, OrdenCompraUnidad } from '../../types';
 
-// Interface for the fully detailed OrdenCompra object expected by PDFTemplate
+// Interfaz para el objeto OrdenCompra completamente detallado esperado por PDFTemplate
 interface PDFOrdenCompra extends OrdenCompra {
   proveedor: Proveedor | undefined;
-  productos: (OrdenCompraDetalle & { producto: ProductoType | undefined })[]; // From the select query
+  productos: (OrdenCompraDetalle & { producto: ProductoType | undefined })[]; // De la consulta select
   empleado: Empleado | undefined;
 }
 
@@ -16,11 +15,12 @@ interface PDFTemplateProps {
 }
 
 const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
-  const formatCurrency = (value?: number, unidad?: string) => {
+  const formatCurrency = (value?: number | null, unidadInput?: OrdenCompraUnidad | string | null) => {
     if (value === undefined || value === null) return 'N/A';
+    const unidad = unidadInput || 'Bs'; // Default to 'Bs' if null or undefined
     return new Intl.NumberFormat('es-VE', {
       style: 'currency',
-      currency: unidad === 'USD' ? 'USD' : 'VES',
+      currency: unidad === 'USD' ? 'USD' : 'VES', // Assuming 'Bs' maps to 'VES'
       minimumFractionDigits: 2,
     }).format(value);
   };
@@ -31,85 +31,86 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
       minHeight: '297mm',
       padding: '20px',
       fontFamily: 'Arial, sans-serif',
-      fontSize: '10px', // Adjusted from 14px for potentially better fit
+      fontSize: '10px',
       color: '#000000',
       backgroundColor: '#FFFFFF',
     },
     header: {
-      display: 'flex', // Changed for logo alignment
-      alignItems: 'center', // Vertically align logo and text
-      marginBottom: '15px', // Adjusted
+      display: 'flex',
+      alignItems: 'center',
+      marginBottom: '15px',
       borderBottom: '2px solid #000',
-      paddingBottom: '10px', // Adjusted',
+      paddingBottom: '10px',
     },
     logo: {
-      width: '60px', // Adjust size as needed
+      width: '80px', // Aumentado para un logo un poco más grande
       height: 'auto',
-      marginRight: '15px', // Space between logo and text
+      marginRight: '15px',
     },
     headerTextContainer: {
-      textAlign: 'left', // Text next to logo will be left-aligned
+      flexGrow: 1, // Permite que el contenedor de texto ocupe el espacio restante
+      textAlign: 'center', // Centra el texto dentro de este contenedor
     },
     headerTitle: {
-        fontSize: '20px', // Adjusted
-        margin: '5px 0',
-        color: '#000000',
-        fontWeight: 'bold',
+      fontSize: '20px',
+      margin: '5px 0',
+      color: '#000000',
+      fontWeight: 'bold',
     },
     headerSubtitle: {
-        fontSize: '16px', // Adjusted
-        margin: '5px 0',
-        color: '#000000',
+      fontSize: '16px',
+      margin: '5px 0',
+      color: '#000000',
     },
     headerDate: {
-        margin: '3px 0',
-        color: '#000000',
-        fontSize: '12px', // Adjusted
+      margin: '3px 0',
+      color: '#000000',
+      fontSize: '12px',
     },
     contactInfo: {
       textAlign: 'center',
-      marginBottom: '20px', // Adjusted
-      fontSize: '9px', // Adjusted
+      marginBottom: '20px',
+      fontSize: '9px',
     },
     contactInfoP: {
-      margin: '2px 0', // Adjusted
+      margin: '2px 0',
       color: '#000000',
     },
     table: {
       width: '100%',
       borderCollapse: 'collapse',
-      margin: '15px 0', // Adjusted
+      margin: '15px 0',
       backgroundColor: '#FFFFFF',
-      fontSize: '9px', // Adjusted
+      fontSize: '9px',
     },
     th: {
       backgroundColor: '#EAEAEA',
       border: '1px solid #333333',
-      padding: '6px', // Adjusted
+      padding: '6px',
       textAlign: 'left',
       color: '#000000',
       fontWeight: 'bold',
     },
     td: {
       border: '1px solid #333333',
-      padding: '6px', // Adjusted
+      padding: '6px',
       backgroundColor: '#FFFFFF',
       color: '#000000',
       verticalAlign: 'top',
     },
     instructions: {
-      margin: '15px 0', // Adjusted
-      padding: '8px', // Adjusted
+      margin: '15px 0',
+      padding: '8px',
       border: '1px solid #000',
-      fontSize: '10px', // Adjusted
+      fontSize: '10px',
       fontWeight: 'bold',
       color: '#000000',
       textAlign: 'center',
     },
     totals: {
-      marginTop: '15px', // Adjusted
+      marginTop: '15px',
       textAlign: 'right',
-      fontSize: '10px', // Adjusted
+      fontSize: '10px',
     },
     totalsP: {
       margin: '3px 0',
@@ -118,16 +119,16 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
     totalsBoldP: {
       margin: '3px 0',
       color: '#000000',
-      fontSize: '11px', // Adjusted
+      fontSize: '11px',
       fontWeight: 'bold',
     },
     signatures: {
       display: 'flex',
       justifyContent: 'space-around',
-      marginTop: '40px', // Adjusted
-      paddingTop: '15px', // Adjusted
+      marginTop: '40px',
+      paddingTop: '15px',
       borderTop: '1px solid #000',
-      fontSize: '10px', // Adjusted
+      fontSize: '10px',
     },
     signatureBlock: {
       width: '40%',
@@ -136,35 +137,35 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
     },
     signatureLine: {
       borderBottom: '1px solid #000',
-      height: '40px', // Adjusted
-      marginBottom: '8px', // Adjusted
+      height: '40px',
+      marginBottom: '8px',
     },
     observationsDiv: {
-        marginTop: '15px',
-        fontSize: '10px',
-        borderTop: '1px solid #CCC',
-        paddingTop: '10px'
+      marginTop: '15px',
+      fontSize: '10px',
+      borderTop: '1px solid #CCC',
+      paddingTop: '10px'
     },
     observationsTitle: {
-        color: '#000000',
-        fontWeight: 'bold'
+      color: '#000000',
+      fontWeight: 'bold'
     },
     observationsText: {
-        color: '#000000',
-        whiteSpace: 'pre-line' as 'pre-line' // Type assertion for CSS white-space property
+      color: '#000000',
+      whiteSpace: 'pre-line' as 'pre-line'
     }
   };
 
   return (
     <div style={baseStyles.page}>
       <div style={baseStyles.header}>
-        <img src="/assets/logo_svg.svg" alt="Logo CIEC" style={baseStyles.logo} />
+        <img src="/assets/logo_de_pdf.png" alt="Logo CIEC" style={baseStyles.logo} />
         <div style={baseStyles.headerTextContainer}>
-            <h2 style={baseStyles.headerTitle}>{camara.nombre}</h2>
-            <h3 style={baseStyles.headerSubtitle}>Orden de Compra N°: {orden.id}</h3>
-            <p style={baseStyles.headerDate}>
+          <h2 style={baseStyles.headerTitle}>{camara.nombre}</h2>
+          <h3 style={baseStyles.headerSubtitle}>Orden de Compra N°: {orden.id}</h3>
+          <p style={baseStyles.headerDate}>
             {format(new Date(orden.fecha_orden), 'dd/MM/yyyy')}
-            </p>
+          </p>
         </div>
       </div>
 
@@ -232,7 +233,7 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
           <strong>IVA (16%):</strong> {formatCurrency(orden.iva, orden.unidad)}
         </p>
         <p style={baseStyles.totalsP}>
-          <strong>Ret. IVA ({orden.retencion_porcentaje || 75}%):</strong> {formatCurrency(orden.ret_iva, orden.unidad)}
+          <strong>Ret. IVA ({(orden.retencion_porcentaje ?? 75)}%):</strong> {formatCurrency(orden.ret_iva, orden.unidad)}
         </p>
         <p style={baseStyles.totalsBoldP}>
           Neto a pagar: {formatCurrency(orden.neto_a_pagar, orden.unidad)}

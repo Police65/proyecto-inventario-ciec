@@ -7,7 +7,7 @@ interface StatCardProps {
   title: string;
   value: string | number;
   icon: React.ElementType;
-  color: string; // e.g., 'bg-blue-500'
+  color: string; // ej., 'bg-blue-500'
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color }) => (
@@ -47,7 +47,7 @@ const InventoryStats: React.FC = () => {
         const { count: lowStockProducts, error: lowStockError } = await supabase
           .from('inventario')
           .select('*', { count: 'exact', head: true })
-          .lt('existencias', 10); // Assuming low stock is less than 10
+          .lt('existencias', 10); // Asumiendo que bajo stock es menos de 10
         if (lowStockError) throw lowStockError;
         
         const { data: ordersData, error: ordersError } = await supabase
@@ -68,7 +68,7 @@ const InventoryStats: React.FC = () => {
         });
       } catch (error) {
         console.error('Error al obtener estadísticas:', error);
-        // Optionally set an error state to display to the user
+        // Opcionalmente, establecer un estado de error para mostrar al usuario
       }
       setLoading(false);
     };

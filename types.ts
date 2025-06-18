@@ -60,7 +60,7 @@ export interface Empleado {
   estado: EmpleadoEstado; // 'activo' o 'inactivo'
   created_at: string;
   updated_at: string;
-  // Relaciones opcionales para cargar datos anidados fácilmente
+  // Relaciones opcionales para cargar datos anidados
   cargo?: Cargo | null;
   departamento?: Departamento;
   user_profile?: UserProfile | null; // Perfil de usuario asociado a este empleado
@@ -152,6 +152,12 @@ export interface OrdenCompraDetalle {
   created_at: string;
   updated_at: string;
   producto?: Producto; // Para mostrar descripción del producto
+  // Campo para descripción personalizada si el producto no existe en catálogo
+  // (útil si se crea un producto sobre la marcha para la orden)
+  // Este campo NO existe en la tabla 'ordencompra_detalle' según el schema.sql proporcionado por el usuario.
+  // Si se requiere, debe añadirse a la tabla en la BD.
+  // Por ahora, se mantiene aquí para la UI, pero no se enviará a la BD si se omite en Insert/Update.
+  descripcion_producto_personalizado?: string | null;
 }
 
 export interface OrdenConsolidada {
@@ -292,9 +298,13 @@ export interface Notificacion {
   created_at: string; // Fecha de creación
   type?: string; // Tipo de notificación (ej: 'nueva_solicitud', 'solicitud_aprobada')
   read: boolean; // Estado de lectura (true si ya fue leída)
-  related_id?: number; // ID relacionado (ej: id de solicitud_compra, id de orden_compra)
+  // related_id?: number; // ID relacionado (ej: id de solicitud_compra, id de orden_compra) -- REMOVED
   updated_at: string;
 }
+
+// Tipo para insertar notificaciones, excluyendo campos auto-generados o con default
+export type NotificacionInsert = Omit<Notificacion, 'id' | 'created_at' | 'updated_at' | 'read'>;
+
 
 // --- Tablas de Análisis (según esquema SQL) ---
 
@@ -519,8 +529,9 @@ export interface Database {
       ordencompra_detalle: {
         Row: OrdenCompraDetalle;
         // monto_total es generado en DB
-        Insert: Omit<OrdenCompraDetalle, 'id' | 'monto_total' | 'created_at' | 'updated_at'>; 
-        Update: Partial<Omit<OrdenCompraDetalle, 'id' | 'monto_total' | 'created_at'>>;
+        // descripcion_producto_personalizado no existe en la tabla según schema.sql, se omite del Insert/Update.
+        Insert: Omit<OrdenCompraDetalle, 'id' | 'monto_total' | 'created_at' | 'updated_at' | 'descripcion_producto_personalizado'>; 
+        Update: Partial<Omit<OrdenCompraDetalle, 'id' | 'monto_total' | 'created_at' | 'descripcion_producto_personalizado'>>;
       };
       ordenes_consolidadas: {
         Row: OrdenConsolidada;
@@ -573,7 +584,7 @@ export interface Database {
       notificaciones: { 
         Row: Notificacion;
         // id es serial, created_at/updated_at tienen defaults
-        Insert: Omit<Notificacion, 'id' | 'created_at' | 'updated_at'>; 
+        Insert: Omit<Notificacion, 'id' | 'created_at' | 'updated_at' | 'read'>; // 'read' defaults a false
         Update: Partial<Omit<Notificacion, 'id' | 'created_at'>>;
       };
       // Nuevas tablas de análisis
@@ -663,6 +674,14 @@ export interface ProductSelectionItem extends Producto {
   selected: boolean; // Para marcar si se incluye en la orden final
   motivo?: string; // Motivo si no se incluye (ej. para productos rezagados)
   precio_unitario: number; // Precio que el admin puede ajustar para esta orden específica
+  
+  // Campos para creación de nuevo producto on-the-fly
+  isNewProduct?: boolean; // Indica si este item es para un producto nuevo
+  newProduct_descripcion?: string; // Descripción del nuevo producto
+  newProduct_categoria_id?: number | null; // Categoría del nuevo producto
+  newProduct_new_category_name?: string; // Si se está creando una nueva categoría para este producto
+  newProduct_codigo_interno?: string;
+  newProduct_unidad_medida?: string;
 }
 
 // --- Tipos para Resumen de IA y Gráficos ---

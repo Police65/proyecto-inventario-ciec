@@ -1,6 +1,6 @@
 {
-  "name": "Purchase Order Management System",
-  "description": "A comprehensive system for managing purchase orders, allowing admins to oversee operations and users to submit requests. Features include request tracking, order generation, inventory management, and user administration.",
+  "name": "Sistema de Gestión de Órdenes de Compra",
+  "description": "Un sistema integral para la gestión de órdenes de compra, permitiendo a los administradores supervisar operaciones y a los usuarios enviar solicitudes. Incluye seguimiento de solicitudes, generación de órdenes, gestión de inventario y administración de usuarios.",
   "requestFramePermissions": [],
   "prompt": ""
 }

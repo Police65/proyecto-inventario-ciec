@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import LoadingSpinner from '../core/LoadingSpinner';
-import { OrdenCompra, OrdenCompraDetalle, SolicitudCompra, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, ConsumoHistoricoProducto, MetricasProductoMensual } from '../../types';
+import { OrdenCompra, OrdenCompraDetalle, SolicitudCompra, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, ConsumoHistoricoProducto } from '../../types';
 import { format, parseISO, startOfMonth } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { es } from 'date-fns/locale/es';
+
 
 interface DepartmentExpense {
   dept: string;
@@ -235,7 +235,7 @@ const DetailedStats: React.FC = () => {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie data={topOrderProducts} cx="50%" cy="50%" labelLine={false} outerRadius={100} fill="#8884d8" dataKey="quantity" nameKey="product" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
-                {topOrderProducts.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
+                {topOrderProducts.map((_, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
               </Pie>
               <Tooltip formatter={(value: number) => `${value.toLocaleString('es-VE')} unidades`} /> <Legend wrapperStyle={{ fontSize: '12px' }} />
             </PieChart>
@@ -265,7 +265,7 @@ const DetailedStats: React.FC = () => {
             <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                     <Pie data={topConsumedProducts} cx="50%" cy="50%" labelLine={false} outerRadius={100} fill="#FF8042" dataKey="quantity" nameKey="product" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
-                        {topConsumedProducts.map((entry, index) => (<Cell key={`cell-consumed-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />))}
+                        {topConsumedProducts.map((_, index) => (<Cell key={`cell-consumed-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />))}
                     </Pie>
                     <Tooltip formatter={(value: number) => `${value.toLocaleString('es-VE')} unidades`} />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />

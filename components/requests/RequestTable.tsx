@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { SolicitudCompra, SolicitudCompraEstado } from '../../types';
 import { CheckCircleIcon, XCircleIcon, EyeIcon, DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline'; // Import DocumentMagnifyingGlassIcon
@@ -64,7 +63,7 @@ const RequestTable: React.FC<RequestTableProps> = ({
             <tr 
               key={request.id} 
               className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${onRowClick ? 'cursor-pointer' : ''}`}
-              onClick={() => onRowClick && onRowClick(request)}
+              onClick={() => typeof onRowClick === 'function' && onRowClick(request)}
             >
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{request.id}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 truncate max-w-xs">{request.descripcion || 'N/D'}</td>
@@ -105,7 +104,7 @@ const RequestTable: React.FC<RequestTableProps> = ({
                   </button>
                    {!onRowClick && ( // Show view icon only if no global onRowClick
                      <button
-                        onClick={() => onRowClick && onRowClick(request)} // If there's a dedicated onRowClick for details
+                        onClick={() => typeof onRowClick === 'function' && onRowClick(request)} // If there's a dedicated onRowClick for details
                         className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 rounded-md hover:bg-blue-100 dark:hover:bg-blue-700 transition-colors"
                         title="Ver Detalles"
                       >

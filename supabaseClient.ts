@@ -1,7 +1,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, PARTNER_SUPABASE_URL, PARTNER_SUPABASE_ANON_KEY } from './config';
-import { Database, SolicitudCompra, Producto, PartnerDatabaseSchema, PartnerEvent } from './types'; // SolicitudCompraDetalle ya no se usa aquí
+import { Database, SolicitudCompra, Producto, PartnerDatabaseSchema, PartnerEvent, PartnerMeeting } from './types'; // SolicitudCompraDetalle ya no se usa aquí
 
 // Asegurar que las variables de configuración de Supabase estén provistas
 if (!SUPABASE_URL) {
@@ -58,6 +58,31 @@ export const fetchExternalEvents = async (limit = 20): Promise<PartnerEvent[]> =
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("Excepción al obtener eventos externos:", errorMessage, err);
+    return [];
+  }
+};
+
+// Obtener reuniones externas desde la base de datos del compañero
+export const fetchExternalMeetings = async (limit = 20): Promise<PartnerMeeting[]> => {
+  if (!partnerSupabase) {
+    console.warn("No se pueden obtener reuniones externas: cliente Supabase del compañero no inicializado o configuración faltante.");
+    return [];
+  }
+  try {
+    const { data, error } = await partnerSupabase
+      .from('Meetings') // Nombre de la tabla de reuniones
+      .select('*')
+      .order('date', { ascending: false }) // Reuniones más recientes primero
+      .limit(limit);
+
+    if (error) {
+      console.error("Error al obtener reuniones externas desde BD compañera:", error.message, error.details, error.code);
+      return [];
+    }
+    return (data || []) as PartnerMeeting[];
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("Excepción al obtener reuniones externas:", errorMessage, err);
     return [];
   }
 };

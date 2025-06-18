@@ -3,11 +3,12 @@ import React, { useState } from 'react';
 // @ts-ignore
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { RequestForm } from '../components/requests/RequestForm'; // Changed to named import
-import { UserProfile } from '../types';
-import { supabase } from '../supabaseClient';
+import { UserProfile, NotificacionInsert } from '../types';
+// import { supabase } from '../supabaseClient'; // Supabase client is used by services now
 import { generateDescription as aiGenerateDescription } from '../services/aiService';
+import { createNotifications, fetchAdminUserIds } from '../services/notificationService'; // Import notification service
 import { ArrowPathIcon } from '@heroicons/react/24/outline'; 
-
+import { supabase } from '../supabaseClient'; // Keep for direct DB operations if needed
 
 interface RequestFormPageContext {
   userProfile: UserProfile;
@@ -103,30 +104,22 @@ const RequestFormPage: React.FC = () => {
         }
       }
       
-      // Notificar a los administradores
-      const { data: admins, error: adminError } = await supabase
-        .from('user_profile')
-        .select('id') // Seleccionar el user_id (Auth ID)
-        .eq('rol', 'admin');
-      
-      if (adminError) {
-        console.error("Error al obtener administradores para notificación:", adminError.message, adminError.details, adminError.code);
-      }
-
-      if (admins && admins.length > 0) {
-        const notifications = admins.map(admin => ({
-            user_id: admin.id, // El ID del user_profile es el user_id de auth.users
-            title: 'Nueva Solicitud de Compra',
-            description: `El empleado ${userProfile.empleado?.nombre || 'Desconocido'} ha creado la solicitud #${solicitudId}: ${finalDescriptionForSolicitud}.`,
-            created_at: new Date().toISOString(),
-            type: 'nueva_solicitud',
-            read: false,
-            related_id: solicitudId
+      // Notificar a los administradores usando el servicio
+      const adminUserIds = await fetchAdminUserIds();
+      if (adminUserIds.length > 0) {
+        const notificationsPayload: NotificacionInsert[] = adminUserIds.map(adminUserId => ({
+          user_id: adminUserId,
+          title: 'Nueva Solicitud de Compra',
+          description: `El empleado ${userProfile.empleado?.nombre || 'Desconocido'} (${userProfile.departamento?.nombre || 'Dpto. Desc.'}) ha creado la solicitud #${solicitudId}: ${finalDescriptionForSolicitud}.`,
+          type: 'nueva_solicitud',
+          // related_id: solicitudId, // Removed
         }));
-        const { error: notifError } = await supabase.from('notificaciones').insert(notifications);
-        if (notifError) {
-            console.error("Error al crear notificaciones:", notifError.message, notifError.details, notifError.code);
+        const notifResult = await createNotifications(notificationsPayload);
+        if (!notifResult.success) {
+            console.warn("No se pudieron crear algunas notificaciones para administradores:", notifResult.error);
         }
+      } else {
+        console.warn("No se encontraron IDs de administradores para notificar sobre nueva solicitud.");
       }
 
       alert('¡Solicitud creada exitosamente!');

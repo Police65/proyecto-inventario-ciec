@@ -19,7 +19,7 @@ import {
 interface MainDashboardContext {
   userProfile: UserProfile;
   setActiveUITab: (tab: string) => void;
-  setHasInteracted: (interacted: boolean) => void; // Add setHasInteracted
+  setHasInteracted: (interacted: boolean) => void; // Añadir setHasInteracted
 }
 
 interface MenuCardProps {
@@ -33,7 +33,7 @@ interface MenuCardProps {
 const MenuCard: React.FC<MenuCardProps> = ({ title, description, icon: Icon, onClick, color = 'bg-primary-500' }) => (
   <button
     onClick={onClick}
-    className="group bg-white dark:bg-gray-800 shadow-xl rounded-xl p-6 hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 ease-in-out flex flex-col justify-between items-start w-full text-left h-full" // Added h-full
+    className="group bg-white dark:bg-gray-800 shadow-xl rounded-xl p-6 hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 ease-in-out flex flex-col justify-between items-start w-full text-left h-full" // Añadido h-full
     aria-label={`Acceder a ${title}`}
   >
     <div>
@@ -47,7 +47,7 @@ const MenuCard: React.FC<MenuCardProps> = ({ title, description, icon: Icon, onC
         {description}
       </p>
     </div>
-    <div className="flex items-center text-sm font-medium text-primary-600 dark:text-primary-400 group-hover:underline mt-auto pt-2"> {/* Added mt-auto and pt-2 for spacing */}
+    <div className="flex items-center text-sm font-medium text-primary-600 dark:text-primary-400 group-hover:underline mt-auto pt-2"> {/* Añadido mt-auto y pt-2 para espaciado */}
       Acceder
       <ArrowRightIcon className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform duration-300" />
     </div>
@@ -138,7 +138,7 @@ const MainDashboardPage: React.FC = () => {
   const menuItems = userProfile?.rol === 'admin' ? adminMenuItems : userMenuItems;
 
   return (
-    <div className="space-y-8 h-full flex flex-col"> {/* Ensure h-full and flex for content */}
+    <div className="space-y-8 h-full flex flex-col"> {/* Asegurar h-full y flex para el contenido */}
       <div>
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
           ¡Bienvenido, {userProfile?.empleado?.nombre || 'Usuario'}!
@@ -148,7 +148,7 @@ const MainDashboardPage: React.FC = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 flex-grow"> {/* Added flex-grow */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 flex-grow"> {/* Añadido flex-grow */}
         {menuItems.map((item) => (
           <MenuCard
             key={item.title}

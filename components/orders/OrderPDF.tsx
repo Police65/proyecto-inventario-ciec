@@ -8,14 +8,14 @@ import { OrdenCompra as OrdenCompraType, Camaraindustriales, Proveedor, Empleado
 import { DocumentArrowDownIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 interface OrderPDFProps {
-  order: OrdenCompraType; // Takes the basic order prop
+  order: OrdenCompraType; // Toma la propiedad básica de la orden
   buttonClass?: string;
   iconClass?: string;
   buttonText?: string;
   showText?: boolean;
 }
 
-// Interface for the fully detailed OrdenCompra object after fetching
+// Interfaz para el objeto OrdenCompra completamente detallado después de la obtención
 interface FullOrdenCompraForPDF extends OrdenCompraType {
   proveedor: Proveedor | undefined;
   productos: (OrdenCompraDetalle & { producto: ProductoType | undefined })[];
@@ -29,9 +29,9 @@ interface PDFRenderData {
 
 const OrderPDF: React.FC<OrderPDFProps> = ({
   order,
-  buttonClass: customButtonClass, // Renamed to avoid conflict
-  iconClass: customIconClass,     // Renamed
-  buttonText: customButtonText,   // Renamed
+  buttonClass: customButtonClass, // Renombrado para evitar conflicto
+  iconClass: customIconClass,     // Renombrado
+  buttonText: customButtonText,   // Renombrado
   showText = false
 }) => {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -82,7 +82,7 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
       setPdfData({ orden: ordenCompleta, camara });
 
       // Esperar ciclo de renderizado completo
-      await new Promise(resolve => setTimeout(resolve, 150)); // Increased slightly from 100ms
+      await new Promise(resolve => setTimeout(resolve, 150)); // Aumentado ligeramente desde 100ms
 
       if (!contentRef.current) {
         throw new Error("El contenedor del PDF no está disponible.");
@@ -94,21 +94,21 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
       contentRef.current.style.left = '0px';
       contentRef.current.style.zIndex = '9999';
       contentRef.current.style.visibility = 'visible';
-      contentRef.current.style.backgroundColor = '#FFFFFF'; // Ensure background for capture
-      // Ensure width/height are set based on A4, or let content define it IF PDFTemplate's root is styled.
-      // For this simpler version, we rely on PDFTemplate's root div having A4 dimensions.
-      contentRef.current.style.width = '210mm'; // Match PDFTemplate's style
-      contentRef.current.style.minHeight = '297mm'; // Match PDFTemplate's style
+      contentRef.current.style.backgroundColor = '#FFFFFF'; // Asegurar fondo para la captura
+      // Asegurar ancho/alto basados en A4, o dejar que el contenido lo defina SI la raíz de PDFTemplate tiene estilo.
+      // Para esta versión más simple, dependemos de que el div raíz de PDFTemplate tenga dimensiones A4.
+      contentRef.current.style.width = '210mm'; // Coincidir con el estilo de PDFTemplate
+      contentRef.current.style.minHeight = '297mm'; // Coincidir con el estilo de PDFTemplate
 
       const canvas = await html2canvas(contentRef.current, {
         scale: 2,
         useCORS: true,
         logging: true,
-        backgroundColor: '#FFFFFF', // Ensure background for capture
-        // Remove explicit width/height to let html2canvas use element's dimensions
+        backgroundColor: '#FFFFFF', // Asegurar fondo para la captura
+        // Eliminar ancho/alto explícitos para dejar que html2canvas use las dimensiones del elemento
       });
 
-      contentRef.current.style.cssText = originalStyle; // Restore styles
+      contentRef.current.style.cssText = originalStyle; // Restaurar estilos
 
       if (canvas.width === 0 || canvas.height === 0) {
         throw new Error('El canvas generado no tiene dimensiones válidas.');
@@ -125,7 +125,7 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
       if (pdfHeight <= pageHeight) {
         pdf.addImage(canvas, 'PNG', 0, 0, pdfWidth, pdfHeight);
       } else {
-        // Basic multi-page handling (might need refinement for complex layouts)
+        // Manejo básico de múltiples páginas (podría necesitar refinamiento para diseños complejos)
         let heightLeft = pdfHeight;
         while (heightLeft > 0) {
           pdf.addImage(canvas, 'PNG', 0, position, pdfWidth, pdfHeight);
@@ -142,12 +142,12 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
     } catch (error) {
       console.error("Error generando PDF:", error);
       setPdfError(error instanceof Error ? error.message : String(error));
-      if (contentRef.current) { // Ensure styles are reset on error
-        contentRef.current.style.cssText = ''; // Reset to default or saved original style
+      if (contentRef.current) { // Asegurar que los estilos se restablezcan en caso de error
+        contentRef.current.style.cssText = ''; // Restablecer al estilo predeterminado o al original guardado
       }
     } finally {
       setLoading(false);
-      setPdfData(null); // Clear data to hide PDFTemplate from DOM
+      setPdfData(null); // Limpiar datos para ocultar PDFTemplate del DOM
     }
   };
 
@@ -178,7 +178,7 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
           position: 'absolute',
           left: '-9999px',
           top: '0px',
-          backgroundColor: 'white', // Explicit white background for capture
+          backgroundColor: 'white', // Fondo blanco explícito para la captura
           padding: '0', margin: '0', border: 'none',
         }}
         aria-hidden="true"

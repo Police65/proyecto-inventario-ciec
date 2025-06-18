@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Session, User, PostgrestSingleResponse, PostgrestError, AuthError } from '@supabase/supabase-js';
@@ -6,7 +5,7 @@ import { UserProfile, Empleado, UserProfileRol } from '../types'; // Departament
 
 // Tiempos de espera para operaciones asíncronas para evitar bloqueos indefinidos
 const SESSION_FETCH_TIMEOUT_MS = 20000; // 20 segundos para obtener sesión
-const USER_PROFILE_FETCH_TIMEOUT_MS = 90000; // 90 segundos para obtener perfil de usuario (puede ser largo si hay subconsultas)
+const USER_PROFILE_FETCH_TIMEOUT_MS = 30000; // REDUCED: 30 segundos (antes 120s) para obtener perfil de usuario
 const INTERNAL_QUERY_TIMEOUT_MS = 30000; // 30 segundos para consultas internas como detalles de empleado
 
 interface AuthHookResult {
@@ -24,7 +23,7 @@ interface AuthHookResult {
 const withTimeout = <T>(
   promise: PromiseLike<T>, // Changed from Promise<T> to PromiseLike<T>
   ms: number,
-  timeoutError = new Error('La operación ha tardado demasiado y ha excedido el tiempo límite.')
+  timeoutError = new Error('La operación ha tardado demasiado y ha excedido el tiempo límite. Verifique la conexión de red y el estado del servicio.')
 ): Promise<T> => {
   return Promise.race([
     promise,
@@ -114,10 +113,10 @@ export function useAuth(): AuthHookResult {
         .eq("id", userId)
         .single<SelectedUserProfileData>(); 
 
-      const userProfileResult = await withTimeout<PostgrestSingleResponse<SelectedUserProfileData>>( // Explicitly type T for withTimeout
+      const userProfileResult = await withTimeout<PostgrestSingleResponse<SelectedUserProfileData>>( 
         userProfileQuery, 
         USER_PROFILE_FETCH_TIMEOUT_MS,
-        new Error("Error al obtener perfil básico: tiempo de espera excedido.")
+        new Error("Timeout: La obtención del perfil básico del usuario tardó demasiado. Verifique la conexión y el rendimiento de la base de datos del proyecto Supabase.")
       );
 
       basicProfileData = userProfileResult.data;
@@ -168,10 +167,10 @@ export function useAuth(): AuthHookResult {
           .eq("id", completeProfile.empleado_id)
           .single<Partial<Empleado>>();
 
-        const empleadoResult = await withTimeout<PostgrestSingleResponse<Partial<Empleado>>>( // Explicitly type T for withTimeout
+        const empleadoResult = await withTimeout<PostgrestSingleResponse<Partial<Empleado>>>( 
           empleadoQuery, 
           INTERNAL_QUERY_TIMEOUT_MS,
-          new Error("Error al obtener detalles del empleado: tiempo de espera excedido.")
+          new Error("Timeout: La obtención de los detalles del empleado tardó demasiado. Verifique la conexión y el rendimiento de la base de datos del proyecto Supabase.")
         );
 
         const empleadoData = empleadoResult.data;
@@ -287,7 +286,12 @@ export function useAuth(): AuthHookResult {
         }
       } catch (e) { 
           const finalError = e instanceof Error ? e : new Error(String(e || "Error desconocido durante la carga inicial de sesión."));
-          console.error("[useAuth] Error crítico en getInitialSession:", finalError.message, finalError);
+          // Add more specific logging if the error is the profile fetch timeout
+          if (finalError.message.includes("La obtención del perfil básico del usuario tardó demasiado")) {
+            console.error("[useAuth] CRITICAL_DB_PERFORMANCE_ISSUE: La obtención del perfil de usuario falló por timeout. Esto indica serios problemas de rendimiento con la base de datos de Supabase o la conexión de red, lo cual también afectará a Realtime y otras funcionalidades.", finalError);
+          } else {
+            console.error("[useAuth] Error crítico en getInitialSession:", finalError.message, finalError);
+          }
           setError(finalError);
           setUserProfile(null); setSession(null); setUser(null); 
           localStorage.removeItem("userProfile");

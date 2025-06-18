@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Proveedor, CategoriaProveedor } from '../../types';
-import { PlusCircleIcon, PencilIcon, TrashIcon, ArrowPathIcon, TagIcon, XMarkIcon, ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { PlusCircleIcon, PencilIcon, TrashIcon, ArrowPathIcon, TagIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 
 const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";

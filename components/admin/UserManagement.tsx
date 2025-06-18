@@ -1,14 +1,13 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Empleado, UserProfile, Cargo, Departamento, EmpleadoCargoHistorial, UserProfileRol, EmpleadoEstado } from '../../types';
-import { PlusCircleIcon, PencilIcon, UserPlusIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, TrashIcon, BuildingOfficeIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
+import { PlusCircleIcon, PencilIcon, UserPlusIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, EyeIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
+import { User } from '@supabase/supabase-js';
 
 interface RawEmpleadoFromQuery extends Omit<Empleado, 'user_profile' | 'cargo' | 'departamento'> {
   cargo: Pick<Cargo, 'id' | 'nombre'> | null;
   departamento: Pick<Departamento, 'id' | 'nombre'> | null;
-  // user_profile is not selected here, it will be mapped later
 }
 
 const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-70 dark:disabled:opacity-50";
@@ -29,7 +28,6 @@ const UserManagement: React.FC = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [selectedEmpleadoForProfile, setSelectedEmpleadoForProfile] = useState<Empleado | null>(null);
-  // Email in profileFormData is for auth.signUp, not for user_profile table.
   const [profileFormData, setProfileFormData] = useState<{ email: string; password?: string; rol: UserProfileRol; departamento_id?: number | null }>({ email: '', rol: 'usuario' });
   
   const [submittingProfileState, setSubmittingProfileState] = useState(false); 
@@ -58,10 +56,9 @@ const UserManagement: React.FC = () => {
         .returns<RawEmpleadoFromQuery[]>(); 
       if (empError) throw empError;
 
-      // Fetch user_profile without 'email'
       const { data: profilesData, error: profilesError } = await supabase
         .from('user_profile')
-        .select('id, rol, empleado_id, departamento_id'); // Removed 'email'
+        .select('id, rol, empleado_id, departamento_id'); 
       if (profilesError) throw profilesError;
       
       const profilesMap = new Map<number, { id: string; rol: UserProfileRol | null; departamento_id: number | null; }>();
@@ -70,7 +67,6 @@ const UserManagement: React.FC = () => {
           if (profile.empleado_id) {
             profilesMap.set(profile.empleado_id, { 
               id: profile.id, 
-              // email is not set here as it's not in user_profile table
               rol: profile.rol as UserProfileRol | null, 
               departamento_id: profile.departamento_id
             });
@@ -83,7 +79,6 @@ const UserManagement: React.FC = () => {
         const user_profile_for_emp: UserProfile | null = user_profile_data 
             ? { 
                 id: user_profile_data.id, 
-                // email will be undefined here initially; can be fetched from auth.users if needed for display
                 rol: user_profile_data.rol, 
                 empleado_id: rawEmp.id,
                 departamento_id: user_profile_data.departamento_id,
@@ -127,9 +122,8 @@ const UserManagement: React.FC = () => {
   }, [fetchData]);
 
   const resetProfileForm = (empleado?: Empleado | null) => {
-    // Email for form will be empty or pre-filled if editing and we have it from auth.users, not user_profile table
     let emailForForm = '';
-    if (empleado && empleado.user_profile && empleado.user_profile.email) { // Check if email was populated (e.g. from auth hook for current user)
+    if (empleado && empleado.user_profile && empleado.user_profile.email) {
         emailForForm = empleado.user_profile.email;
     }
     
@@ -222,6 +216,7 @@ const UserManagement: React.FC = () => {
     setShowProfileModal(false); setShowCreatingProfileLoadingModal(true);
 
     let authUserId: string | undefined = undefined;
+    let signUpUser: User | null = null;
 
     try {
       if (!isEditingProfile) {
@@ -234,44 +229,50 @@ const UserManagement: React.FC = () => {
       if (isEditingProfile && selectedEmpleadoForProfile.user_profile?.id) {
           authUserId = selectedEmpleadoForProfile.user_profile.id;
       } else { 
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          const { data: signUpResponse, error: signUpError } = await supabase.auth.signUp({
               email: profileFormData.email, password: profileFormData.password!,
           });
+          signUpUser = signUpResponse?.user ?? null;
 
           if (signUpError) {
               if (signUpError.message.toLowerCase().includes('user already registered')) {
-                  const { data: { user: existingUser }, error: getUserError } = await supabase.auth.getUser(signUpData?.user?.id ? undefined : profileFormData.email);
-                  if (getUserError && !existingUser) { 
-                      throw new Error(`El correo '${profileFormData.email}' ya está registrado en autenticación, pero no se pudo obtener su ID. Resuelva manualmente o use otro correo.`);
+                  // Attempt to get current session user, if their email matches, we might have their ID.
+                  // This is a client-side limitation; server-side admin API would be more direct.
+                  const {data: { user: sessionUserAfterAttempt }} = await supabase.auth.getUser();
+                  if(sessionUserAfterAttempt?.email === profileFormData.email) {
+                      authUserId = sessionUserAfterAttempt.id;
+                      signUpUser = sessionUserAfterAttempt; // Treat this as the user if session matches
+                      console.warn(`[UserManagement] Email ${profileFormData.email} already registered. Using current session user ID: ${authUserId}. Manual verification might be needed if this isn't the intended existing user.`);
+                  } else {
+                      // If not the current session user, then it's another existing user.
+                      // We don't have their ID client-side without admin rights.
+                      throw new Error(`El correo '${profileFormData.email}' ya está registrado en el sistema de autenticación para otro usuario. No se puede obtener su ID automáticamente desde el cliente. Por favor, use un correo diferente o contacte a soporte para enlazar manualmente si es necesario.`);
                   }
-                  authUserId = existingUser?.id || signUpData?.user?.id;
-                  if (!authUserId) throw new Error (`El correo '${profileFormData.email}' ya está registrado en autenticación. Si no está vinculado, resuelva manualmente o use otro correo.`);
-
               } else { throw new Error(`Error Auth (signUp): ${signUpError.message}`); }
           } else { 
-              if (!signUpData?.user?.id) throw new Error("SignUp exitoso pero sin ID de usuario.");
-              authUserId = signUpData.user.id;
+              if (!signUpUser?.id) throw new Error("SignUp exitoso pero sin ID de usuario.");
+              authUserId = signUpUser.id;
           }
       }
 
       if (!isEditingProfile && authUserId) {
-        let profileForAuthIdToCheck: (Partial<UserProfile> & { empleado: { nombre: string, apellido: string } | null }) | null = null;
+        let profileForAuthIdToCheck: (Partial<UserProfile> & { empleado: { nombre: string; apellido: string; } | null }) | null = null;
 
         const { data: rawProfileData, error: profileCheckError } = await supabase
           .from('user_profile')
-          .select('id, empleado_id, rol, departamento_id') // Fetch necessary fields
+          .select('id, empleado_id, rol, departamento_id') 
           .eq('id', authUserId)
           .maybeSingle();
 
         if (profileCheckError) throw new Error(`Error DB (verif. perfil para Auth ID): ${profileCheckError.message}`);
 
         if (rawProfileData) {
-            profileForAuthIdToCheck = { // Construct the object for checking
+            profileForAuthIdToCheck = { 
                 id: rawProfileData.id,
                 empleado_id: rawProfileData.empleado_id,
                 rol: rawProfileData.rol as UserProfileRol | null,
                 departamento_id: rawProfileData.departamento_id,
-                empleado: null // Initialize as null
+                empleado: null,
             };
 
             if (rawProfileData.empleado_id) {
@@ -279,12 +280,12 @@ const UserManagement: React.FC = () => {
                     .from('empleado')
                     .select('nombre, apellido')
                     .eq('id', rawProfileData.empleado_id)
-                    .single();
+                    .single<{nombre: string; apellido: string;}>();
                 
                 if (empError) {
                     console.warn(`No se pudo obtener detalles del empleado para empleado_id ${rawProfileData.empleado_id}: ${empError.message}`);
                 }
-                if (empData) {
+                if (empData && profileForAuthIdToCheck) { 
                     profileForAuthIdToCheck.empleado = empData;
                 }
             }
@@ -380,13 +381,13 @@ const UserManagement: React.FC = () => {
   
   const getProfileStatus = (emp: Empleado): React.ReactNode => {
     if (emp.user_profile) {
-      const displayId = emp.user_profile.id ? `Auth ID: ${emp.user_profile.id.substring(0,8)}...` : 'ID No Disponible';
-      const displayText = emp.user_profile.email ? emp.user_profile.email : displayId;
-
+      // Prefer email if available from auth for display, otherwise use ID
+      const displayIdentifier = emp.user_profile.email || `Auth ID: ${emp.user_profile.id.substring(0,8)}...`;
+      
       return (
         <div className="text-green-600 dark:text-green-400 text-xs">
           <p className="font-semibold" title={emp.user_profile.email || emp.user_profile.id}>
-            {displayText}
+            {displayIdentifier}
           </p>
           <p>Rol: {emp.user_profile.rol || 'N/A'}</p>
         </div>

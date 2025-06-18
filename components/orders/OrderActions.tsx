@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
-import { OrdenCompra, OrdenCompraEstado } from '../../types';
+import { OrdenCompra, OrdenCompraEstado, NotificacionInsert } from '../../types';
 import { supabase } from '../../supabaseClient';
 import { CheckCircleIcon, XCircleIcon, ArrowUturnLeftIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { OrderCompletionForm } from './OrderCompletionForm'; 
+import { createNotifications, fetchAdminUserIds } from '../../services/notificationService';
 
 interface OrderActionsProps {
   order: OrdenCompra;
@@ -12,7 +12,7 @@ interface OrderActionsProps {
 
 const OrderActions: React.FC<OrderActionsProps> = ({ order, onUpdate }) => {
   const [showCompletionForm, setShowCompletionForm] = useState(false); 
-  const [loadingAction, setLoadingAction] = useState(false); // Renamed 'loading' to 'loadingAction' for clarity
+  const [loadingAction, setLoadingAction] = useState(false); 
 
   const handleStatusChange = async (newStatus: OrdenCompraEstado) => {
     if (loadingAction) return;
@@ -22,22 +22,28 @@ const OrderActions: React.FC<OrderActionsProps> = ({ order, onUpdate }) => {
         setLoadingAction(false);
         return;
     }
-    // Confirmation for 'Completada' is now implicitly handled by opening the OrderCompletionForm first.
-    // If direct completion without form was possible, confirmation would be here.
-
+    
     try {
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('ordencompra')
         .update({ estado: newStatus, fecha_modificacion: new Date().toISOString() })
         .eq('id', order.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
       
-      // Inventory updates for 'Completada' status are now primarily handled by OrderCompletionForm.
-      // This block could be removed if OrderCompletionForm is the *only* way to complete.
-      // If direct completion is still an option (e.g., admin overrides), this logic might be kept.
-      // For now, assuming OrderCompletionForm is the standard path.
-      // if (newStatus === 'Completada') { ... inventory logic ... }
+      if (newStatus === 'Anulada') {
+        const adminUserIds = await fetchAdminUserIds();
+        if (adminUserIds.length > 0) {
+          const notificationsPayload: NotificacionInsert[] = adminUserIds.map(adminId => ({
+            user_id: adminId,
+            title: 'Orden de Compra Anulada',
+            description: `La orden de compra #${order.id} (Proveedor: ${order.proveedor?.nombre || 'N/D'}) ha sido anulada.`,
+            type: 'orden_anulada',
+            // related_id: order.id, // Removed
+          }));
+          await createNotifications(notificationsPayload);
+        }
+      }
       
       onUpdate(); 
     } catch (error) {
@@ -86,7 +92,7 @@ const OrderActions: React.FC<OrderActionsProps> = ({ order, onUpdate }) => {
           show={showCompletionForm}
           onHide={() => setShowCompletionForm(false)}
           order={order}
-          onComplete={(updatedOrder) => { 
+          onComplete={(_) => { 
             setShowCompletionForm(false);
             onUpdate(); 
           }}

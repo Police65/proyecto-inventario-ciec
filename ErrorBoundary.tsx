@@ -1,3 +1,4 @@
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
@@ -16,37 +17,37 @@ class ErrorBoundary extends Component<Props, State> {
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    // Update state so the next render will show the fallback UI.
+    // Actualizar estado para que el próximo renderizado muestre la UI de respaldo.
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // You can also log the error to an error reporting service
+    // También puedes registrar el error en un servicio de reporte de errores
     console.error("Uncaught error:", error, errorInfo);
     this.setState({ errorInfo });
   }
 
   public render() {
     if (this.state.hasError) {
-      // You can render any custom fallback UI
+      // Puedes renderizar cualquier UI de respaldo personalizada
       return (
         <div style={{ 
           margin: '20px', 
           padding: '20px', 
-          border: '1px solid #ef4444', // red-500
+          border: '1px solid #ef4444', // rojo-500
           borderRadius: '8px', 
-          backgroundColor: '#fee2e2', // red-100
-          color: '#7f1d1d', // red-900
+          backgroundColor: '#fee2e2', // rojo-100
+          color: '#7f1d1d', // rojo-900
           fontFamily: 'sans-serif'
         }}>
-          <h1 style={{ fontSize: '1.5em', color: '#b91c1c' /* red-700 */ }}>Algo salió mal.</h1>
+          <h1 style={{ fontSize: '1.5em', color: '#b91c1c' /* rojo-700 */ }}>Algo salió mal.</h1>
           <p style={{ marginTop: '10px' }}>La aplicación ha encontrado un error y no puede continuar.</p>
           <p style={{ marginTop: '5px' }}>Por favor, intente recargar la página. Si el problema persiste, contacte a soporte.</p>
           <details style={{ 
             marginTop: '15px', 
             padding: '10px', 
-            backgroundColor: '#fef2f2', // red-50 
-            border: '1px solid #fca5a5', // red-300
+            backgroundColor: '#fef2f2', // rojo-50 
+            border: '1px solid #fca5a5', // rojo-300
             borderRadius: '4px',
             whiteSpace: 'pre-wrap', 
             textAlign: 'left', 
@@ -67,7 +68,7 @@ class ErrorBoundary extends Component<Props, State> {
               padding: '10px 20px',
               border: 'none',
               borderRadius: '4px',
-              backgroundColor: '#dc2626', // red-600
+              backgroundColor: '#dc2626', // rojo-600
               color: 'white',
               cursor: 'pointer',
               fontSize: '1em'

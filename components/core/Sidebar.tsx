@@ -1,10 +1,9 @@
-
 import React from 'react';
 // @ts-ignore
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { UserProfile } from '../../types';
 import { 
-  HomeIcon, ListBulletIcon, ClockIcon, DocumentTextIcon, ArchiveBoxIcon, UsersIcon, BuildingStorefrontIcon, PlusCircleIcon, Cog6ToothIcon, CircleStackIcon, SquaresPlusIcon, BuildingLibraryIcon, ArrowRightOnRectangleIcon, ChartPieIcon, UserCircleIcon as UserSummaryIcon
+  HomeIcon, ListBulletIcon, ClockIcon, DocumentTextIcon, ArchiveBoxIcon, UsersIcon, BuildingStorefrontIcon, PlusCircleIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, ChartPieIcon, UserCircleIcon as UserSummaryIcon
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
