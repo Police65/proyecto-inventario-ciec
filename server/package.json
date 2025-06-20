@@ -24,7 +24,7 @@
   "pkg": {
     "scripts": "server.js",
     "assets": [
-      "../proyecto-inventario-ciec/dist/**/*"
+      "proyecto-inventario-ciec/dist/**/*" 
     ],
     "targets": [
       "node18-win-x64",

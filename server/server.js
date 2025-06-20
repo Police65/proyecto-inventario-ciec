@@ -4,11 +4,14 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const inquirer = require('inquirer');
-const fs = require('fs');
+const fs = require('fs'); // Asegurarse de que fs esté importado
 
 const app = express();
 
-const pathToReactBuild = path.join(path.dirname(process.execPath), 'dist');
+// IMPORTANTE: Cuando pkg empaqueta, los 'assets' (como la carpeta dist) se colocan junto al ejecutable.
+// `process.cwd()` obtiene el directorio de trabajo actual (donde se ejecuta el .exe).
+// En un ejecutable pkg, pathToReactBuild debería ser simplemente el mismo directorio que el ejecutable.
+const pathToReactBuild = path.join(process.cwd(), 'dist'); // Esto asume que 'dist' estará al mismo nivel que el .exe
 
 app.use(helmet());
 app.use(cors());
@@ -18,27 +21,49 @@ async function startServer(port, hostname) {
     app.set('port', port);
     app.set('hostname', hostname);
 
+    // Verificar si la carpeta 'dist' existe y es accesible
     try {
-
+        if (!fs.existsSync(pathToReactBuild)) {
+            throw new Error(`La carpeta de build de React no se encontró en: ${pathToReactBuild}`);
+        }
+        console.log(`Sirviendo archivos estáticos desde: ${pathToReactBuild}`);
     } catch (e) {
-        console.error(`Error al acceder a la carpeta de build de React en ${pathToReactBuild}`);
-        console.error('Asegúrate de que la carpeta "dist" fue correctamente empaquetada con pkg.');
-        process.exit(1);
+        console.error(`\n=================================================`);
+        console.error(` ERROR CRÍTICO AL INICIAR EL SERVIDOR `);
+        console.error(`=================================================`);
+        console.error(`${e.message}`);
+        console.error('Asegúrate de que la carpeta "dist" de tu aplicación React fue correctamente empaquetada.');
+        console.error('Verifica la configuración de "assets" en el package.json para "pkg".');
+        console.error(`Ruta esperada para 'dist': ${pathToReactBuild}`);
+        console.error(`El directorio actual de ejecución es: ${process.cwd()}`);
+        console.error(`=================================================\n`);
+        process.exit(1); // Salir si la carpeta dist no se encuentra
     }
     
     app.use(express.static(pathToReactBuild));
 
+    // Para SPA, redirigir todas las rutas al index.html
     app.get('*', (req, res) => {
-        res.sendFile(path.join(pathToReactBuild, 'index.html'));
+        const indexPath = path.join(pathToReactBuild, 'index.html');
+        if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+        } else {
+            console.error(`index.html no encontrado en ${indexPath}`);
+            res.status(404).send('Error: Página no encontrada. El archivo index.html no existe en la carpeta de build.');
+        }
     });
 
-
+    // Manejador de errores centralizado para Express
     app.use((err, req, res, next) => {
-        console.error(err.stack);
-        res.status(500).send('¡Algo salió mal en el servidor!');
+        console.error('=================================================');
+        console.error(' ERROR EN EL SERVIDOR (MANEJADOR DE ERRORES) ');
+        console.error('=================================================');
+        console.error(err.stack); // Mostrar el stack trace del error
+        res.status(500).send('¡Algo salió mal en el servidor! Por favor, verifica los logs.');
+        console.error('=================================================\n');
     });
 
-    app.listen(port, () => {
+    const serverInstance = app.listen(port, hostname, () => { // Usar 'hostname' en app.listen
         console.log(`\n=================================================`);
         console.log(` Servidor de Aplicación React Iniciado `);
         console.log(`=================================================`);
@@ -47,7 +72,9 @@ async function startServer(port, hostname) {
         console.log(` Sirviendo archivos desde: ${pathToReactBuild}`);
         console.log(` Presiona CTRL+C para detener el servidor.`);
         console.log(`=================================================\n`);
-    }).on('error', (err) => {
+    });
+
+    serverInstance.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
             console.error(`\nError: El puerto ${port} ya está en uso.`);
             console.error('Por favor, selecciona un puerto diferente o cierra la aplicación que lo está usando.');
@@ -103,4 +130,4 @@ async function main() {
     await startServer(port, hostname);
 }
 
-main().catch(console.error);
+main().catch(console.error); // Captura errores no manejados en la función main
