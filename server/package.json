@@ -14,9 +14,10 @@
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "helmet": "^7.1.0",
-    "inquirer": "^9.2.20",
+    "inquirer": "^8.2.4", 
     "morgan": "^1.10.0",
-    "pkg": "^5.8.1"
+    "pkg": "^5.8.1",
+    "bonjour": "^3.5.0"  
   },
   "bin": {
     "inventario-server": "server.js"
@@ -24,9 +25,37 @@
   "pkg": {
     "scripts": "server.js",
     "assets": [
-      "proyecto-inventario-ciec/dist/**/*" 
+      "./dist/**/*", 
+      "node_modules/inquirer/**/*",
+      "node_modules/bonjour/**/*",
+      "node_modules/mdns-js/**/*",
+      "node_modules/dns-txt/**/*",
+      "node_modules/multicast-dns/**/*",
+      "node_modules/thunky/**/*",
+      "node_modules/pump/**/*",
+      "node_modules/inherits/**/*",
+      "node_modules/rc/index.js", 
+      "node_modules/minimist/**/*",
+      "node_modules/concat-stream/**/*",
+      "node_modules/bl/**/*",
+      "node_modules/readable-stream/**/*",
+      "node_modules/string_decoder/**/*",
+      "node_modules/util-deprecate/**/*",
+      "node_modules/buffer-from/**/*",
+      "node_modules/safe-buffer/**/*",
+      "node_modules/end-of-stream/**/*",
+      "node_modules/once/**/*",
+      "node_modules/wrappy/**/*",
+      "node_modules/through2/**/*",
+      "node_modules/xtend/**/*",
+      "node_modules/duplexify/**/*",
+      "node_modules/cobs/**/*",
+      "node_modules/varint/**/*",
+      "node_modules/murmur-hash-js/**/*",
+      "node_modules/json-cycle/**/*",
+      "node_modules/fast-json-stable-stringify/**/*"
     ],
-    "targets": [
+    "targets": [  
       "node18-win-x64",
       "node18-linux-x64"
     ],
