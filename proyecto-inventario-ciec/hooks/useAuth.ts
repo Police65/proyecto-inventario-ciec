@@ -311,19 +311,34 @@ export function useAuth(): AuthHookResult {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (authChangeEvent, newSession) => {
       console.log(`[useAuth] onAuthStateChange: Evento '${String(authChangeEvent)}'. Nuevo ID de sesión: ${newSession?.user?.id}, Email: ${newSession?.user?.email}`);
 
-      if (isProcessingAuthEvent.current) {
-        console.log(`[useAuth] onAuthStateChange: Evento '${String(authChangeEvent)}' omitido, otro procesamiento en curso.`);
-        return;
-      }
-      isProcessingAuthEvent.current = true; 
-
+      // If an operation like login/logout initiated this, it would have set isProcessingAuthEvent.
+      // This guard is to prevent concurrent onAuthStateChange processing if multiple events fire rapidly
+      // for reasons other than a direct user action that's already being handled.
+      // However, if getInitialSession is the one setting the lock, this might be too aggressive.
+      // For logout, the 'logout' function itself will set the lock, and this onAuthStateChange is the *expected* follow-up.
+      // If the lock is already set by `logout`, this `if` block would skip the processing of `SIGNED_OUT`.
+      // This guard needs to be more nuanced or removed if `login`/`logout` correctly manage their own `isProcessingAuthEvent` lifecycle.
+      // For now, let's assume this guard is problematic for logout.
+      // if (isProcessingAuthEvent.current) {
+      //   console.log(`[useAuth] onAuthStateChange: Evento '${String(authChangeEvent)}' omitido, otro procesamiento en curso.`);
+      //   return;
+      // }
+      // Instead of the above guard, the individual paths will manage the lock.
+      
       const currentLocalProfile = userProfileRef.current; 
       const currentLocalSession = sessionRef.current;   
 
       // Lógica para refresco de perfil en segundo plano si ya hay sesión y perfil activos.
-      // Esto ocurre para eventos como TOKEN_REFRESHED, USER_UPDATED, o un SIGNED_IN redundante.
+      // Esto ocurre para eventos como TOKEN_REFRESHED, USER_UPDATED.
+      // SIGNED_IN here might be redundant if a login flow just completed and is waiting for this.
       if (currentLocalProfile && currentLocalSession && newSession?.user &&
-          (authChangeEvent === 'SIGNED_IN' || authChangeEvent === 'TOKEN_REFRESHED' || authChangeEvent === 'USER_UPDATED')) {
+          (authChangeEvent === 'TOKEN_REFRESHED' || authChangeEvent === 'USER_UPDATED' || (authChangeEvent === 'SIGNED_IN' && newSession.user.id === currentLocalSession.user.id))) {
+          
+          if (isProcessingAuthEvent.current) {
+            console.log(`[useAuth] onAuthStateChange (segundo plano): Omitido para evento '${String(authChangeEvent)}', otro procesamiento de autenticación (login/logout/initial) en curso.`);
+            return;
+          }
+          isProcessingAuthEvent.current = true; // Lock for background refresh
 
           console.log(`[useAuth] onAuthStateChange: Refresco de perfil en segundo plano para usuario ${newSession.user.id}.`);
           try {
@@ -336,7 +351,10 @@ export function useAuth(): AuthHookResult {
                   localStorage.setItem("userProfile", JSON.stringify(refreshedProfile));
               } else if (refreshedProfile && refreshedProfile.empleado?.estado !== 'activo') {
                   console.warn("[useAuth] onAuthStateChange (segundo plano): Usuario se volvió inactivo. Cerrando sesión.");
-                  throw new Error("Usuario inactivo. Contacte al administrador."); // Esto forzará la limpieza.
+                  // Force a full logout sequence by calling the main logout function
+                  // This ensures all state is cleaned up consistently.
+                  await logout(); // Call the main logout function
+                  // setError will be set by logout if needed.
               } else if (!refreshedProfile) {
                   console.warn(`[useAuth] onAuthStateChange (segundo plano): Perfil para usuario ${newSession.user.id} no encontrado tras refresco. Manteniendo perfil local (podría estar desactualizado).`);
                   setError(new Error("No se pudo actualizar la información más reciente del perfil. Se utilizarán los datos locales."));
@@ -345,27 +363,43 @@ export function useAuth(): AuthHookResult {
               const bgError = backgroundError instanceof Error ? backgroundError : new Error(String(backgroundError));
               console.warn(`[useAuth] onAuthStateChange (segundo plano): Error refrescando perfil: ${bgError.message}.`);
               if(bgError.message.includes("Usuario inactivo")){ 
-                  setError(bgError);
-                  setUserProfile(null); setSession(null); setUser(null); localStorage.removeItem("userProfile");
+                  await logout(); // Call main logout
               } else { 
                   setError(new Error(`No se pudo actualizar su perfil (${bgError.message}). Usando información local.`));
               }
           } finally {
-              isProcessingAuthEvent.current = false; 
+              isProcessingAuthEvent.current = false; // Release lock for background refresh
               console.log(`[useAuth] onAuthStateChange (segundo plano): Evento '${String(authChangeEvent)}' procesado.`);
           }
-      } else {
-          // Procesamiento completo para eventos como SIGNED_OUT o cuando no hay perfil/sesión local (primer SIGNED_IN).
+      } else { // This path handles INITIAL_SESSION, SIGNED_IN (new user), SIGNED_OUT
+          // If isProcessingAuthEvent is already true (e.g. set by login/logout/getInitialSession),
+          // this means this onAuthStateChange is part of that flow.
+          // If it's false, then this is a spontaneous event, and this path will manage the lock.
+          const isInitiatingNewProcess = !isProcessingAuthEvent.current;
+          if (isInitiatingNewProcess) {
+            isProcessingAuthEvent.current = true;
+          }
+          // setLoading(true) should generally be set by the initiating action (login/logout/initial)
+          // onAuthStateChange's finally block will set it to false.
+          // For INITIAL_SESSION, getInitialSession sets loading.
+          // For SIGNED_IN (after login), login sets loading.
+          // For SIGNED_OUT (after logout), logout sets loading.
+          // If it's a truly spontaneous event that wasn't caught by background refresh, we might need to set loading.
+          // However, this 'else' branch is also hit by initial_session, login, logout.
+          // Let's ensure loading is only set true if it's not already part of an ongoing process loading state.
+          if (authChangeEvent !== 'TOKEN_REFRESHED' && authChangeEvent !== 'USER_UPDATED') { // Avoid double loading for background events
+             setLoading(true); 
+          }
+
+
           console.log(`[useAuth] onAuthStateChange: Procesamiento completo para evento '${String(authChangeEvent)}'.`);
-          setLoading(true); 
           setError(null);
           let authStateChangeReason = "Perfil de usuario no encontrado o carga fallida tras cambio de estado.";
           try {
               setSession(newSession);
               setUser(newSession?.user ?? null);
 
-              if (newSession?.user) {
-                  // Si hay nuevo usuario (ej. SIGNED_IN), obtener su perfil.
+              if (newSession?.user) { // SIGNED_IN or INITIAL_SESSION with user
                   const profile = await fetchUserProfile(newSession.user.id, newSession.user.email);
                   if (profile && profile.empleado?.estado === 'activo') {
                       setUserProfile(profile);
@@ -373,21 +407,23 @@ export function useAuth(): AuthHookResult {
                   } else {
                       authStateChangeReason = profile ? (profile.empleado?.estado === 'inactivo' ? "Usuario inactivo. Contacte al administrador." : "Perfil de usuario no encontrado, incompleto o empleado inactivo tras cambio de estado.") : authStateChangeReason;
                       console.warn(`[useAuth] onAuthStateChange (completo): ${authStateChangeReason}`);
-                      throw new Error(authStateChangeReason); // Forzar limpieza de sesión si el perfil no es válido.
+                      // For SIGNED_IN or INITIAL_SESSION, if profile is invalid, treat as logout
+                      setUserProfile(null); localStorage.removeItem("userProfile"); setSession(null); setUser(null);
+                      setError(new Error(authStateChangeReason));
                   }
-              } else {
-                  // Si no hay nuevo usuario (ej. SIGNED_OUT), limpiar perfil local.
+              } else { // SIGNED_OUT or INITIAL_SESSION without user
                   setUserProfile(null);
                   localStorage.removeItem("userProfile");
+                  console.log("[useAuth] onAuthStateChange (completo): SIGNED_OUT o INITIAL_SESSION sin usuario. Perfil y localStorage limpiados.");
               }
           } catch (e) {
               const finalError = e instanceof Error ? e : new Error(String(e || "Error desconocido durante cambio de estado de auth."));
               console.error("[useAuth] Error durante procesamiento de onAuthStateChange (completo):", finalError.message, finalError);
               setError(finalError);
-              setUserProfile(null); setSession(null); setUser(null); localStorage.removeItem("userProfile"); // Limpiar todo.
+              setUserProfile(null); setSession(null); setUser(null); localStorage.removeItem("userProfile"); 
           } finally {
               setLoading(false); 
-              isProcessingAuthEvent.current = false; 
+              isProcessingAuthEvent.current = false; // Release lock. This is the main release point.
               console.log(`[useAuth] onAuthStateChange (completo): Evento '${String(authChangeEvent)}' procesado. Carga: false.`);
           }
       }
@@ -395,31 +431,35 @@ export function useAuth(): AuthHookResult {
 
     return () => {
       authListener?.subscription.unsubscribe(); 
-      isProcessingAuthEvent.current = false; // Asegurar liberación al desmontar.
+      if (isProcessingAuthEvent.current) { // Ensure lock is released if component unmounts mid-process
+          // This might be too aggressive if another part is meant to release it.
+          // console.warn("[useAuth] Unsubscribing: Releasing isProcessingAuthEvent lock due to component unmount or effect re-run.");
+          // isProcessingAuthEvent.current = false;
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchUserProfile]); 
+  }, [fetchUserProfile]); // Removed 'logout' from dependencies as it causes re-runs and potential issues
 
   const login = async (email: string, password: string) => {
     if (isProcessingAuthEvent.current) {
-        console.warn("[useAuth] Intento de login mientras otro evento de autenticación se procesaba.");
+        console.warn("[useAuth] Login: Ignorado, otro proceso de autenticación está activo.");
         throw new Error("Procesamiento de autenticación en curso. Intente de nuevo en un momento.");
     }
     isProcessingAuthEvent.current = true;
     setLoading(true);
     setError(null);
     try {
-      // signInWithPassword de Supabase activará onAuthStateChange, que luego llama a fetchUserProfile.
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (signInError) {
-        console.error("[useAuth] Error de inicio de sesión (directo de Supabase):", signInError.message, signInError);
+        console.error("[useAuth] Login: Error directo de Supabase:", signInError.message, signInError);
         throw signInError; 
       }
-      // El éxito es manejado por onAuthStateChange. El loading y isProcessingAuthEvent se resetean allí.
+      // Success is handled by onAuthStateChange. It will set loading=false and release isProcessingAuthEvent.
+      console.log("[useAuth] Login: signInWithPassword exitoso. Esperando onAuthStateChange.");
     } catch (e) {
       const caughtLoginError = e instanceof Error ? e : new Error(String(e || "Error desconocido durante el inicio de sesión."));
-      console.error("[useAuth] Error de inicio de sesión (hook catch):", caughtLoginError.message, caughtLoginError);
+      console.error("[useAuth] Login: Error en bloque catch:", caughtLoginError.message, caughtLoginError);
 
       let finalErrorToThrow: Error;
       if ((e as AuthError).status === 400 || caughtLoginError.message.includes("Invalid login credentials")) {
@@ -439,31 +479,42 @@ export function useAuth(): AuthHookResult {
 
   const logout = async () => {
     if (isProcessingAuthEvent.current && sessionRef.current === null) {
-        console.warn("[useAuth] Intento de logout mientras otro evento de auth se procesaba Y la sesión ya es nula. Limpiando estado local.");
+        console.warn("[useAuth] Logout: Ya procesando y sesión es nula. Limpieza forzada y retorno.");
         setSession(null); setUser(null); setUserProfile(null); localStorage.removeItem("userProfile"); setLoading(false); setError(null);
         isProcessingAuthEvent.current = false;
         return;
     }
-    isProcessingAuthEvent.current = true; 
-
+    if (isProcessingAuthEvent.current) {
+        console.warn("[useAuth] Logout: Ignorado, otro proceso de autenticación ya está activo.");
+        return; // Prevent concurrent logouts if one is already underway
+    }
+    
+    console.log("[useAuth] Logout: Iniciando cierre de sesión.");
+    isProcessingAuthEvent.current = true;
     setLoading(true);
     setError(null);
+
     try {
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) {
-        console.error("[useAuth] logout: Error durante supabase.auth.signOut():", signOutError.message);
-        throw signOutError;
+        console.error("[useAuth] Logout: Error en supabase.auth.signOut():", signOutError.message);
+        throw signOutError; // Caught by catch block below
       }
-      // onAuthStateChange se encargará de establecer user/profile a null y resetear loading/isProcessingAuthEvent.
+      // onAuthStateChange (event: SIGNED_OUT) se encargará de:
+      // 1. Poner session, user, userProfile a null.
+      // 2. Limpiar "userProfile" de localStorage.
+      // 3. Poner loading a false.
+      // 4. Poner isProcessingAuthEvent.current a false.
+      console.log("[useAuth] Logout: supabase.auth.signOut() exitoso. Esperando onAuthStateChange.");
     } catch (e) {
       const caughtLogoutError = e instanceof Error ? e : new Error(String(e || "Error desconocido durante el cierre de sesión."));
-      console.error("[useAuth] logout: Bloque catch. Error:", caughtLogoutError.message, caughtLogoutError);
+      console.error("[useAuth] Logout: Error en bloque catch:", caughtLogoutError.message, caughtLogoutError);
       setError(caughtLogoutError);
-      // Asegurar que el estado se limpie incluso si onAuthStateChange tiene problemas o no se dispara como se espera.
+      // Limpieza explícita en caso de que onAuthStateChange falle o no se dispare.
       setSession(null); setUser(null); setUserProfile(null);
       localStorage.removeItem("userProfile");
-      setLoading(false); // Terminar carga explícitamente en caso de error
-      isProcessingAuthEvent.current = false; // Liberar bloqueo
+      setLoading(false); 
+      isProcessingAuthEvent.current = false; 
     }
   };
 

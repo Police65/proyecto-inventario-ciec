@@ -123,6 +123,12 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
     onToggleSidebar(); 
   };
 
+  const handleLogoutAndCloseMenu = () => {
+    onLogout();
+    setShowProfileMenu(false);
+    setHasInteracted(true); // Logging out is an interaction
+  };
+
 
   return (
     <nav className="bg-white dark:bg-gray-800 shadow-md fixed w-full z-50 top-0"> 
@@ -221,10 +227,7 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
                   </p>
                 </div>
                 <button
-                  onClick={() => {
-                    onLogout(); 
-                    setShowProfileMenu(false); 
-                  }}
+                  onClick={handleLogoutAndCloseMenu}
                   className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-700 dark:hover:text-red-300"
                   role="menuitem"
                 >

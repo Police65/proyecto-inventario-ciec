@@ -1,3 +1,4 @@
+
 // hooks/useRealtimeSubscription.ts
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
@@ -70,7 +71,7 @@ CRITICAL DEBUGGING STEPS:
 
 No further automatic re-subscription attempts will be made for this channel.`;
       console.error(maxRetryError);
-      setError(maxRetryError);
+      setError(maxRetryError); // Set the final, detailed error here
       setIsSubscribed(false);
     }
   }, [channelName, retryAttempt, schema, tableName]);
@@ -144,7 +145,7 @@ No further automatic re-subscription attempts will be made for this channel.`;
       if (status === 'SUBSCRIBED') {
         console.log(`${baseMessage}: Successfully SUBSCRIBED.`);
         setIsSubscribed(true);
-        setError(null);
+        setError(null); // Clear any previous errors on successful subscription
         if (retryAttempt > 0) setRetryAttempt(0); 
         if (retryTimerRef.current) {
           clearTimeout(retryTimerRef.current);
@@ -152,11 +153,13 @@ No further automatic re-subscription attempts will be made for this channel.`;
         }
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         const logMethod = status === 'CLOSED' && !err ? console.warn : console.error;
-        logMethod(`${baseMessage}: Status is ${status}. ${errDetails} . Attempting to re-subscribe.`);
+        logMethod(`${baseMessage}: Status is ${status}. ${errDetails}. Attempting to re-subscribe if attempts remain.`);
         setIsSubscribed(false);
-        setError(`Subscription failed with status ${status}. ${errDetails}`);
+        // Do not set the main 'error' state here for intermediate retries.
+        // scheduleRetry will set the final error if MAX_RETRY_ATTEMPTS is reached.
         scheduleRetry();
       } else {
+        // For other statuses like 'joining', 'connected', etc.
         console.info(`${baseMessage}: Status is ${status}. ${err ? errDetails : '(No specific error details)'}`);
         setIsSubscribed(false); 
       }

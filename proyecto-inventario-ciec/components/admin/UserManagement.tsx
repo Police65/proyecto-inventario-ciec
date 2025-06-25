@@ -3,11 +3,12 @@ import { supabase } from '../../supabaseClient';
 import { Empleado, UserProfile, Cargo, Departamento, EmpleadoCargoHistorial, UserProfileRol, EmpleadoEstado } from '../../types';
 import { PlusCircleIcon, PencilIcon, UserPlusIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, EyeIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
-import { User } from '@supabase/supabase-js';
+import { User, AuthError } from '@supabase/supabase-js';
 
 interface RawEmpleadoFromQuery extends Omit<Empleado, 'user_profile' | 'cargo' | 'departamento'> {
   cargo: Pick<Cargo, 'id' | 'nombre'> | null;
   departamento: Pick<Departamento, 'id' | 'nombre'> | null;
+  // user_profile no se selecciona aquí, se mapeará más tarde
 }
 
 const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-70 dark:disabled:opacity-50";
@@ -28,6 +29,7 @@ const UserManagement: React.FC = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [selectedEmpleadoForProfile, setSelectedEmpleadoForProfile] = useState<Empleado | null>(null);
+  // Email en profileFormData es para auth.signUp, no para la tabla user_profile.
   const [profileFormData, setProfileFormData] = useState<{ email: string; password?: string; rol: UserProfileRol; departamento_id?: number | null }>({ email: '', rol: 'usuario' });
   
   const [submittingProfileState, setSubmittingProfileState] = useState(false); 
@@ -56,9 +58,10 @@ const UserManagement: React.FC = () => {
         .returns<RawEmpleadoFromQuery[]>(); 
       if (empError) throw empError;
 
+      // Obtener user_profile sin 'email'
       const { data: profilesData, error: profilesError } = await supabase
         .from('user_profile')
-        .select('id, rol, empleado_id, departamento_id'); 
+        .select('id, rol, empleado_id, departamento_id'); // Se eliminó 'email'
       if (profilesError) throw profilesError;
       
       const profilesMap = new Map<number, { id: string; rol: UserProfileRol | null; departamento_id: number | null; }>();
@@ -67,6 +70,7 @@ const UserManagement: React.FC = () => {
           if (profile.empleado_id) {
             profilesMap.set(profile.empleado_id, { 
               id: profile.id, 
+              // email no se establece aquí ya que no está en la tabla user_profile
               rol: profile.rol as UserProfileRol | null, 
               departamento_id: profile.departamento_id
             });
@@ -79,6 +83,7 @@ const UserManagement: React.FC = () => {
         const user_profile_for_emp: UserProfile | null = user_profile_data 
             ? { 
                 id: user_profile_data.id, 
+                // email estará indefinido aquí inicialmente; puede obtenerse de auth.users si es necesario para mostrar
                 rol: user_profile_data.rol, 
                 empleado_id: rawEmp.id,
                 departamento_id: user_profile_data.departamento_id,
@@ -122,8 +127,9 @@ const UserManagement: React.FC = () => {
   }, [fetchData]);
 
   const resetProfileForm = (empleado?: Empleado | null) => {
+    // Email para el formulario estará vacío o prellenado si se edita y lo tenemos de auth.users, no de la tabla user_profile
     let emailForForm = '';
-    if (empleado && empleado.user_profile && empleado.user_profile.email) {
+    if (empleado && empleado.user_profile && empleado.user_profile.email) { // Verificar si email fue poblado (ej. del hook useAuth para el usuario actual)
         emailForForm = empleado.user_profile.email;
     }
     
@@ -236,18 +242,24 @@ const UserManagement: React.FC = () => {
 
           if (signUpError) {
               if (signUpError.message.toLowerCase().includes('user already registered')) {
-                  // Attempt to get current session user, if their email matches, we might have their ID.
-                  // This is a client-side limitation; server-side admin API would be more direct.
-                  const {data: { user: sessionUserAfterAttempt }} = await supabase.auth.getUser();
-                  if(sessionUserAfterAttempt?.email === profileFormData.email) {
-                      authUserId = sessionUserAfterAttempt.id;
-                      signUpUser = sessionUserAfterAttempt; // Treat this as the user if session matches
-                      console.warn(`[UserManagement] Email ${profileFormData.email} already registered. Using current session user ID: ${authUserId}. Manual verification might be needed if this isn't the intended existing user.`);
+                  // Try to get the user if "already registered"
+                  const { data: { user: fetchedUserByEmail }, error: getUserByEmailError } = await supabase.auth.admin.getUserByEmail(profileFormData.email);
+                   if (getUserByEmailError && !fetchedUserByEmail) { // If admin API fails or not available, this path is tricky client-side
+                        console.warn("Failed to get user by email via admin API, or admin API not available. Relying on session or previous signup info if any.")
+                        // Fallback: attempt to get current session user, though this might not be the "already registered" one.
+                        const {data: { user: sessionUserAfterAttempt }} = await supabase.auth.getUser();
+                        if(sessionUserAfterAttempt?.email === profileFormData.email) {
+                            authUserId = sessionUserAfterAttempt.id;
+                        } else {
+                            throw new Error(`El correo '${profileFormData.email}' ya está registrado. No se pudo obtener su ID de usuario automáticamente. Verifique la consola o contacte a soporte.`);
+                        }
+                  } else if (fetchedUserByEmail) {
+                     authUserId = fetchedUserByEmail.id;
+                     signUpUser = fetchedUserByEmail; // Treat this as the user we're working with
                   } else {
-                      // If not the current session user, then it's another existing user.
-                      // We don't have their ID client-side without admin rights.
-                      throw new Error(`El correo '${profileFormData.email}' ya está registrado en el sistema de autenticación para otro usuario. No se puede obtener su ID automáticamente desde el cliente. Por favor, use un correo diferente o contacte a soporte para enlazar manualmente si es necesario.`);
+                    throw new Error(`El correo '${profileFormData.email}' ya está registrado. No se pudo obtener su ID de usuario.`);
                   }
+
               } else { throw new Error(`Error Auth (signUp): ${signUpError.message}`); }
           } else { 
               if (!signUpUser?.id) throw new Error("SignUp exitoso pero sin ID de usuario.");
@@ -256,7 +268,7 @@ const UserManagement: React.FC = () => {
       }
 
       if (!isEditingProfile && authUserId) {
-        let profileForAuthIdToCheck: (Partial<UserProfile> & { empleado: { nombre: string; apellido: string; } | null }) | null = null;
+        let profileForAuthIdToCheck: (Partial<UserProfile> & { empleado: { nombre: string, apellido: string } | null }) | null = null;
 
         const { data: rawProfileData, error: profileCheckError } = await supabase
           .from('user_profile')
@@ -272,7 +284,7 @@ const UserManagement: React.FC = () => {
                 empleado_id: rawProfileData.empleado_id,
                 rol: rawProfileData.rol as UserProfileRol | null,
                 departamento_id: rawProfileData.departamento_id,
-                empleado: null,
+                empleado: null // Initialize as null
             };
 
             if (rawProfileData.empleado_id) {
@@ -280,12 +292,12 @@ const UserManagement: React.FC = () => {
                     .from('empleado')
                     .select('nombre, apellido')
                     .eq('id', rawProfileData.empleado_id)
-                    .single<{nombre: string; apellido: string;}>();
+                    .single();
                 
                 if (empError) {
                     console.warn(`No se pudo obtener detalles del empleado para empleado_id ${rawProfileData.empleado_id}: ${empError.message}`);
                 }
-                if (empData && profileForAuthIdToCheck) { 
+                if (empData && profileForAuthIdToCheck) { // Null check for profileForAuthIdToCheck
                     profileForAuthIdToCheck.empleado = empData;
                 }
             }
@@ -381,13 +393,13 @@ const UserManagement: React.FC = () => {
   
   const getProfileStatus = (emp: Empleado): React.ReactNode => {
     if (emp.user_profile) {
-      // Prefer email if available from auth for display, otherwise use ID
-      const displayIdentifier = emp.user_profile.email || `Auth ID: ${emp.user_profile.id.substring(0,8)}...`;
-      
+      const displayId = emp.user_profile.id ? `Auth ID: ${emp.user_profile.id.substring(0,8)}...` : 'ID No Disponible';
+      const displayText = emp.user_profile.email ? emp.user_profile.email : displayId;
+
       return (
         <div className="text-green-600 dark:text-green-400 text-xs">
           <p className="font-semibold" title={emp.user_profile.email || emp.user_profile.id}>
-            {displayIdentifier}
+            {displayText}
           </p>
           <p>Rol: {emp.user_profile.rol || 'N/A'}</p>
         </div>
