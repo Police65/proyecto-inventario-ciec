@@ -42,12 +42,12 @@ interface OrderFormProps {
   solicitudesIds?: number[];
 }
 
-const OrderForm: React.FC<OrderFormProps> = ({
+export const OrderForm: React.FC<OrderFormProps> = ({
   show, onHide, userProfile, onSuccess,
   initialProducts = [], proveedorId = null, solicitudesIds = []
 }) => {
   const [productosParaOrden, setProductosParaOrden] = useState<OrderFormProductLineItem[]>([]);
-  const [proveedores, setProveedores] = useState<Pick<Proveedor, 'id' | 'nombre'>[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [fetchedDbProducts, setFetchedDbProducts] = useState<Pick<Producto, 'id' | 'descripcion' | 'categoria_id'>[]>([]);
   const [productCategories, setProductCategories] = useState<CategoriaProducto[]>([]);
 
@@ -108,7 +108,7 @@ const OrderForm: React.FC<OrderFormProps> = ({
       setError(null);
       const cargarDatos = async () => {
         try {
-          const { data: proveedoresData, error: provError } = await supabase.from('proveedor').select('id, nombre');
+          const { data: proveedoresData, error: provError } = await supabase.from('proveedor').select('*');
           if (provError) throw provError;
           setProveedores(proveedoresData || []);
 
@@ -142,6 +142,19 @@ const OrderForm: React.FC<OrderFormProps> = ({
       setError(null);
     }
   }, [show, proveedorId, formatInitialProductsToLineItems, fetchProductCategories]);
+  
+  useEffect(() => {
+    if (formData.proveedor_id) {
+        const selectedProvider = proveedores.find(p => p.id === Number(formData.proveedor_id));
+        if (selectedProvider) {
+            setFormData(prev => ({
+                ...prev,
+                retencion_porcentaje: selectedProvider.porcentaje_retencion_iva
+            }));
+        }
+    }
+  }, [formData.proveedor_id, proveedores]);
+
 
   useEffect(() => {
     setFormData(prev => ({
@@ -311,62 +324,89 @@ const OrderForm: React.FC<OrderFormProps> = ({
     } finally { setSubmittingOrder(false); }
   };
 
+  const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
+  const smallInputFieldClasses = "block w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
+
+
   if (!show) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 sm:p-5 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10"><h3 className="text-xl font-semibold text-gray-900 dark:text-white">Crear Orden de Compra</h3><button onClick={onHide} disabled={submittingOrder} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md"><XMarkIcon className="w-6 h-6" /></button></div>
         {(loadingInitialData && !productosParaOrden.length) ? <div className="p-10 flex-grow flex items-center justify-center"><LoadingSpinner message="Cargando formulario..." /></div> : (
         <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-4 sm:p-5 space-y-5">
           {error && <div className="p-3 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 rounded-md text-sm">{error}</div>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label htmlFor="proveedor_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span className="text-red-500">*</span></label><select id="proveedor_id" name="proveedor_id" value={formData.proveedor_id || ''} onChange={handleFormInputChange} required className="w-full px-3 py-2 border input-field"><option value="">Seleccionar...</option>{proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
-            <div><label htmlFor="unidad" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unidad Monetaria</label><select id="unidad" name="unidad" value={formData.unidad || 'Bs'} onChange={handleFormInputChange} className="w-full px-3 py-2 border input-field"><option value="Bs">Bs</option><option value="USD">USD</option></select></div>
-            <div><label htmlFor="fecha_entrega_estimada" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">F. Entrega Estimada</label><div className="relative"><input type="date" id="fecha_entrega_estimada" name="fecha_entrega_estimada" value={formData.fecha_entrega_estimada || ''} onChange={handleFormInputChange} className="w-full px-3 py-2 border input-field pr-8" /><CalendarDaysIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" /></div></div>
+            <div><label htmlFor="proveedor_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span className="text-red-500">*</span></label><select id="proveedor_id" name="proveedor_id" value={formData.proveedor_id || ''} onChange={handleFormInputChange} required className={inputFieldClasses} onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione un proveedor.')} onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}><option value="">Seleccionar...</option>{proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+            <div><label htmlFor="unidad" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unidad Monetaria</label><select id="unidad" name="unidad" value={formData.unidad || 'Bs'} onChange={handleFormInputChange} className={inputFieldClasses}><option value="Bs">Bs</option><option value="USD">USD</option></select></div>
+            <div><label htmlFor="fecha_entrega_estimada" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">F. Entrega Estimada</label><div className="relative"><input type="date" id="fecha_entrega_estimada" name="fecha_entrega_estimada" value={formData.fecha_entrega_estimada || ''} onChange={handleFormInputChange} className={`${inputFieldClasses} pr-8`} /><CalendarDaysIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" /></div></div>
           </div>
           <div className="space-y-3">
             <h4 className="text-md font-semibold text-gray-700 dark:text-gray-200">Productos <span className="text-red-500">*</span></h4>
             {productosParaOrden.map((item) => (
-              <div key={item.id} className="p-3 border dark:border-gray-700 rounded-md space-y-3 bg-gray-50 dark:bg-gray-900/40 shadow-sm">
-                <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100 flex-grow mr-2 truncate" title={item.display_descripcion}>{item.display_descripcion || `Producto ID: ${item.selected_producto_id || 'Nuevo'}`}</p>
-                    <div className="flex items-center">
-                        <label htmlFor={`seleccionado-${item.id}`} className="mr-2 text-xs text-gray-600 dark:text-gray-400">Incluir</label>
-                        <input type="checkbox" id={`seleccionado-${item.id}`} checked={item.seleccionado} onChange={(e) => handleProductLineChange(item.id, 'seleccionado', e.target.checked)} className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-500 rounded bg-white dark:bg-gray-700"/>
-                    </div>
-                </div>
-                {/* UI para editar o seleccionar producto, similar a DirectOrderForm */}
-                 <div className="flex items-center justify-end mb-1">
-                     <button type="button" onClick={() => handleProductLineChange(item.id, 'isNewProductMode', !item.isNewProductMode)}
-                        className={`px-2 py-1 text-xs rounded-md ${item.isNewProductMode ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}>
-                        {item.isNewProductMode ? 'Usar Existente' : 'Crear Nuevo Producto'}
-                     </button>
-                  </div>
-                  {item.isNewProductMode ? (
-                    <div className="space-y-2 border-t dark:border-gray-600 pt-2">
-                      <div><label htmlFor={`newDesc-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Desc. Nuevo Prod. <span className="text-red-500">*</span></label><input type="text" id={`newDesc-${item.id}`} value={item.newProduct_descripcion} onChange={(e) => handleProductLineChange(item.id, 'newProduct_descripcion', e.target.value)} required className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" placeholder="Nombre nuevo producto"/></div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div><label htmlFor={`newCat-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Categoría <span className="text-red-500">*</span></label><div className="flex items-center space-x-1"><select id={`newCat-${item.id}`} value={item.newProduct_categoria_id || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_categoria_id', e.target.value ? Number(e.target.value) : null)} required className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm"><option value="">-- Seleccionar --</option>{productCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.nombre}</option>)}</select><button type="button" onClick={() => handleOpenNewCategoryModal(item.id)} title="Añadir Categoría" className="p-1.5 mt-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 rounded-md hover:bg-green-100 dark:hover:bg-green-700/50"><TagIcon className="w-4 h-4"/></button></div></div>
-                        <div><label htmlFor={`newCod-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cód. Int. (Opc.)</label><input type="text" id={`newCod-${item.id}`} value={item.newProduct_codigo_interno || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_codigo_interno', e.target.value)} className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" /></div>
+              <div key={item.id} className="p-3 border dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900/40 shadow-sm">
+                 <div className="grid grid-cols-12 gap-x-4 gap-y-3 items-end">
+                    <div className="col-span-12">
+                      <div className="flex items-center justify-between">
+                         <p className="text-sm font-medium text-gray-800 dark:text-gray-100 flex-grow mr-2 truncate" title={item.display_descripcion}>
+                             {item.display_descripcion || 'Nuevo Producto / Seleccionar Existente'}
+                         </p>
+                          <label htmlFor={`seleccionado-${item.id}`} className="flex items-center text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+                            <input type="checkbox" id={`seleccionado-${item.id}`} checked={item.seleccionado} onChange={(e) => handleProductLineChange(item.id, 'seleccionado', e.target.checked)} className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-500 rounded bg-white dark:bg-gray-700 mr-1.5"/>
+                            Incluir
+                          </label>
                       </div>
                     </div>
-                  ) : (
-                    item.original_producto_id === null && // Solo mostrar selector si es una línea agregada (no de la solicitud original)
-                    <div><label htmlFor={`selProd-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Producto Existente <span className="text-red-500">*</span></label><select id={`selProd-${item.id}`} value={item.selected_producto_id || ''} onChange={(e) => handleProductLineChange(item.id, 'selected_producto_id', e.target.value ? Number(e.target.value) : null)} required={!item.isNewProductMode} className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm"><option value="">-- Seleccionar --</option>{fetchedDbProducts.map(p => <option key={p.id} value={p.id}>{p.descripcion}</option>)}</select></div>
-                  )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div><label htmlFor={`quantity-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cantidad <span className="text-red-500">*</span></label><input type="number" id={`quantity-${item.id}`} value={item.quantity} min="1" onChange={(e) => handleProductLineChange(item.id, 'quantity', e.target.value)} required className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" /></div>
-                    <div><label htmlFor={`precio-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Precio Unit. ({formData.unidad}) <span className="text-red-500">*</span></label><input type="number" id={`precio-${item.id}`} value={item.precio_unitario} step="0.01" min="0" onChange={(e) => handleProductLineChange(item.id, 'precio_unitario', e.target.value)} required className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" /></div>
-                </div>
-                {!item.seleccionado && (<div><label htmlFor={`motivo-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Motivo no inclusión</label><input type="text" id={`motivo-${item.id}`} value={item.motivoRechazo || ''} onChange={(e) => handleProductLineChange(item.id, 'motivoRechazo', e.target.value)} placeholder="Ej: Stock agotado" className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" /></div>)}
-                 <p className="text-right text-sm font-medium text-gray-700 dark:text-gray-300">Total Prod: {(item.quantity * item.precio_unitario).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {formData.unidad}</p>
+                    <div className="col-span-12">
+                      <button type="button" onClick={() => handleProductLineChange(item.id, 'isNewProductMode', !item.isNewProductMode)}
+                        className={`px-2 py-1 text-xs rounded-md ${item.isNewProductMode ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}>
+                        {item.isNewProductMode ? 'Seleccionar Producto Existente' : 'Crear Nuevo Producto'}
+                     </button>
+                    </div>
+
+                    {item.isNewProductMode ? (
+                      <>
+                        <div className="col-span-12 md:col-span-7">
+                           <label htmlFor={`newDesc-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Desc. Nuevo Prod. <span className="text-red-500">*</span></label>
+                           <input type="text" id={`newDesc-${item.id}`} value={item.newProduct_descripcion} onChange={(e) => handleProductLineChange(item.id, 'newProduct_descripcion', e.target.value)} required className={`mt-0.5 ${smallInputFieldClasses}`} placeholder="Nombre nuevo producto" onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese la descripción del nuevo producto.')} onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}/>
+                        </div>
+                        <div className="col-span-12 md:col-span-5">
+                            <label htmlFor={`newCat-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Categoría <span className="text-red-500">*</span></label>
+                            <div className="flex items-center space-x-1"><select id={`newCat-${item.id}`} value={item.newProduct_categoria_id || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_categoria_id', e.target.value ? Number(e.target.value) : null)} required className={`mt-0.5 ${smallInputFieldClasses}`} onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione una categoría para el nuevo producto.')} onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}><option value="">-- Seleccionar --</option>{productCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.nombre}</option>)}</select><button type="button" onClick={() => handleOpenNewCategoryModal(item.id)} title="Añadir Categoría" className="p-1.5 mt-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 rounded-md hover:bg-green-100 dark:hover:bg-green-700/50"><TagIcon className="w-4 h-4"/></button></div>
+                        </div>
+                      </>
+                    ) : (
+                      item.original_producto_id === null &&
+                        <div className="col-span-12 md:col-span-7">
+                          <label htmlFor={`selProd-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Producto Existente <span className="text-red-500">*</span></label>
+                          <select id={`selProd-${item.id}`} value={item.selected_producto_id || ''} onChange={(e) => handleProductLineChange(item.id, 'selected_producto_id', e.target.value ? Number(e.target.value) : null)} required={!item.isNewProductMode} className={`mt-0.5 ${smallInputFieldClasses}`} onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione un producto existente.')} onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}><option value="">-- Seleccionar --</option>{fetchedDbProducts.map(p => <option key={p.id} value={p.id}>{p.descripcion}</option>)}</select>
+                        </div>
+                    )}
+
+                    <div className="col-span-6 md:col-span-3">
+                        <label htmlFor={`quantity-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cantidad <span className="text-red-500">*</span></label>
+                        <input type="number" id={`quantity-${item.id}`} value={item.quantity} min="1" onChange={(e) => handleProductLineChange(item.id, 'quantity', e.target.value)} required className={`mt-0.5 ${smallInputFieldClasses}`} onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese una cantidad.')} onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')} />
+                    </div>
+                    <div className="col-span-6 md:col-span-3">
+                       <label htmlFor={`precio-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Precio Unit. ({formData.unidad}) <span className="text-red-500">*</span></label>
+                       <input type="number" id={`precio-${item.id}`} value={item.precio_unitario} step="0.01" min="0" onChange={(e) => handleProductLineChange(item.id, 'precio_unitario', e.target.value)} required className={`mt-0.5 ${smallInputFieldClasses}`} onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese un precio unitario.')} onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')} />
+                    </div>
+                    <div className="col-span-12 md:col-span-6">
+                        {!item.seleccionado && (
+                            <div>
+                                <label htmlFor={`motivo-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Motivo no inclusión</label>
+                                <input type="text" id={`motivo-${item.id}`} value={item.motivoRechazo || ''} onChange={(e) => handleProductLineChange(item.id, 'motivoRechazo', e.target.value)} placeholder="Ej: Stock agotado" className={`mt-0.5 ${smallInputFieldClasses}`} />
+                            </div>
+                        )}
+                    </div>
+                 </div>
               </div>
             ))}
              <button type="button" onClick={handleAddCustomLineItem} disabled={submittingOrder} className="mt-2 flex items-center px-3 py-1.5 border border-dashed border-gray-400 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none disabled:opacity-50"><PlusCircleIcon className="w-5 h-5 mr-2" />Añadir Producto Personalizado</button>
           </div>
-          <div className="p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg space-y-2 border dark:border-gray-600"><h4 className="text-md font-semibold text-gray-800 dark:text-gray-100 mb-2">Resumen de Pago</h4><div className="flex justify-between text-sm text-gray-700 dark:text-gray-300"><span>Subtotal:</span><span>{formData.sub_total?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div><div className="flex justify-between text-sm text-gray-700 dark:text-gray-300"><span>IVA (16%):</span><span>{formData.iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div><div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300"><label htmlFor="retencion_porcentaje" className="whitespace-nowrap mr-2">Retención IVA (%):</label><input type="number" id="retencion_porcentaje" name="retencion_porcentaje" value={formData.retencion_porcentaje === null ? '' : formData.retencion_porcentaje} min="0" max="100" onChange={handleFormInputChange} className="w-20 px-2 py-1 border input-field text-sm" /><span className="ml-auto">{formData.ret_iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div><div className="flex justify-between text-md font-bold text-gray-900 dark:text-white pt-2 border-t dark:border-gray-600"><span>Neto a Pagar:</span><span>{formData.neto_a_pagar?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div></div>
-          <div><label htmlFor="observaciones" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observaciones</label><textarea id="observaciones" name="observaciones" value={formData.observaciones || ''} onChange={handleFormInputChange} rows={3} className="w-full px-3 py-2 border input-field" placeholder="Condiciones de pago, etc."/></div>
+          <div className="p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg space-y-2 border dark:border-gray-600"><h4 className="text-md font-semibold text-gray-800 dark:text-gray-100 mb-2">Resumen de Pago</h4><div className="flex justify-between text-sm text-gray-700 dark:text-gray-300"><span>Subtotal:</span><span>{formData.sub_total?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div><div className="flex justify-between text-sm text-gray-700 dark:text-gray-300"><span>IVA (16%):</span><span>{formData.iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div><div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300"><label htmlFor="retencion_porcentaje" className="whitespace-nowrap mr-2">Retención IVA (%):</label><input type="number" id="retencion_porcentaje" name="retencion_porcentaje" value={formData.retencion_porcentaje === null ? '' : formData.retencion_porcentaje} min="0" max="100" onChange={handleFormInputChange} className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500" /><span className="ml-auto">{formData.ret_iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div><div className="flex justify-between text-md font-bold text-gray-900 dark:text-white pt-2 border-t dark:border-gray-600"><span>Neto a Pagar:</span><span>{formData.neto_a_pagar?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div></div>
+          <div><label htmlFor="observaciones" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observaciones</label><textarea id="observaciones" name="observaciones" value={formData.observaciones || ''} onChange={handleFormInputChange} rows={3} className={inputFieldClasses} placeholder="Condiciones de pago, etc."/></div>
           <div className="pt-5 flex justify-end space-x-3 sticky bottom-0 bg-white dark:bg-gray-800 py-3 z-10 border-t dark:border-gray-700"><button type="button" onClick={onHide} disabled={submittingOrder} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">Cancelar</button><button type="submit" disabled={submittingOrder || loadingInitialData} className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none disabled:opacity-50">{submittingOrder ? <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" /> : <CheckIcon className="w-5 h-5 mr-1.5 -ml-1" />}{submittingOrder ? "Creando..." : "Crear Orden"}</button></div>
         </form>
         )}
@@ -376,26 +416,11 @@ const OrderForm: React.FC<OrderFormProps> = ({
             <form onSubmit={handleSaveNewCategory} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm">
                 <h4 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-100">Añadir Nueva Categoría de Producto</h4>
                 {categoryError && <p className="text-xs text-red-500 mb-2">{categoryError}</p>}
-                <div><label htmlFor="newCategoryNameInputModal" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre Categoría <span className="text-red-500">*</span></label><input type="text" id="newCategoryNameInputModal" value={newCategoryNameInput} onChange={(e) => setNewCategoryNameInput(e.target.value)} required className="mt-1 w-full px-3 py-2 border input-field" /></div>
-                <div className="mt-4 flex justify-end space-x-2"><button type="button" onClick={() => setShowNewCategoryModal(false)} disabled={submittingCategory} className="px-3 py-1.5 text-sm btn-secondary">Cancelar</button><button type="submit" disabled={submittingCategory} className="px-3 py-1.5 text-sm btn-primary flex items-center">{submittingCategory && <ArrowPathIcon className="w-4 h-4 animate-spin mr-1.5"/>}Guardar Categoría</button></div>
+                <div><label htmlFor="newCategoryNameInputModal" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre Categoría <span className="text-red-500">*</span></label><input type="text" id="newCategoryNameInputModal" value={newCategoryNameInput} onChange={(e) => setNewCategoryNameInput(e.target.value)} required className={`mt-1 w-full px-3 py-2 border ${inputFieldClasses}`} /></div>
+                <div className="mt-4 flex justify-end space-x-2"><button type="button" onClick={() => setShowNewCategoryModal(false)} disabled={submittingCategory} className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">Cancelar</button><button type="submit" disabled={submittingCategory} className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none flex items-center">{submittingCategory && <ArrowPathIcon className="w-4 h-4 animate-spin mr-1.5"/>}Guardar Categoría</button></div>
             </form>
         </div>
       )}
-      <style>{`
-        .input-field {display: block; width: 100%; font-size: 0.875rem; line-height: 1.25rem; border-width: 1px; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);}
-        .dark .input-field {background-color: #374151; border-color: #4B5563; color: #F3F4F6;}
-        .dark .input-field::placeholder {color: #9CA3AF;}
-        .input-field:focus {outline: 2px solid transparent; outline-offset: 2px; --tw-ring-offset-width: 0px; --tw-ring-color: #3b82f6; border-color: #3b82f6; box-shadow: 0 0 0 2px var(--tw-ring-color);}
-        .btn-primary {background-color: #2563eb; color: white; font-weight: 500; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
-        .btn-primary:hover {background-color: #1d4ed8;}
-        .btn-primary:disabled {background-color: #93c5fd; opacity: 0.7;}
-        .btn-secondary {background-color: #f3f4f6; color: #374151; font-weight: 500; border: 1px solid #d1d5db; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
-        .btn-secondary:hover {background-color: #e5e7eb;}
-        .dark .btn-secondary {background-color: #4b5563; color: #e5e7eb; border-color: #6b7280;}
-        .dark .btn-secondary:hover {background-color: #374151;}
-      `}</style>
     </div>
   );
 };
-
-export default OrderForm;

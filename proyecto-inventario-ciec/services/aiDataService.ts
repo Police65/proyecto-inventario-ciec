@@ -1,10 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { Producto, Proveedor, OrdenCompra, Inventario, CategoriaProducto, SolicitudCompra, Departamento } from '../types';
-import startOfMonth from 'date-fns/startOfMonth';
-import endOfMonth from 'date-fns/endOfMonth';
-import subDays from 'date-fns/subDays';
-import startOfYear from 'date-fns/startOfYear';
-import formatISO from 'date-fns/formatISO';
+import { startOfMonth, endOfMonth, subDays, startOfYear, formatISO } from 'date-fns';
 
 /**
  * Obtiene el conteo de solicitudes de compra pendientes.

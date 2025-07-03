@@ -5,7 +5,7 @@ import { UserProfile, Empleado, UserProfileRol } from '../types'; // Departament
 
 // Tiempos de espera para operaciones asíncronas para evitar bloqueos indefinidos
 const SESSION_FETCH_TIMEOUT_MS = 20000; // 20 segundos para obtener sesión
-const USER_PROFILE_FETCH_TIMEOUT_MS = 30000; // REDUCED: 30 segundos (antes 120s) para obtener perfil de usuario
+const USER_PROFILE_FETCH_TIMEOUT_MS = 30000; // REDUCIDO: 30 segundos (antes 120s) para obtener perfil de usuario
 const INTERNAL_QUERY_TIMEOUT_MS = 30000; // 30 segundos para consultas internas como detalles de empleado
 
 interface AuthHookResult {
@@ -21,14 +21,14 @@ interface AuthHookResult {
 // Envuelve una promesa con un timeout. Si la promesa no se resuelve/rechaza
 // en `ms` milisegundos, se rechaza con `timeoutError`.
 const withTimeout = <T>(
-  promise: PromiseLike<T>, // Changed from Promise<T> to PromiseLike<T>
+  promise: PromiseLike<T>, // Cambiado de Promise<T> a PromiseLike<T>
   ms: number,
   timeoutError = new Error('La operación ha tardado demasiado y ha excedido el tiempo límite. Verifique la conexión de red y el estado del servicio.')
 ): Promise<T> => {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => setTimeout(() => reject(timeoutError), ms)),
-  ]) as Promise<T>; // Cast to Promise<T> as Promise.race with PromiseLike<T> returns Promise<T>
+  ]) as Promise<T>; // Se convierte a Promise<T> ya que Promise.race con PromiseLike<T> devuelve Promise<T>
 };
 
 type GetSessionResponse = { data: { session: Session | null }, error: AuthError | null };
@@ -286,9 +286,9 @@ export function useAuth(): AuthHookResult {
         }
       } catch (e) { 
           const finalError = e instanceof Error ? e : new Error(String(e || "Error desconocido durante la carga inicial de sesión."));
-          // Add more specific logging if the error is the profile fetch timeout
+          // Añadir registro más específico si el error es por timeout en la obtención del perfil
           if (finalError.message.includes("La obtención del perfil básico del usuario tardó demasiado")) {
-            console.error("[useAuth] CRITICAL_DB_PERFORMANCE_ISSUE: La obtención del perfil de usuario falló por timeout. Esto indica serios problemas de rendimiento con la base de datos de Supabase o la conexión de red, lo cual también afectará a Realtime y otras funcionalidades.", finalError);
+            console.error("[useAuth] PROBLEMA_CRITICO_RENDIMIENTO_BD: La obtención del perfil de usuario falló por timeout. Esto indica serios problemas de rendimiento con la base de datos de Supabase o la conexión de red, lo cual también afectará a Realtime y otras funcionalidades.", finalError);
           } else {
             console.error("[useAuth] Error crítico en getInitialSession:", finalError.message, finalError);
           }
@@ -311,26 +311,26 @@ export function useAuth(): AuthHookResult {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (authChangeEvent, newSession) => {
       console.log(`[useAuth] onAuthStateChange: Evento '${String(authChangeEvent)}'. Nuevo ID de sesión: ${newSession?.user?.id}, Email: ${newSession?.user?.email}`);
 
-      // If an operation like login/logout initiated this, it would have set isProcessingAuthEvent.
-      // This guard is to prevent concurrent onAuthStateChange processing if multiple events fire rapidly
-      // for reasons other than a direct user action that's already being handled.
-      // However, if getInitialSession is the one setting the lock, this might be too aggressive.
-      // For logout, the 'logout' function itself will set the lock, and this onAuthStateChange is the *expected* follow-up.
-      // If the lock is already set by `logout`, this `if` block would skip the processing of `SIGNED_OUT`.
-      // This guard needs to be more nuanced or removed if `login`/`logout` correctly manage their own `isProcessingAuthEvent` lifecycle.
-      // For now, let's assume this guard is problematic for logout.
+      // Si una operación como login/logout inició esto, habría establecido isProcessingAuthEvent.
+      // Esta guarda es para prevenir el procesamiento concurrente de onAuthStateChange si múltiples eventos se disparan rápidamente
+      // por razones distintas a una acción directa del usuario que ya se está manejando.
+      // Sin embargo, si getInitialSession es el que establece el bloqueo, esto podría ser demasiado agresivo.
+      // Para logout, la función 'logout' misma establecerá el bloqueo, y este onAuthStateChange es el seguimiento *esperado*.
+      // Si el bloqueo ya está establecido por `logout`, este bloque `if` se saltaría el procesamiento de `SIGNED_OUT`.
+      // Esta guarda necesita ser más matizada o eliminada si `login`/`logout` gestionan correctamente su propio ciclo de vida de `isProcessingAuthEvent`.
+      // Por ahora, asumimos que esta guarda es problemática para el logout.
       // if (isProcessingAuthEvent.current) {
       //   console.log(`[useAuth] onAuthStateChange: Evento '${String(authChangeEvent)}' omitido, otro procesamiento en curso.`);
       //   return;
       // }
-      // Instead of the above guard, the individual paths will manage the lock.
+      // En lugar de la guarda anterior, las rutas individuales gestionarán el bloqueo.
       
       const currentLocalProfile = userProfileRef.current; 
       const currentLocalSession = sessionRef.current;   
 
       // Lógica para refresco de perfil en segundo plano si ya hay sesión y perfil activos.
       // Esto ocurre para eventos como TOKEN_REFRESHED, USER_UPDATED.
-      // SIGNED_IN here might be redundant if a login flow just completed and is waiting for this.
+      // SIGNED_IN aquí podría ser redundante si un flujo de login acaba de completarse y está esperando esto.
       if (currentLocalProfile && currentLocalSession && newSession?.user &&
           (authChangeEvent === 'TOKEN_REFRESHED' || authChangeEvent === 'USER_UPDATED' || (authChangeEvent === 'SIGNED_IN' && newSession.user.id === currentLocalSession.user.id))) {
           

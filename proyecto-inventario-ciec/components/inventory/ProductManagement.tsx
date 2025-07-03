@@ -318,7 +318,7 @@ const ProductManagement: React.FC = () => {
       {/* Product Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               {isEditing ? 'Editar' : 'Añadir'} Producto
             </h3>
@@ -326,62 +326,65 @@ const ProductManagement: React.FC = () => {
               <div>
                 <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Descripción <span className="text-red-500">*</span></label>
                 <textarea name="descripcion" id="descripcion" value={currentProduct.descripcion || ''} onChange={handleInputChange} required 
-                  className={`mt-1 ${inputFieldClasses}`} />
-              </div>
-              
-              <div ref={productCategoryDropdownRef}>
-                <label htmlFor="categoria_id_combobox" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Categoría <span className="text-red-500">*</span></label>
-                <div className="relative mt-1">
-                   <div className={`flex items-center border rounded-md shadow-sm min-h-[40px] ${inputFieldClasses} ${isProductCategoryDropdownOpen ? 'ring-2 ring-primary-500 border-primary-500' : 'border-gray-300 dark:border-gray-600'}`}>
-                    <input
-                      type="text"
-                      id="categoria_id_combobox"
-                      placeholder="Buscar o seleccionar categoría..."
-                      className="flex-grow p-2 border-none focus:ring-0 focus:outline-none text-sm bg-transparent dark:text-white dark:placeholder-gray-400"
-                      value={currentProduct.categoria_id ? categories.find(c => c.id === currentProduct.categoria_id)?.nombre || productCategorySearchTerm : productCategorySearchTerm}
-                      onChange={(e) => { 
-                        setProductCategorySearchTerm(e.target.value); 
-                        setCurrentProduct(prev => ({ ...prev, categoria_id: null }));
-                        setIsProductCategoryDropdownOpen(true); 
-                      }}
-                      onFocus={() => setIsProductCategoryDropdownOpen(true)}
-                      onClick={() => setIsProductCategoryDropdownOpen(true)} 
-                      autoComplete="off"
-                    />
-                    {currentProduct.categoria_id && (
-                        <button type="button" onClick={() => {setCurrentProduct(prev => ({...prev, categoria_id: null})); setProductCategorySearchTerm(''); setIsProductCategoryDropdownOpen(true);}} className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
-                            <XMarkIcon className="w-4 h-4" />
-                        </button>
-                    )}
-                    <button type="button" onClick={() => setIsProductCategoryDropdownOpen(!isProductCategoryDropdownOpen)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
-                        <ChevronDownIcon className={`w-5 h-5 transition-transform ${isProductCategoryDropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                  </div>
-
-                  {isProductCategoryDropdownOpen && (
-                    <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                      {filteredCategoriesForCombobox.length > 0 ? filteredCategoriesForCombobox.map(cat => (
-                        <div key={cat.id}
-                          onClick={() => { 
-                            setCurrentProduct(prev => ({...prev, categoria_id: cat.id})); 
-                            setProductCategorySearchTerm(cat.nombre); 
-                            setIsProductCategoryDropdownOpen(false); 
-                          }}
-                          className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${currentProduct.categoria_id === cat.id ? 'bg-primary-50 dark:bg-primary-600 font-medium text-primary-700 dark:text-primary-100' : 'text-gray-900 dark:text-gray-200'}`}
-                        >
-                          {cat.nombre}
-                        </div>
-                      )) : (
-                        <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                            {categories.length === 0 ? "No hay categorías. Añada una primero." : "No hay categorías que coincidan."}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                  className={`mt-1 ${inputFieldClasses}`}
+                  onInvalid={(e) => (e.target as HTMLTextAreaElement).setCustomValidity('Por favor, ingrese una descripción para el producto.')}
+                  onInput={(e) => (e.target as HTMLTextAreaElement).setCustomValidity('')}
+                />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div ref={productCategoryDropdownRef} className="md:col-span-2">
+                    <label htmlFor="categoria_id_combobox" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Categoría <span className="text-red-500">*</span></label>
+                    <div className="relative mt-1">
+                      <div className={`flex items-center border rounded-md shadow-sm min-h-[42px] ${inputFieldClasses} ${isProductCategoryDropdownOpen ? 'ring-2 ring-primary-500 border-primary-500' : 'border-gray-300 dark:border-gray-600'}`}>
+                        <input
+                          type="text"
+                          id="categoria_id_combobox"
+                          placeholder="Buscar o seleccionar categoría..."
+                          className="flex-grow p-2 border-none focus:ring-0 focus:outline-none text-sm bg-transparent dark:text-white dark:placeholder-gray-400"
+                          value={currentProduct.categoria_id ? categories.find(c => c.id === currentProduct.categoria_id)?.nombre || productCategorySearchTerm : productCategorySearchTerm}
+                          onChange={(e) => { 
+                            setProductCategorySearchTerm(e.target.value); 
+                            setCurrentProduct(prev => ({ ...prev, categoria_id: null }));
+                            setIsProductCategoryDropdownOpen(true); 
+                          }}
+                          onFocus={() => setIsProductCategoryDropdownOpen(true)}
+                          onClick={() => setIsProductCategoryDropdownOpen(true)} 
+                          autoComplete="off"
+                        />
+                        {currentProduct.categoria_id && (
+                            <button type="button" onClick={() => {setCurrentProduct(prev => ({...prev, categoria_id: null})); setProductCategorySearchTerm(''); setIsProductCategoryDropdownOpen(true);}} className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+                                <XMarkIcon className="w-4 h-4" />
+                            </button>
+                        )}
+                        <button type="button" onClick={() => setIsProductCategoryDropdownOpen(!isProductCategoryDropdownOpen)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+                            <ChevronDownIcon className={`w-5 h-5 transition-transform ${isProductCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+
+                      {isProductCategoryDropdownOpen && (
+                        <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                          {filteredCategoriesForCombobox.length > 0 ? filteredCategoriesForCombobox.map(cat => (
+                            <div key={cat.id}
+                              onClick={() => { 
+                                setCurrentProduct(prev => ({...prev, categoria_id: cat.id})); 
+                                setProductCategorySearchTerm(cat.nombre); 
+                                setIsProductCategoryDropdownOpen(false); 
+                              }}
+                              className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${currentProduct.categoria_id === cat.id ? 'bg-primary-50 dark:bg-primary-600 font-medium text-primary-700 dark:text-primary-100' : 'text-gray-900 dark:text-gray-200'}`}
+                            >
+                              {cat.nombre}
+                            </div>
+                          )) : (
+                            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                {categories.length === 0 ? "No hay categorías. Añada una primero." : "No hay categorías que coincidan."}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                 <div>
                     <label htmlFor="codigo_interno" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Código Interno</label>
                     <input type="text" name="codigo_interno" id="codigo_interno" value={currentProduct.codigo_interno || ''} onChange={handleInputChange} 

@@ -7,6 +7,7 @@ import ThemeToggle from './ThemeToggle';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription'; // Importar el nuevo hook
 import { Bars3Icon, BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
 import { REALTIME_POSTGRES_CHANGES_LISTEN_EVENT } from '@supabase/supabase-js';
+import { LIGHT_MODE_LOGO_URL, DARK_MODE_LOGO_URL } from '../../assets/paths';
 
 
 interface CustomNavbarProps {
@@ -142,7 +143,10 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
             <Bars3Icon className="w-6 h-6" /> 
           </button>
           <Link to="/home" onClick={() => setHasInteracted(true)} className="flex-shrink-0 flex items-center ml-2 lg:ml-0">
-            <img className="h-8 w-auto" src="/assets/logo_svg.svg" alt="Logo RequiSoftware" />
+            {/* Logo para modo claro (se oculta en modo oscuro) */}
+            <img className="h-8 w-auto block dark:hidden" src={LIGHT_MODE_LOGO_URL} alt="Logo RequiSoftware" />
+            {/* Logo para modo oscuro (se oculta en modo claro) */}
+            <img className="h-8 w-auto hidden dark:block" src={DARK_MODE_LOGO_URL} alt="Logo RequiSoftware" />
             <span className="hidden xl:inline ml-1 font-semibold text-xl text-gray-800 dark:text-white">RequiSoftware</span>
           </Link>
         </div>

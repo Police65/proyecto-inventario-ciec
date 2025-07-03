@@ -56,7 +56,7 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
   });
 
   const [productos, setProductos] = useState<DirectProductLineItem[]>([initialLineItemState()]);
-  const [proveedores, setProveedores] = useState<Pick<Proveedor, 'id' | 'nombre'>[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [fetchedDbProducts, setFetchedDbProducts] = useState<Pick<Producto, 'id' | 'descripcion' | 'categoria_id'>[]>([]);
   const [productCategories, setProductCategories] = useState<CategoriaProducto[]>([]);
   
@@ -98,7 +98,7 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       setLoadingInitialData(true);
       const loadInitialData = async () => {
         try {
-          const { data: provData, error: provError } = await supabase.from('proveedor').select('id, nombre');
+          const { data: provData, error: provError } = await supabase.from('proveedor').select('*');
           if (provError) throw provError;
           setProveedores(provData || []);
 
@@ -123,6 +123,19 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, fetchProductCategories]);
+  
+  useEffect(() => {
+    if (formData.proveedor_id) {
+        const selectedProvider = proveedores.find(p => p.id === Number(formData.proveedor_id));
+        if (selectedProvider) {
+            setFormData(prev => ({
+                ...prev,
+                retencion_porcentaje: selectedProvider.porcentaje_retencion_iva
+            }));
+        }
+    }
+  }, [formData.proveedor_id, proveedores]);
+
 
   useEffect(() => {
     setFormData(prev => ({
@@ -359,6 +372,10 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       setSubmittingOrder(false);
     }
   };
+  
+  const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
+  const smallInputFieldClasses = "block w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
+
 
   if (!show) return null;
 
@@ -380,7 +397,10 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
                <div>
                 <label htmlFor="direct_proveedor_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span className="text-red-500">*</span></label>
                 <select id="direct_proveedor_id" name="proveedor_id" value={formData.proveedor_id || ''} onChange={handleFormInputChange} required
-                    className="w-full px-3 py-2 border input-field">
+                    className={inputFieldClasses}
+                    onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione un proveedor.')}
+                    onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}
+                >
                     <option value="">Seleccionar proveedor...</option>
                     {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
@@ -388,7 +408,7 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
                 <div>
                 <label htmlFor="direct_unidad" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unidad Monetaria</label>
                 <select id="direct_unidad" name="unidad" value={formData.unidad || 'Bs'} onChange={handleFormInputChange}
-                    className="w-full px-3 py-2 border input-field">
+                    className={inputFieldClasses}>
                     <option value="Bs">Bolívares (Bs)</option>
                     <option value="USD">Dólares (USD)</option>
                 </select>
@@ -397,7 +417,7 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
                     <label htmlFor="direct_fecha_entrega_estimada" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Entrega Estimada</label>
                     <div className="relative">
                         <input type="date" id="direct_fecha_entrega_estimada" name="fecha_entrega_estimada" value={formData.fecha_entrega_estimada || ''} onChange={handleFormInputChange}
-                            className="w-full px-3 py-2 border input-field pr-8" />
+                            className={`${inputFieldClasses} pr-8`} />
                         <CalendarDaysIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
                     </div>
                 </div>
@@ -406,27 +426,33 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
             <div className="space-y-3">
               <h4 className="text-md font-semibold text-gray-700 dark:text-gray-200">Productos a Ordenar <span className="text-red-500">*</span></h4>
               {productos.map((item) => (
-                <div key={item.id} className="p-3 border dark:border-gray-700 rounded-md space-y-2 bg-gray-50 dark:bg-gray-900/40 shadow-sm">
-                  <div className="flex items-center justify-end mb-1">
-                     <button type="button" onClick={() => handleProductLineChange(item.id, 'isNewProduct', !item.isNewProduct)}
-                        className={`px-2 py-1 text-xs rounded-md ${item.isNewProduct ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}>
-                        {item.isNewProduct ? 'Usar Existente' : 'Crear Nuevo Producto'}
+                <div key={item.id} className="p-3 border dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900/40 shadow-sm">
+                  <div className="grid grid-cols-12 gap-x-4 gap-y-3 items-end">
+                    
+                    <div className="col-span-12">
+                       <button type="button" onClick={() => handleProductLineChange(item.id, 'isNewProduct', !item.isNewProduct)}
+                        className={`w-full text-left px-2 py-1 text-xs rounded-md ${item.isNewProduct ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}>
+                        {item.isNewProduct ? 'Modo: Creando Nuevo Producto' : 'Modo: Seleccionando Producto Existente'}
                      </button>
-                  </div>
-                  {item.isNewProduct ? (
-                    // Formulario para nuevo producto
-                    <div className="space-y-2">
-                      <div>
-                        <label htmlFor={`newDesc-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Descripción Nuevo Producto <span className="text-red-500">*</span></label>
-                        <input type="text" id={`newDesc-${item.id}`} value={item.newProduct_descripcion} onChange={(e) => handleProductLineChange(item.id, 'newProduct_descripcion', e.target.value)} required
-                               className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" placeholder="Nombre del nuevo producto"/>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div>
+                    </div>
+
+                    {item.isNewProduct ? (
+                      <>
+                        <div className="col-span-12 md:col-span-7">
+                           <label htmlFor={`newDesc-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Descripción Nuevo Producto <span className="text-red-500">*</span></label>
+                           <input type="text" id={`newDesc-${item.id}`} value={item.newProduct_descripcion} onChange={(e) => handleProductLineChange(item.id, 'newProduct_descripcion', e.target.value)} required
+                               className={`mt-0.5 ${smallInputFieldClasses}`} placeholder="Nombre del nuevo producto"
+                               onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese la descripción del nuevo producto.')}
+                               onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                           />
+                        </div>
+                        <div className="col-span-12 md:col-span-5">
                             <label htmlFor={`newCat-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Categoría <span className="text-red-500">*</span></label>
-                            <div className="flex items-center space-x-1">
-                                <select id={`newCat-${item.id}`} value={item.newProduct_categoria_id || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_categoria_id', e.target.value ? Number(e.target.value) : null)} required
-                                        className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm">
+                            <div className="flex items-center space-x-1"><select id={`newCat-${item.id}`} value={item.newProduct_categoria_id || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_categoria_id', e.target.value ? Number(e.target.value) : null)} required
+                                        className={`mt-0.5 ${smallInputFieldClasses}`}
+                                        onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione una categoría para el nuevo producto.')}
+                                        onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}
+                                >
                                     <option value="">-- Seleccionar --</option>
                                     {productCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.nombre}</option>)}
                                 </select>
@@ -436,40 +462,47 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
                                 </button>
                             </div>
                         </div>
-                        <div>
+                         <div className="col-span-12 md:col-span-7">
                             <label htmlFor={`newCod-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cód. Interno (Opc.)</label>
                             <input type="text" id={`newCod-${item.id}`} value={item.newProduct_codigo_interno || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_codigo_interno', e.target.value)}
-                                   className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" />
+                                   className={`mt-0.5 ${smallInputFieldClasses}`} />
                         </div>
+                      </>
+                    ) : (
+                      <div className="col-span-12 md:col-span-7">
+                        <label htmlFor={`d_prod_sel_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Producto Existente <span className="text-red-500">*</span></label>
+                        <select id={`d_prod_sel_${item.id}`} value={item.selected_producto_id || ''} onChange={(e) => handleProductLineChange(item.id, 'selected_producto_id', e.target.value ? Number(e.target.value) : null)} required={!item.isNewProduct}
+                                className={`mt-0.5 ${smallInputFieldClasses}`}
+                                onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione un producto existente.')}
+                                onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}
+                        >
+                          <option value="">-- Seleccionar Producto --</option>
+                          {fetchedDbProducts.map(p => <option key={p.id} value={p.id}>{p.descripcion}</option>)}
+                        </select>
                       </div>
-                    </div>
-                  ) : (
-                    // Selector para producto existente
-                    <div>
-                      <label htmlFor={`d_prod_sel_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Producto Existente <span className="text-red-500">*</span></label>
-                      <select id={`d_prod_sel_${item.id}`} value={item.selected_producto_id || ''} onChange={(e) => handleProductLineChange(item.id, 'selected_producto_id', e.target.value ? Number(e.target.value) : null)} required={!item.isNewProduct}
-                              className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm">
-                        <option value="">-- Seleccionar Producto --</option>
-                        {fetchedDbProducts.map(p => <option key={p.id} value={p.id}>{p.descripcion}</option>)}
-                      </select>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end pt-1">
-                    <div className="sm:col-span-5">
+                    )}
+
+                    <div className="col-span-6 md:col-span-2">
                         <label htmlFor={`d_qty_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cantidad <span className="text-red-500">*</span></label>
                         <input type="number" id={`d_qty_${item.id}`} value={item.quantity} min="1" onChange={(e) => handleProductLineChange(item.id, 'quantity', Number(e.target.value))}
-                               className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" required />
+                               className={`mt-0.5 ${smallInputFieldClasses}`} required
+                               onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese una cantidad.')}
+                               onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                        />
                     </div>
-                    <div className="sm:col-span-5">
+                    <div className="col-span-6 md:col-span-2">
                         <label htmlFor={`d_price_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Precio Unit. <span className="text-red-500">*</span></label>
                         <input type="number" id={`d_price_${item.id}`} value={item.precio_unitario} step="0.01" min="0" onChange={(e) => handleProductLineChange(item.id, 'precio_unitario', Number(e.target.value))}
-                               className="mt-0.5 w-full px-2 py-1.5 border input-field text-sm" required />
+                               className={`mt-0.5 ${smallInputFieldClasses}`} required
+                               onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese un precio unitario.')}
+                               onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                        />
                     </div>
-                    <div className="sm:col-span-2 flex items-center justify-end md:justify-start">
-                        <button type="button" onClick={() => handleRemoveProductLine(item.id)}
-                                className="p-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded-md hover:bg-red-100 dark:hover:bg-red-900 self-center" title="Eliminar producto" disabled={submittingOrder}>
-                            <TrashIcon className="w-5 h-5" />
-                        </button>
+                    <div className="col-span-12 md:col-span-1 flex justify-end">
+                      <button type="button" onClick={() => handleRemoveProductLine(item.id)}
+                              className="p-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded-md hover:bg-red-100 dark:hover:bg-red-900 self-center" title="Eliminar producto" disabled={submittingOrder}>
+                          <TrashIcon className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -484,10 +517,10 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
                 <h4 className="text-md font-semibold text-gray-800 dark:text-gray-100 mb-2">Resumen de Pago</h4>
                 <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300"><span>Subtotal:</span><span>{formData.sub_total?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div>
                 <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300"><span>IVA (16%):</span><span>{formData.iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div>
-                <div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300"><label htmlFor="direct_retencion_porcentaje" className="whitespace-nowrap mr-2">Retención IVA (%):</label><input type="number" id="direct_retencion_porcentaje" name="retencion_porcentaje" value={formData.retencion_porcentaje === null ? '' : formData.retencion_porcentaje} min="0" max="100" onChange={handleFormInputChange} className="w-20 px-2 py-1 border input-field text-sm" /><span className="ml-auto">{formData.ret_iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div>
+                <div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300"><label htmlFor="direct_retencion_porcentaje" className="whitespace-nowrap mr-2">Retención IVA (%):</label><input type="number" id="direct_retencion_porcentaje" name="retencion_porcentaje" value={formData.retencion_porcentaje === null ? '' : formData.retencion_porcentaje} min="0" max="100" onChange={handleFormInputChange} className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500" /><span className="ml-auto">{formData.ret_iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div>
                 <div className="flex justify-between text-md font-bold text-gray-900 dark:text-white pt-2 border-t dark:border-gray-600"><span>Neto a Pagar:</span><span>{formData.neto_a_pagar?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div>
             </div>
-            <div><label htmlFor="direct_observaciones" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observaciones</label><textarea id="direct_observaciones" name="observaciones" value={formData.observaciones || ''} onChange={handleFormInputChange} rows={3} className="w-full px-3 py-2 border input-field" placeholder="Condiciones de pago, tiempo de entrega, etc."/></div>
+            <div><label htmlFor="direct_observaciones" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observaciones</label><textarea id="direct_observaciones" name="observaciones" value={formData.observaciones || ''} onChange={handleFormInputChange} rows={3} className={inputFieldClasses} placeholder="Condiciones de pago, tiempo de entrega, etc."/></div>
             <div className="pt-5 flex justify-end space-x-3 sticky bottom-0 bg-white dark:bg-gray-800 py-3 z-10 border-t dark:border-gray-700"><button type="button" onClick={onHide} disabled={submittingOrder} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">Cancelar</button><button type="submit" disabled={submittingOrder || loadingInitialData} className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none disabled:opacity-50">{submittingOrder ? <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" /> : <CheckIcon className="w-5 h-5 mr-1.5 -ml-1" />}{submittingOrder ? "Creando..." : "Crear Orden Directa"}</button></div>
           </form>
         )}
@@ -497,36 +530,11 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
             <form onSubmit={handleSaveNewCategory} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm">
                 <h4 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-100">Añadir Nueva Categoría de Producto</h4>
                 {categoryError && <p className="text-xs text-red-500 mb-2">{categoryError}</p>}
-                <div>
-                    <label htmlFor="newCategoryNameInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre Categoría <span className="text-red-500">*</span></label>
-                    <input type="text" id="newCategoryNameInput" value={newCategoryNameInput} onChange={(e) => setNewCategoryNameInput(e.target.value)} required
-                           className="mt-1 w-full px-3 py-2 border input-field" />
-                </div>
-                <div className="mt-4 flex justify-end space-x-2">
-                    <button type="button" onClick={() => setShowNewCategoryModal(false)} disabled={submittingCategory}
-                            className="px-3 py-1.5 text-sm btn-secondary">Cancelar</button>
-                    <button type="submit" disabled={submittingCategory}
-                            className="px-3 py-1.5 text-sm btn-primary flex items-center">
-                        {submittingCategory && <ArrowPathIcon className="w-4 h-4 animate-spin mr-1.5"/>}
-                        Guardar Categoría
-                    </button>
-                </div>
+                <div><label htmlFor="newCategoryNameInputModal" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre Categoría <span className="text-red-500">*</span></label><input type="text" id="newCategoryNameInputModal" value={newCategoryNameInput} onChange={(e) => setNewCategoryNameInput(e.target.value)} required className={`mt-1 w-full px-3 py-2 border ${inputFieldClasses}`} /></div>
+                <div className="mt-4 flex justify-end space-x-2"><button type="button" onClick={() => setShowNewCategoryModal(false)} disabled={submittingCategory} className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">Cancelar</button><button type="submit" disabled={submittingCategory} className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none flex items-center">{submittingCategory && <ArrowPathIcon className="w-4 h-4 animate-spin mr-1.5"/>}Guardar Categoría</button></div>
             </form>
         </div>
       )}
-       <style>{`
-        .input-field {display: block; width: 100%; font-size: 0.875rem; line-height: 1.25rem; border-width: 1px; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);}
-        .dark .input-field {background-color: #374151; border-color: #4B5563; color: #F3F4F6;}
-        .dark .input-field::placeholder {color: #9CA3AF;}
-        .input-field:focus {outline: 2px solid transparent; outline-offset: 2px; --tw-ring-offset-width: 0px; --tw-ring-color: #3b82f6; border-color: #3b82f6; box-shadow: 0 0 0 2px var(--tw-ring-color);}
-        .btn-primary {background-color: #2563eb; color: white; font-weight: 500; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
-        .btn-primary:hover {background-color: #1d4ed8;}
-        .btn-primary:disabled {background-color: #93c5fd; opacity: 0.7;}
-        .btn-secondary {background-color: #f3f4f6; color: #374151; font-weight: 500; border: 1px solid #d1d5db; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);}
-        .btn-secondary:hover {background-color: #e5e7eb;}
-        .dark .btn-secondary {background-color: #4b5563; color: #e5e7eb; border-color: #6b7280;}
-        .dark .btn-secondary:hover {background-color: #374151;}
-      `}</style>
     </div>
   );
 };

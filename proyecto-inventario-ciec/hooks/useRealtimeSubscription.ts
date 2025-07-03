@@ -1,23 +1,22 @@
-
 // hooks/useRealtimeSubscription.ts
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { RealtimeChannel, RealtimePostgresChangesPayload, SupabaseClient, RealtimePostgresChangesFilter, REALTIME_POSTGRES_CHANGES_LISTEN_EVENT } from '@supabase/supabase-js';
 
-const MAX_RETRY_ATTEMPTS = 5; // Max attempts before giving up
+const MAX_RETRY_ATTEMPTS = 5; // Máximo de intentos antes de rendirse
 
 interface UseRealtimeSubscriptionProps<
   T extends { [key: string]: any },
-  E extends REALTIME_POSTGRES_CHANGES_LISTEN_EVENT // E is the specific event type
+  E extends REALTIME_POSTGRES_CHANGES_LISTEN_EVENT // E es el tipo de evento específico
 > {
-  channelName: string; // Unique channel name, e.g., `user-notifications-${userId}`
+  channelName: string; // Nombre de canal único, ej: `user-notifications-${userId}`
   tableName: string;
-  schema?: string; // Defaults to 'public'
-  filter?: string; // e.g., `user_id=eq.${userId}` (RLS filter)
-  event: E;       // The specific event to listen to, now required and of type E
+  schema?: string; // Por defecto 'public'
+  filter?: string; // ej: `user_id=eq.${userId}` (filtro RLS)
+  event: E;       // El evento específico a escuchar, ahora requerido y de tipo E
   onNewPayload: (payload: RealtimePostgresChangesPayload<T>) => void;
-  enabled?: boolean; // Defaults to true. If false, subscription won't be attempted.
-  customSupabaseClient?: SupabaseClient; // Optional: if using a different client instance
+  enabled?: boolean; // Por defecto true. Si es false, no se intentará la suscripción.
+  customSupabaseClient?: SupabaseClient; // Opcional: si se usa una instancia de cliente diferente
 }
 
 interface UseRealtimeSubscriptionReturn {
@@ -27,13 +26,13 @@ interface UseRealtimeSubscriptionReturn {
 
 export function useRealtimeSubscription<
   T extends { [key: string]: any },
-  E extends REALTIME_POSTGRES_CHANGES_LISTEN_EVENT // E is the specific event type
+  E extends REALTIME_POSTGRES_CHANGES_LISTEN_EVENT // E es el tipo de evento específico
 >({
   channelName,
   tableName,
   schema = 'public',
-  filter: rlsFilter, // Renamed to avoid conflict with the filter object key
-  event, // This is now of type E, passed directly from props
+  filter: rlsFilter, // Renombrado para evitar conflicto con la clave del objeto filter
+  event, // Ahora es de tipo E, pasado directamente desde las props
   onNewPayload,
   enabled = true,
   customSupabaseClient,
@@ -55,23 +54,23 @@ export function useRealtimeSubscription<
 
     if (retryAttempt < MAX_RETRY_ATTEMPTS) {
       const delay = Math.min(3000 * Math.pow(1.8, retryAttempt), 60000); 
-      console.warn(`[useRealtimeSubscription] Channel '${channelName}' (Table: ${schema}.${tableName}): Scheduling retry #${retryAttempt + 1} in ${Math.round(delay / 1000)}s.`);
+      console.warn(`[useRealtimeSubscription] Canal '${channelName}' (Tabla: ${schema}.${tableName}): Programando reintento #${retryAttempt + 1} en ${Math.round(delay / 1000)}s.`);
       retryTimerRef.current = window.setTimeout(() => {
         setRetryAttempt(prev => prev + 1);
       }, delay);
     } else {
-      const maxRetryError = `[useRealtimeSubscription] Channel '${channelName}': Maximum retry attempts (${MAX_RETRY_ATTEMPTS}) reached. Subscription failed for table '${schema}.${tableName}'.
+      const maxRetryError = `[useRealtimeSubscription] Canal '${channelName}': Se alcanzó el máximo de reintentos (${MAX_RETRY_ATTEMPTS}). La suscripción falló para la tabla '${schema}.${tableName}'.
 
-CRITICAL DEBUGGING STEPS:
-1. VERIFY INTERNET CONNECTION AND ANY LOCAL FIREWALLS/PROXIES.
-2. ENSURE TABLE REPLICATION IS ENABLED for '${schema}.${tableName}' in your Supabase project dashboard (Database > Replication). This is the most common cause of Realtime failures if client-side code seems correct.
-3. CHECK ROW LEVEL SECURITY (RLS) POLICIES on '${schema}.${tableName}' to ensure the authenticated user has SELECT permissions for the rows they expect to receive updates for (if RLS is enabled).
-4. REVIEW SUPABASE PROJECT STATUS (status.supabase.com) and Realtime service health (check your project's dashboard for any alerts).
-5. CHECK SUPABASE DASHBOARD LOGS (Project Logs > Realtime logs) for server-side errors related to this channel or table. "Unable to connect to project database" often indicates backend issues within Supabase.
+PASOS CRÍTICOS PARA DEPURACIÓN:
+1. VERIFIQUE LA CONEXIÓN A INTERNET Y CUALQUIER FIREWALL/PROXY LOCAL.
+2. ASEGÚRESE DE QUE LA REPLICACIÓN DE TABLAS ESTÉ HABILITADA para '${schema}.${tableName}' en el panel de su proyecto Supabase (Base de Datos > Replicación). Esta es la causa más común de fallos de Realtime si el código del cliente parece correcto.
+3. REVISE LAS POLÍTICAS DE SEGURIDAD A NIVEL DE FILA (RLS) en '${schema}.${tableName}' para asegurar que el usuario autenticado tiene permisos de SELECT para las filas de las que espera recibir actualizaciones (si RLS está habilitado).
+4. REVISE EL ESTADO DEL PROYECTO SUPABASE (status.supabase.com) y la salud del servicio Realtime (verifique si hay alertas en el panel de su proyecto).
+5. REVISE LOS LOGS DEL PANEL DE SUPABASE (Logs del Proyecto > Logs de Realtime) para errores del lado del servidor relacionados con este canal o tabla. "Unable to connect to project database" a menudo indica problemas de backend en Supabase.
 
-No further automatic re-subscription attempts will be made for this channel.`;
+No se realizarán más intentos automáticos de re-suscripción para este canal.`;
       console.error(maxRetryError);
-      setError(maxRetryError); // Set the final, detailed error here
+      setError(maxRetryError); // Establecer el error final y detallado aquí
       setIsSubscribed(false);
     }
   }, [channelName, retryAttempt, schema, tableName]);
@@ -81,8 +80,8 @@ No further automatic re-subscription attempts will be made for this channel.`;
       if (channelRef.current) {
         const client = customSupabaseClient || supabase;
         client.removeChannel(channelRef.current)
-          .then(status => console.log(`[useRealtimeSubscription] Channel ${channelName} removed (disabled/params changed) with status: ${status}`))
-          .catch(err => console.error(`[useRealtimeSubscription] Error removing channel ${channelName} (disabled/params changed):`, err));
+          .then(status => console.log(`[useRealtimeSubscription] Canal ${channelName} eliminado (deshabilitado/parámetros cambiados) con estado: ${status}`))
+          .catch(err => console.error(`[useRealtimeSubscription] Error eliminando canal ${channelName} (deshabilitado/parámetros cambiados):`, err));
         channelRef.current = null;
       }
       setIsSubscribed(false);
@@ -93,10 +92,10 @@ No further automatic re-subscription attempts will be made for this channel.`;
     }
 
     if (channelRef.current && channelRef.current.state !== 'closed') {
-        console.log(`[useRealtimeSubscription] Attempting to remove existing channel ${channelName} before new subscription.`);
+        console.log(`[useRealtimeSubscription] Intentando eliminar el canal existente ${channelName} antes de una nueva suscripción.`);
         const client = customSupabaseClient || supabase;
         client.removeChannel(channelRef.current)
-          .catch(err => console.error(`[useRealtimeSubscription] Error removing previous channel ${channelName} before new subscription:`, err));
+          .catch(err => console.error(`[useRealtimeSubscription] Error eliminando el canal anterior ${channelName} antes de una nueva suscripción:`, err));
     }
     
     const client = customSupabaseClient || supabase;
@@ -119,33 +118,33 @@ No further automatic re-subscription attempts will be made for this channel.`;
     const changes = newChannel.on(
       'postgres_changes',
       postgresChangesFilter,
-      (payload: RealtimePostgresChangesPayload<any>) => { // Use 'any' initially for wider compatibility
-        onNewPayloadRef.current(payload as RealtimePostgresChangesPayload<T>); // Cast to specific type for callback
+      (payload: RealtimePostgresChangesPayload<any>) => { // Usar 'any' inicialmente para mayor compatibilidad
+        onNewPayloadRef.current(payload as RealtimePostgresChangesPayload<T>); // Convertir a tipo específico para el callback
       }
     );
 
     changes.subscribe((status, err) => {
-      const baseMessage = `[useRealtimeSubscription] Channel '${channelName}' (Table: ${schema}.${tableName})`;
+      const baseMessage = `[useRealtimeSubscription] Canal '${channelName}' (Tabla: ${schema}.${tableName})`;
       
-      let errDetails = 'No additional error information.';
+      let errDetails = 'Sin información adicional de error.';
       if (err) {
         const errorObject = err as any; 
-        const codePart = errorObject.code ? `(Code: ${errorObject.code})` : '';
+        const codePart = errorObject.code ? `(Código: ${errorObject.code})` : '';
         const messagePart = errorObject.message || String(err);
         errDetails = `Error: "${messagePart}" ${codePart}`;
         if (messagePart.includes("Realtime was unable to connect to the project database")) {
-            console.error( // Add specific log for this common error
-              `[useRealtimeSubscription] Specific error for channel '${channelName}': Realtime was unable to connect to the project database. ` +
-              `Ensure table replication is enabled for '${schema}.${tableName}' in your Supabase dashboard (Database > Replication).`
+            console.error( // Añadir log específico para este error común
+              `[useRealtimeSubscription] Error específico para el canal '${channelName}': Realtime no pudo conectarse a la base de datos del proyecto. ` +
+              `Asegúrese de que la replicación de tablas esté habilitada para '${schema}.${tableName}' en su panel de Supabase (Base de Datos > Replicación).`
             );
-            errDetails += " This is often a Supabase internal or configuration issue (like Table Replication).";
+            errDetails += " Esto suele ser un problema interno o de configuración de Supabase (como la Replicación de Tablas).";
         }
       }
 
       if (status === 'SUBSCRIBED') {
-        console.log(`${baseMessage}: Successfully SUBSCRIBED.`);
+        console.log(`${baseMessage}: SUSCRITO exitosamente.`);
         setIsSubscribed(true);
-        setError(null); // Clear any previous errors on successful subscription
+        setError(null); // Limpiar errores previos en una suscripción exitosa
         if (retryAttempt > 0) setRetryAttempt(0); 
         if (retryTimerRef.current) {
           clearTimeout(retryTimerRef.current);
@@ -153,14 +152,14 @@ No further automatic re-subscription attempts will be made for this channel.`;
         }
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         const logMethod = status === 'CLOSED' && !err ? console.warn : console.error;
-        logMethod(`${baseMessage}: Status is ${status}. ${errDetails}. Attempting to re-subscribe if attempts remain.`);
+        logMethod(`${baseMessage}: El estado es ${status}. ${errDetails}. Intentando re-suscribir si quedan intentos.`);
         setIsSubscribed(false);
-        // Do not set the main 'error' state here for intermediate retries.
-        // scheduleRetry will set the final error if MAX_RETRY_ATTEMPTS is reached.
+        // No establecer el estado de 'error' principal aquí para reintentos intermedios.
+        // scheduleRetry establecerá el error final si se alcanza MAX_RETRY_ATTEMPTS.
         scheduleRetry();
       } else {
-        // For other statuses like 'joining', 'connected', etc.
-        console.info(`${baseMessage}: Status is ${status}. ${err ? errDetails : '(No specific error details)'}`);
+        // Para otros estados como 'joining', 'connected', etc.
+        console.info(`${baseMessage}: El estado es ${status}. ${err ? errDetails : '(Sin detalles de error específicos)'}`);
         setIsSubscribed(false); 
       }
     });
@@ -169,8 +168,8 @@ No further automatic re-subscription attempts will be made for this channel.`;
       if (channelRef.current) {
         const clientToClean = customSupabaseClient || supabase;
         clientToClean.removeChannel(channelRef.current)
-          .then(removeStatus => console.log(`[useRealtimeSubscription] Channel ${channelName} removed on cleanup with status: ${removeStatus}`))
-          .catch(removeError => console.error(`[useRealtimeSubscription] Error removing channel ${channelName} on cleanup:`, removeError));
+          .then(removeStatus => console.log(`[useRealtimeSubscription] Canal ${channelName} eliminado en limpieza con estado: ${removeStatus}`))
+          .catch(removeError => console.error(`[useRealtimeSubscription] Error eliminando canal ${channelName} en limpieza:`, removeError));
         channelRef.current = null;
       }
       if (retryTimerRef.current) {

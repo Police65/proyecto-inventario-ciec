@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { LIGHT_MODE_LOGO_URL, DARK_MODE_LOGO_URL } from '../../assets/paths';
 
 
 const Login: React.FC = () => {
@@ -52,10 +53,16 @@ const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-10 rounded-xl shadow-2xl">
         <div>
+          {/* Logos dinámicos */}
           <img
-            className="mx-auto h-16 w-auto" // Ajustar tamaño del logo según sea necesario
-            src="/assets/logo_png.png" // Asegúrate que esta ruta sea correcta
-            alt="Logo RequiSoftware"
+              className="mx-auto h-16 w-auto block dark:hidden"
+              src={LIGHT_MODE_LOGO_URL}
+              alt="Logo RequiSoftware"
+          />
+          <img
+              className="mx-auto h-16 w-auto hidden dark:block"
+              src={DARK_MODE_LOGO_URL}
+              alt="Logo RequiSoftware"
           />
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
             Iniciar Sesión
@@ -85,6 +92,8 @@ const Login: React.FC = () => {
                 placeholder="Correo Electrónico"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese su correo electrónico.')}
+                onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
               />
             </div>
             <div className="relative"> {/* Contenedor para input de contraseña y botón de mostrar/ocultar */}
@@ -101,6 +110,8 @@ const Login: React.FC = () => {
                 placeholder="Contraseña"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese su contraseña.')}
+                onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
               />
               <button
                 type="button" // Evitar que envíe el formulario

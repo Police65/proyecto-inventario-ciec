@@ -14,7 +14,7 @@ import UserManagement from '../components/admin/UserManagement';
 import ConsolidatedOrderTable from '../components/orders/ConsolidatedOrderTable';
 
 // Modales
-import OrderForm from '@/components/orders/OrderForm'; 
+import { OrderForm } from '@/components/orders/OrderForm'; 
 import { DirectOrderForm } from '@/components/orders/DirectOrderForm'; 
 import ConsolidationModal from '../components/orders/ConsolidationModal';
 import OrderDetailsModal from '../components/orders/OrderDetailsModal';
@@ -41,7 +41,7 @@ type RawSolicitudFromQuery = Omit<SolicitudCompra, 'empleado' | 'departamento' |
 };
 
 type RawOrdenFromQuery = Omit<OrdenCompra, 'proveedor' | 'detalles' | 'empleado' | 'solicitud_compra'> & {
-  proveedor: Pick<Proveedor, 'id' | 'nombre' | 'rif' | 'direccion'> | null;
+  proveedor: Pick<Proveedor, 'id' | 'nombre' | 'rif' | 'direccion' | 'tipo_contribuyente' | 'porcentaje_retencion_iva' | 'estado'> | null;
   detalles: Array<
     Pick<OrdenCompraDetalleType, 'id' | 'producto_id' | 'cantidad' | 'precio_unitario'> & {
       producto: Pick<Producto, 'id' | 'descripcion'> | null;
@@ -53,7 +53,7 @@ type RawOrdenFromQuery = Omit<OrdenCompra, 'proveedor' | 'detalles' | 'empleado'
 
 const commonSelectOrden = `
     id, solicitud_compra_id, proveedor_id, fecha_orden, estado, precio_unitario, sub_total, iva, ret_iva, neto_a_pagar, unidad, observaciones, empleado_id, changed_by, fecha_modificacion, retencion_porcentaje, fecha_entrega_estimada, fecha_entrega_real,
-    proveedor:proveedor_id(id, nombre, rif, direccion),
+    proveedor:proveedor_id(id, nombre, rif, direccion, estado, tipo_contribuyente, porcentaje_retencion_iva),
     detalles:ordencompra_detalle(id, producto_id, cantidad, precio_unitario, producto:producto_id(id, descripcion)),
     empleado:empleado_id(id, nombre, apellido),
     solicitud_compra:solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, descripcion, empleado_id)
@@ -149,7 +149,10 @@ export const AdminDashboardPage = (): React.ReactElement => {
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     proveedor: order.proveedor ? { 
       id: order.proveedor.id, nombre: order.proveedor.nombre, rif: order.proveedor.rif, direccion: order.proveedor.direccion,
-      estado: 'activo', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      estado: order.proveedor.estado,
+      tipo_contribuyente: order.proveedor.tipo_contribuyente,
+      porcentaje_retencion_iva: order.proveedor.porcentaje_retencion_iva,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     } : undefined,
     empleado: order.empleado ? { 
       id: order.empleado.id, nombre: order.empleado.nombre, apellido: order.empleado.apellido,
@@ -423,18 +426,18 @@ export const AdminDashboardPage = (): React.ReactElement => {
       case 'solicitudes':
         return (
           <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Solicitudes Pendientes</h2>
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white shrink-0">Solicitudes Pendientes</h2>
+              <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 w-full">
                 <button
                   onClick={() => setShowConsolidationModal(true)}
-                  className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md text-sm whitespace-nowrap"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md text-sm whitespace-nowrap shadow-sm"
                 >
                   Consolidar Solicitudes
                 </button>
                 <button
                   onClick={handleCreateDirectOrder}
-                  className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md text-sm whitespace-nowrap"
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md text-sm whitespace-nowrap shadow-sm"
                 >
                   Crear Orden Directa
                 </button>

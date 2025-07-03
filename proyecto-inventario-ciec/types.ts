@@ -1,4 +1,3 @@
-
 // types.ts
 // Este archivo contiene las definiciones de TypeScript para las estructuras de datos (tablas)
 // y otros tipos personalizados utilizados en la aplicación.
@@ -217,6 +216,8 @@ export interface ProductoRezagado {
   orden_compra?: OrdenCompra;
 }
 
+export type ProveedorTipoContribuyente = 'normal' | 'especial';
+
 export interface Proveedor {
   id: number;
   nombre: string;
@@ -228,6 +229,8 @@ export interface Proveedor {
   tiempo_entrega_promedio_dias?: number | null;
   calificacion_promedio?: number | null; // Podría ser calculado o manual
   estado: string; // Default 'activo'. Podría ser 'activo' | 'inactivo'
+  tipo_contribuyente: ProveedorTipoContribuyente;
+  porcentaje_retencion_iva: number;
   created_at: string;
   updated_at: string;
   // Para join con tabla de unión 'proveedor_categoria'
@@ -620,8 +623,8 @@ export interface Database {
     Functions: { // Funciones de PostgreSQL, si las hubiera
       [_ in never]: never; // Placeholder si no hay funciones
     };
-    Enums: { // Tipos Enum de PostgreSQL, si los hubiera
-      [_ in never]: never; // Placeholder
+    Enums: {
+       tipo_contribuyente_enum: 'normal' | 'especial'
     };
     CompositeTypes: { // Tipos Compuestos de PostgreSQL, si los hubiera
       [_ in never]: never; // Placeholder

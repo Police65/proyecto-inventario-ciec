@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { OrdenCompra, OrdenCompraEstado, ProductoNoRecibido, OrdenCompraDetalle, Producto, NotificacionInsert } from '../../types'; 
 import { supabase } from '../../supabaseClient';
@@ -272,7 +271,10 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
                 <label htmlFor="fechaEntregaReal" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Fecha de Entrega Real <span className="text-red-500">*</span></label>
                 <div className="relative mt-1">
                     <input type="date" name="fechaEntregaReal" id="fechaEntregaReal" value={fechaEntregaReal} onChange={(e) => setFechaEntregaReal(e.target.value)} required
-                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white pr-8" />
+                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white pr-8"
+                        onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese la fecha de entrega real.')}
+                        onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                    />
                     <CalendarDaysIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
                 </div>
             </div>

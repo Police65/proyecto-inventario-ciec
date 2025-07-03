@@ -111,6 +111,8 @@ export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, is
             onChange={(e) => setDescription(e.target.value)}
             required={customRequest}
             placeholder="Especifique detalladamente su requisición especial aquí..."
+            onInvalid={(e) => (e.target as HTMLTextAreaElement).setCustomValidity('Por favor, ingrese una descripción para la requisición.')}
+            onInput={(e) => (e.target as HTMLTextAreaElement).setCustomValidity('')}
           />
         </div>
       ) : (
@@ -135,6 +137,8 @@ export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, is
                     onChange={(e) => handleProductChange(product.id, 'productId', e.target.value)}
                     required={!customRequest}
                     className={`mt-1 ${inputFieldClasses}`}
+                    onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione un producto.')}
+                    onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}
                   >
                     <option value="">-- Seleccionar Producto --</option>
                     {fetchedProducts.map(p => (
@@ -156,6 +160,8 @@ export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, is
                     onChange={(e) => handleProductChange(product.id, 'quantity', e.target.value)}
                     required={!customRequest}
                     className={`mt-1 ${inputFieldClasses}`}
+                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese una cantidad válida (mayor a 0).')}
+                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
                   />
                 </div>
                 

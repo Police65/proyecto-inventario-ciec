@@ -1,4 +1,3 @@
-
 import React from 'react';
 // @ts-ignore
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
@@ -127,7 +126,7 @@ const InventoryPage: React.FC = () => {
   ];
   
   return (
-    <div className="flex flex-col lg:flex-row space-y-6 lg:space-y-0 lg:space-x-6 h-full">
+    <div className="flex flex-col lg:grid lg:grid-cols-[max-content_1fr] space-y-6 lg:space-y-0 lg:gap-x-6 h-full">
       <nav className="lg:w-64 xl:w-72 bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 h-fit lg:h-full lg:overflow-y-auto">
         <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4 border-b pb-2 dark:border-gray-700">Navegación Inventario</h2>
         <ul className="space-y-1.5">
@@ -162,7 +161,7 @@ const InventoryPage: React.FC = () => {
         </ul>
       </nav>
 
-      <div className="flex-1 bg-transparent p-0 md:p-0 lg:p-0"> {/* Padding eliminado aquí, los componentes hijos lo manejan */}
+      <div className="flex-1 bg-transparent p-0 md:p-0 lg:p-0 min-w-0">
         <Routes>
           <Route index element={<InventoryDashboardContent />} />
           <Route path="view" element={<ViewInventory />} />

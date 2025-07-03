@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { RendimientoProveedor } from '../../types';
@@ -162,7 +161,10 @@ const ProviderPerformanceModal: React.FC<ProviderPerformanceModalProps> = ({ sho
                 <div>
                     <label htmlFor="fecha_evaluacion" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Fecha Evaluación</label>
                     <input type="date" name="fecha_evaluacion" id="fecha_evaluacion" value={formData.fecha_evaluacion || ''} onChange={handleInputChange} required
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese la fecha de evaluación.')}
+                        onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                    />
                 </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

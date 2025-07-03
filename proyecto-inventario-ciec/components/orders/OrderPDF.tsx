@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -119,23 +118,10 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
       
-      let position = 0;
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      if (pdfHeight <= pageHeight) {
-        pdf.addImage(canvas, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      } else {
-        // Manejo básico de múltiples páginas (podría necesitar refinamiento para diseños complejos)
-        let heightLeft = pdfHeight;
-        while (heightLeft > 0) {
-          pdf.addImage(canvas, 'PNG', 0, position, pdfWidth, pdfHeight);
-          heightLeft -= pageHeight;
-          position -= pageHeight; 
-          if (heightLeft > 0) {
-            pdf.addPage();
-          }
-        }
-      }
+      // La lógica anterior de múltiples páginas a veces creaba una página en blanco extra.
+      // Según la solicitud del usuario de una sola página, ahora agregamos la imagen una vez.
+      // jspdf recortará automáticamente cualquier contenido que exceda las dimensiones de la página.
+      pdf.addImage(canvas, 'PNG', 0, 0, pdfWidth, pdfHeight);
       
       pdf.save(`orden_${order.id}.pdf`);
 

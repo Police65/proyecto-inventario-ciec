@@ -1,6 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { OrdenCompra, Camaraindustriales, Proveedor, Empleado, OrdenCompraDetalle, Producto as ProductoType, OrdenCompraUnidad } from '../../types';
+import { PDF_LOGO_URL } from '../../assets/paths';
 
 // Interfaz para el objeto OrdenCompra completamente detallado esperado por PDFTemplate
 interface PDFOrdenCompra extends OrdenCompra {
@@ -25,11 +26,13 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
     }).format(value);
   };
 
+  const logoWidth = '120px'; // Aumentado para mejor visibilidad
+
   const baseStyles: { [key: string]: React.CSSProperties } = {
     page: {
       width: '210mm',
       minHeight: '297mm',
-      padding: '20px',
+      padding: '15px', // Reducido desde 20px
       fontFamily: 'Arial, sans-serif',
       fontSize: '10px',
       color: '#000000',
@@ -38,18 +41,17 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
     header: {
       display: 'flex',
       alignItems: 'center',
+      justifyContent: 'space-between', // Modificado para centrar el texto
       marginBottom: '15px',
       borderBottom: '2px solid #000',
       paddingBottom: '10px',
     },
     logo: {
-      width: '80px', // Aumentado para un logo un poco más grande
+      width: logoWidth,
       height: 'auto',
-      marginRight: '15px',
     },
     headerTextContainer: {
-      flexGrow: 1, // Permite que el contenedor de texto ocupe el espacio restante
-      textAlign: 'center', // Centra el texto dentro de este contenedor
+      textAlign: 'center',
     },
     headerTitle: {
       fontSize: '20px',
@@ -125,8 +127,8 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
     signatures: {
       display: 'flex',
       justifyContent: 'space-around',
-      marginTop: '40px',
-      paddingTop: '15px',
+      marginTop: '25px', // Reducido desde 40px
+      paddingTop: '10px', // Reducido desde 15px
       borderTop: '1px solid #000',
       fontSize: '10px',
     },
@@ -159,7 +161,7 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
   return (
     <div style={baseStyles.page}>
       <div style={baseStyles.header}>
-        <img src="/assets/logo_de_pdf.png" alt="Logo CIEC" style={baseStyles.logo} />
+        <img src={PDF_LOGO_URL} alt="Logo CIEC" style={baseStyles.logo} crossOrigin="anonymous" />
         <div style={baseStyles.headerTextContainer}>
           <h2 style={baseStyles.headerTitle}>{camara.nombre}</h2>
           <h3 style={baseStyles.headerSubtitle}>Orden de Compra N°: {orden.id}</h3>
@@ -167,6 +169,8 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
             {format(new Date(orden.fecha_orden), 'dd/MM/yyyy')}
           </p>
         </div>
+        {/* Spacer div to balance the logo and keep text centered */}
+        <div style={{ width: logoWidth }} />
       </div>
 
       <div style={baseStyles.contactInfo}>
@@ -195,7 +199,7 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
       </table>
 
       <div style={baseStyles.instructions}>
-        <p>ESTIMADO PROVEEDOR, DE ACUERDO A SU COTIZACIÓN ENVIADA POR WS, FAVOR SUMINISTRAR LO ABAJO INDICADO</p>
+        <p>ESTIMADO PROVEEDOR, DE ACUERDO A SU COTIZACIÓN ENVIADA, FAVOR SUMINISTRAR LO ABAJO INDICADO</p>
       </div>
 
       <table style={baseStyles.table}>

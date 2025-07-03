@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import LoadingSpinner from '../core/LoadingSpinner';
 import { OrdenCompra, OrdenCompraDetalle, SolicitudCompra, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, ConsumoHistoricoProducto } from '../../types';
 import { format, parseISO, startOfMonth } from 'date-fns';
-import { es } from 'date-fns/locale/es';
+import { es } from 'date-fns/locale';
 
 
 interface DepartmentExpense {

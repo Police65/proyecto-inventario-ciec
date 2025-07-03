@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Proveedor, CategoriaProveedor } from '../../types';
+import { Proveedor, CategoriaProveedor, ProveedorTipoContribuyente } from '../../types';
 import { PlusCircleIcon, PencilIcon, TrashIcon, ArrowPathIcon, TagIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 
@@ -72,7 +72,7 @@ const ProviderManagement: React.FC = () => {
     const { name, value } = e.target;
     setCurrentProvider(prev => ({ 
         ...prev, 
-        [name]: (name === 'tiempo_entrega_promedio_dias' || name === 'calificacion_promedio') 
+        [name]: (name === 'tiempo_entrega_promedio_dias' || name === 'calificacion_promedio' || name === 'porcentaje_retencion_iva') 
                 ? (value ? parseFloat(value) : null) 
                 : value 
     }));
@@ -129,6 +129,8 @@ const ProviderManagement: React.FC = () => {
       tiempo_entrega_promedio_dias: currentProvider.tiempo_entrega_promedio_dias ? Number(currentProvider.tiempo_entrega_promedio_dias) : null,
       calificacion_promedio: currentProvider.calificacion_promedio ? Number(currentProvider.calificacion_promedio) : null,
       estado: currentProvider.estado || 'activo',
+      tipo_contribuyente: currentProvider.tipo_contribuyente || 'normal',
+      porcentaje_retencion_iva: currentProvider.porcentaje_retencion_iva ? Number(currentProvider.porcentaje_retencion_iva) : 0,
     };
 
     try {
@@ -242,7 +244,7 @@ const ProviderManagement: React.FC = () => {
   };
 
   const openAddModal = () => {
-    setCurrentProvider({ selectedCategorias: [], estado: 'activo' });
+    setCurrentProvider({ selectedCategorias: [], estado: 'activo', tipo_contribuyente: 'normal', porcentaje_retencion_iva: 0 });
     setIsEditing(false);
     setShowModal(true);
     setCategorySearchTerm('');
@@ -350,6 +352,8 @@ const ProviderManagement: React.FC = () => {
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Nombre</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">RIF</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tipo Cont.</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">% Ret. IVA</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Teléfono</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Correo</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Categorías</th>
@@ -362,6 +366,8 @@ const ProviderManagement: React.FC = () => {
               <tr key={p.id}>
                 <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{p.nombre}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.rif}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 capitalize">{p.tipo_contribuyente}</td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.porcentaje_retencion_iva}%</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.telefono || 'N/D'}</td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{p.correo || 'N/D'}</td>
                 <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
@@ -396,7 +402,7 @@ const ProviderManagement: React.FC = () => {
             ))}
              {filteredProviders.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={9} className="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
                   No se encontraron proveedores.
                 </td>
               </tr>
@@ -408,23 +414,28 @@ const ProviderManagement: React.FC = () => {
       {/* Provider Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               {isEditing ? 'Editar' : 'Añadir'} Proveedor
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre <span className="text-red-500">*</span></label>
-                <input type="text" name="nombre" id="nombre" value={currentProvider.nombre || ''} onChange={handleInputChange} required 
-                  className={`mt-1 ${inputFieldClasses}`} />
-              </div>
-              <div>
-                <label htmlFor="rif" className="block text-sm font-medium text-gray-700 dark:text-gray-300">RIF <span className="text-red-500">*</span></label>
-                <input 
-                    type="text" name="rif" id="rif" value={currentProvider.rif || ''} 
-                    onChange={handleInputChange} onInvalid={handleRifInvalid} onInput={handleRifInput}
-                    required pattern="^[JVGjvgeE]-\d{8,9}(-\d)?$"
-                    className={`mt-1 ${inputFieldClasses}`} placeholder="Ej: J-12345678-9" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre <span className="text-red-500">*</span></label>
+                    <input type="text" name="nombre" id="nombre" value={currentProvider.nombre || ''} onChange={handleInputChange} required 
+                      className={`mt-1 ${inputFieldClasses}`}
+                      onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese el nombre del proveedor.')}
+                      onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="rif" className="block text-sm font-medium text-gray-700 dark:text-gray-300">RIF <span className="text-red-500">*</span></label>
+                    <input 
+                        type="text" name="rif" id="rif" value={currentProvider.rif || ''} 
+                        onChange={handleInputChange} onInvalid={handleRifInvalid} onInput={handleRifInput}
+                        required pattern="^[JVGjvgeE]-\d{8,9}(-\d)?$"
+                        className={`mt-1 ${inputFieldClasses}`} placeholder="Ej: J-12345678-9" />
+                  </div>
               </div>
               <div>
                 <label htmlFor="direccion" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Dirección</label>
@@ -442,7 +453,7 @@ const ProviderManagement: React.FC = () => {
                     <input type="email" name="correo" id="correo" value={currentProvider.correo || ''} onChange={handleInputChange} 
                     className={`mt-1 ${inputFieldClasses}`} />
                 </div>
-                <div>
+                <div className="md:col-span-2">
                     <label htmlFor="pagina_web" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Página Web</label>
                     <input type="url" name="pagina_web" id="pagina_web" value={currentProvider.pagina_web || ''} onChange={handleInputChange} 
                     className={`mt-1 ${inputFieldClasses}`} />
@@ -454,6 +465,30 @@ const ProviderManagement: React.FC = () => {
                         <option value="inactivo">Inactivo</option>
                     </select>
                 </div>
+              </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t dark:border-gray-700 pt-4">
+                 <div>
+                    <label htmlFor="tipo_contribuyente" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo Contribuyente <span className="text-red-500">*</span></label>
+                    <select name="tipo_contribuyente" id="tipo_contribuyente" value={currentProvider.tipo_contribuyente || 'normal'} onChange={handleInputChange} required className={`mt-1 ${inputFieldClasses}`}
+                      onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione el tipo de contribuyente.')}
+                      onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}
+                    >
+                        <option value="normal">Normal</option>
+                        <option value="especial">Especial</option>
+                    </select>
+                </div>
+                <div>
+                    <label htmlFor="porcentaje_retencion_iva" className="block text-sm font-medium text-gray-700 dark:text-gray-300">% Retención IVA <span className="text-red-500">*</span></label>
+                    <input type="number" name="porcentaje_retencion_iva" id="porcentaje_retencion_iva" value={currentProvider.porcentaje_retencion_iva ?? 0} onChange={handleInputChange} required min="0" max="100" step="1"
+                    className={`mt-1 ${inputFieldClasses}`}
+                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese el porcentaje de retención de IVA.')}
+                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                    />
+                </div>
+               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div>
                     <label htmlFor="tiempo_entrega_promedio_dias" className="block text-sm font-medium text-gray-700 dark:text-gray-300">T. Entrega Prom. (días)</label>
                     <input type="number" name="tiempo_entrega_promedio_dias" id="tiempo_entrega_promedio_dias" value={currentProvider.tiempo_entrega_promedio_dias || ''} onChange={handleInputChange} 
@@ -469,7 +504,7 @@ const ProviderManagement: React.FC = () => {
               <div ref={categoryDropdownRef}>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categorías de Proveedor</label>
                 <div className="relative">
-                  <div className={`flex flex-wrap gap-1 p-2 border rounded-md cursor-text min-h-[40px] ${inputFieldClasses}`} onClick={() => setIsCategoryDropdownOpen(true)}>
+                  <div className={`flex flex-wrap gap-1 p-2 border rounded-md cursor-text min-h-[42px] ${inputFieldClasses}`} onClick={() => setIsCategoryDropdownOpen(true)}>
                     {currentProvider.selectedCategorias?.map(catId => {
                       const cat = allCategorias.find(c => c.id === catId);
                       return cat ? (
