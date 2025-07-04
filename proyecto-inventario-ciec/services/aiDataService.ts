@@ -1,6 +1,16 @@
 import { supabase } from '../supabaseClient';
-import { Producto, Proveedor, OrdenCompra, Inventario, CategoriaProducto, SolicitudCompra, Departamento } from '../types';
+import { Producto, Proveedor, OrdenCompra, Inventario, CategoriaProducto } from '../types';
 import { startOfMonth, endOfMonth, subDays, startOfYear, formatISO } from 'date-fns';
+
+// Local types for Supabase join results
+// (only the fields we actually use)
+type CategoriaJoin = { nombre?: string };
+type ProductoJoin = { stock_minimo?: number; descripcion?: string };
+type DetalleJoin = { 
+    cantidad: number; 
+    precio_unitario: number; 
+    producto?: Array<{ descripcion: string }> | { descripcion: string } 
+};
 
 /**
  * Obtiene el conteo de solicitudes de compra pendientes.
@@ -180,7 +190,9 @@ export const getProductDetailsByNameOrCode = async (identifier: string): Promise
         id: data.id,
         descripcion: data.descripcion,
         codigo_interno: data.codigo_interno,
-        categoria_nombre: Array.isArray(data.categoria) ? data.categoria[0]?.nombre || "Sin categoría" : data.categoria?.nombre || "Sin categoría",
+        categoria_nombre: Array.isArray(data.categoria)
+          ? (data.categoria[0] as CategoriaJoin)?.nombre || "Sin categoría"
+          : (data.categoria as CategoriaJoin)?.nombre || "Sin categoría",
         inventario_existencias: inventarioExistencias,
     };
   } catch (err) {
@@ -293,7 +305,60 @@ export const getOrderDetailsById = async (orderId: number): Promise<Partial<Orde
             return `Error al obtener detalles de la orden #${orderId}.`;
         }
         if (!data) return `No se encontró la orden de compra con ID #${orderId}.`;
-        return data;
+        
+        // Transformar los datos para que coincidan con el tipo esperado
+        const transformedData: Partial<OrdenCompra> = {
+            id: data.id,
+            fecha_orden: data.fecha_orden,
+            estado: data.estado,
+            sub_total: data.sub_total,
+            iva: data.iva,
+            ret_iva: data.ret_iva,
+            neto_a_pagar: data.neto_a_pagar,
+            unidad: data.unidad,
+            observaciones: data.observaciones,
+            fecha_entrega_estimada: data.fecha_entrega_estimada,
+            fecha_entrega_real: data.fecha_entrega_real,
+            proveedor: data.proveedor && data.proveedor.length > 0 ? {
+                id: 0, // Placeholder
+                nombre: data.proveedor[0].nombre,
+                direccion: '', // Placeholder
+                rif: data.proveedor[0].rif,
+                telefono: '', // Placeholder
+                correo: '', // Placeholder
+                pagina_web: '', // Placeholder
+                tiempo_entrega_promedio_dias: 0, // Placeholder
+                calificacion_promedio: 0, // Placeholder
+                estado: 'activo', // Placeholder
+                tipo_contribuyente: 'normal', // Placeholder
+                porcentaje_retencion_iva: 0, // Placeholder
+                created_at: new Date().toISOString(), // Placeholder
+                updated_at: new Date().toISOString() // Placeholder
+            } : undefined,
+            detalles: data.detalles ? data.detalles.map((detalle: DetalleJoin) => ({
+                id: 0, // Placeholder
+                orden_compra_id: 0, // Placeholder
+                producto_id: 0, // Placeholder
+                cantidad: detalle.cantidad,
+                precio_unitario: detalle.precio_unitario,
+                monto_total: detalle.cantidad * detalle.precio_unitario, // Calculated
+                created_at: new Date().toISOString(), // Placeholder
+                updated_at: new Date().toISOString(), // Placeholder
+                producto: detalle.producto ? {
+                    id: 0, // Placeholder
+                    descripcion: Array.isArray(detalle.producto) ? detalle.producto[0].descripcion : detalle.producto.descripcion,
+                    categoria_id: null, // Placeholder
+                    stock_minimo: null, // Placeholder
+                    stock_maximo: null, // Placeholder
+                    unidad_medida: null, // Placeholder
+                    codigo_interno: null, // Placeholder
+                    created_at: new Date().toISOString(), // Placeholder
+                    updated_at: new Date().toISOString() // Placeholder
+                } : undefined
+            })) : []
+        };
+        
+        return transformedData;
     } catch (err) {
         console.error(`Excepción en getOrderDetailsById para la orden con ID '${orderId}':`, err);
         return `Excepción al obtener detalles de la orden #${orderId}.`;
@@ -339,9 +404,17 @@ export const getInventorySummary = async (options?: { lowStockThresholdPercent?:
             
         if (lowStockError) return "Error al contar productos con bajo stock.";
         
-        const actualLowStockCount = (lowStockItems || []).filter(item =>
-            item.producto && item.producto.stock_minimo !== null && item.existencias !== null && item.existencias < item.producto.stock_minimo
-        ).length;
+        const actualLowStockCount = (lowStockItems || []).filter(item => {
+          const producto = Array.isArray(item.producto)
+            ? (item.producto[0] as ProductoJoin)
+            : (item.producto as ProductoJoin);
+          return (
+            producto &&
+            producto.stock_minimo !== null &&
+            item.existencias !== null &&
+            item.existencias < producto.stock_minimo!
+          );
+        }).length;
 
 
         const { data: topStockedItems, error: topStockError } = await supabase
@@ -354,10 +427,15 @@ export const getInventorySummary = async (options?: { lowStockThresholdPercent?:
         return {
             total_productos_distintos_en_inventario: totalDistinctProducts || 0,
             productos_con_bajo_stock_critico: actualLowStockCount,
-            productos_mas_abundantes: (topStockedItems || []).map(item => ({
-                producto: item.producto?.descripcion || 'Desconocido',
+            productos_mas_abundantes: (topStockedItems || []).map(item => {
+              const producto = Array.isArray(item.producto)
+                ? (item.producto[0] as ProductoJoin)
+                : (item.producto as ProductoJoin);
+              return {
+                producto: producto?.descripcion || 'Desconocido',
                 existencias: item.existencias
-            }))
+              };
+            })
         };
 
     } catch (err) {
