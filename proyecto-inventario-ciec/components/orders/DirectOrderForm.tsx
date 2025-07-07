@@ -260,6 +260,13 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     if (!formData.proveedor_id) {
       setError("Debe seleccionar un proveedor."); setSubmittingOrder(false); return;
     }
+
+    if ((formData.neto_a_pagar || 0) <= 0) {
+      setError("El total de la orden de compra no puede ser 0 o menor. Verifique las cantidades y precios.");
+      setSubmittingOrder(false);
+      return;
+    }
+    
     if (productos.length === 0 || productos.some(p => 
         (p.isNewProduct && (!p.newProduct_descripcion?.trim() || !p.newProduct_categoria_id)) ||
         (!p.isNewProduct && !p.selected_producto_id) ||

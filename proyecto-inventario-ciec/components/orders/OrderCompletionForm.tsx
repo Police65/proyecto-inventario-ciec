@@ -93,6 +93,33 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
       return;
     }
 
+    // --- New Validation for Unique Invoice ---
+    if (facturaNumero.trim()) {
+      try {
+        const { data: existingFactura, error: checkError } = await supabase
+          .from('facturas_orden')
+          .select('id, orden_compra_id')
+          .eq('numero_factura', facturaNumero.trim())
+          .limit(1)
+          .maybeSingle(); // Use maybeSingle to not error on no rows
+        
+        if (checkError) {
+          throw new Error(`Error al verificar la factura: ${checkError.message}`);
+        }
+  
+        if (existingFactura) {
+          setError(`El número de factura '${facturaNumero.trim()}' ya ha sido registrado para la orden de compra #${existingFactura.orden_compra_id}.`);
+          setSubmittingCompletion(false);
+          return;
+        }
+      } catch (checkErr) {
+        setError((checkErr as Error).message);
+        setSubmittingCompletion(false);
+        return;
+      }
+    }
+    // --- End of New Validation ---
+
     const notificationsToCreate: NotificacionInsert[] = [];
     const adminUserIds = await fetchAdminUserIds();
 

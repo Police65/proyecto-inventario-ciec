@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { PaperAirplaneIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 import { UserProfile } from '../../types'; // Relative path
@@ -78,6 +77,72 @@ const parseChatResponseToHTML = (text: string): string => {
   return html;
 };
 
+// This helper function asks the AI to act as a router, choosing which data function to call.
+const getIntentFromQuery = async (query: string): Promise<{function: string; args: any}> => {
+    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY.length < 10) {
+        console.warn("API Key not found for intent router. Falling back to 'none'.");
+        return { function: 'none', args: {} };
+    }
+
+    const availableFunctions = `
+- getInventorySummary: Returns a high-level summary of the inventory. Call for general questions about inventory like 'how many products are in inventory?', 'what is the inventory status?'. Returns total distinct items in inventory and low-stock items count.
+- getTotalProductsCount: Returns the total number of distinct products in the entire catalog, regardless of stock. Call for questions like 'how many product types do you manage?'.
+- getTotalPurchaseOrdersCount: Returns the total number of purchase orders ever created. Call for 'how many orders have been made?'.
+- getPendingRequestsCount: Returns the number of purchase requests with 'Pendiente' status. Call for questions about pending, open, or new requests.
+- getProductDetailsByNameOrCode: Takes a required 'identifier' (string: product name or code). Returns details for a single product. Call for 'details of product X'.
+- getInventoryByProductNameOrCode: Takes a required 'identifier' (string: product name or code). Returns the current stock level and location for a single product. Call this for any question about "stock", "cuanto(s) hay", "existencias", "disponibilidad" for a specific item.
+- getAllProducts: Takes an optional 'limit' (number, default 10). Returns a list of all products. Call for "list of products", "show me the products".
+- getProductsByCategoryName: Takes a required 'categoryName' (string) and an optional 'limit' (number, default 10). Returns a list of products in a given category.
+- getAllProductCategories: Returns a list of all available product categories. Call for "what are the categories?".
+- getOrderDetailsById: Takes a required 'orderId' (number). Returns details of a specific purchase order.
+- getSupplierDetailsByNameOrRif: Takes a required 'identifier' (string, supplier name or RIF). Returns details for a single supplier.
+- getTotalSuppliersCount: Returns the total number of suppliers.
+- getTotalDepartmentsCount: Returns the total number of departments.
+- getTotalExpenses: Takes an optional 'period' (string from 'current_month', 'last_30_days', 'year_to_date', 'all_time'). Returns the total amount of money spent on all completed purchase orders. Call for questions like 'how much was spent?', 'what are the total expenses?'.
+- getDepartmentExpenses: Takes a required 'departmentName' (string) and an optional 'period' (string from 'current_month', 'last_30_days', 'year_to_date', 'all_time'). Returns the total expenses for a specific department.
+    `;
+
+    const intentPrompt = `You are a smart JSON-only router for a database query system. Analyze the user's question and determine which function to call and what arguments to extract.
+    Available functions and their descriptions:
+    ${availableFunctions}
+    User question: "${query}"
+
+    Your response MUST be a single line of valid JSON and nothing else.
+    The JSON format is: {"function": "function_name", "args": {"arg_name": "value"}}.
+    If no function is needed, or if the user is just chatting, respond with: {"function": "none"}.
+    If a required argument is missing, return the argument key with a null value. E.g., for "dame los productos por categoria", respond: {"function": "getProductsByCategoryName", "args": {"categoryName": null}}.
+    Extract arguments precisely. E.g., for "cuanto stock hay de la laptop dell xps", respond: {"function": "getInventoryByProductNameOrCode", "args": {"identifier": "laptop dell xps"}}.
+    For "dame los detalles de la orden 123", respond: {"function": "getOrderDetailsById", "args": {"orderId": 123}}.
+    For "cuales son las categorias", respond: {"function": "getAllProductCategories", "args": {}}.
+    For "cuantos productos hay en el inventario?", respond: {"function": "getInventorySummary", "args": {}}.
+    For "cuanto se ha gastado?", respond: {"function": "getTotalExpenses", "args": {"period": "all_time"}}.
+    `;
+
+    try {
+        const response = await fetch(OPENROUTER_API_URL, {
+            method: "POST", headers: {
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json",
+                "HTTP-Referer": SITE_URL_AI_CHAT, "X-Title": "RequiSoftware CIEC - Intent Router"
+            },
+            body: JSON.stringify({ model: "qwen/qwen3-30b-a3b:free", messages: [{ role: "user", content: intentPrompt }], max_tokens: 200, temperature: 0 })
+        });
+        if (!response.ok) throw new Error(`API error (${response.status}): ${await response.text()}`);
+        const data = await response.json();
+        const responseText = data.choices[0].message.content;
+        
+        let jsonStr = responseText.trim();
+        const fenceRegex = /^```json\s*\n?(.*?)\n?\s*```$/s;
+        const match = jsonStr.match(fenceRegex);
+        if (match && match[1]) jsonStr = match[1];
+        
+        return JSON.parse(jsonStr);
+    } catch (e) {
+        console.error("Failed to get or parse intent from AI:", e);
+        return { function: 'none', args: {} };
+    }
+};
+
+
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ userProfile }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -93,154 +158,81 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userProfile }) => {
 
   const systemPrompt = `Eres RequiAsistente, un asistente virtual experto integrado en RequiSoftware CIEC. Ayudas a ${userProfile.empleado?.nombre || 'un usuario'} del departamento de ${userProfile.departamento?.nombre || 'Desconocido'}.
 REGLAS CRÍTICAS E INQUEBRANTABLES:
-1.  **BAJO NINGUNA CIRCUNSTANCIA DEBES generar el texto '[Datos del sistema: ...]' por tu cuenta.** Este texto es una señal que SOLO YO (el frontend) usaré para indicarte que la información que sigue es un dato real obtenido de la base de datos, directamente relevante para tu pregunta actual.
-2.  **SI MI MENSAJE (el que recibes como 'user') NO CONTIENE el prefijo '[Datos del sistema: ...]', significa que NO hay datos del sistema para tu pregunta.** En este caso, DEBES indicar que no tienes la información específica solicitada o que no se pudo encontrar. Por ejemplo: "No tengo información sobre el stock de 'pendrives' en este momento." o "No pude encontrar productos en la categoría 'limpieza'." **NO INVENTES datos. NO INVENTES el prefijo.**
-3.  Si el texto que YO te proporciono SÍ comienza con '[Datos del sistema: ...]' y este dice 'No se encontró X', 'La categoría X no existe', 'No hay productos en la categoría X', o un resultado similar, DEBES transmitir ese mensaje tal cual al usuario. Ejemplo: "El sistema indica: La categoría 'Limpieza' no fue encontrada."
-4.  Si te proporciono una lista de productos (ej. de una categoría, o todos los productos), esta lista SOLO contendrá descripción, ID y código interno, y a veces nombre de categoría. **NO INCLUIRÁ precios ni stock.** Si el usuario pregunta por precio o stock en el contexto de una lista general, DEBES aclarar que esa información no está incluida y que puede preguntar por el stock de un producto específico. **NO INVENTES precios ni stock.**
-5.  El sistema (YO, el frontend) SÍ puede proporcionarte información (a través del prefijo '[Datos del sistema: ...]') sobre: Conteos de entidades (órdenes, productos, categorías, proveedores, departamentos), detalles básicos de productos (descripción, código, categoría, y stock si se pregunta específicamente por un producto), detalles de proveedores, stock de un producto específico (si se pregunta directamente), gastos de departamento (por período), listas de productos (generales o por categoría, estas listas NO incluyen precio ni stock) y lista de todas las categorías de producto.
-6.  NO tienes acceso directo a información personal detallada de Empleados (cédula, firma, etc.) o Perfiles de Usuario (contraseñas, emails de autenticación, roles, etc.). Limítate a la información agregada o contextual que se te provea.
-7.  Si el usuario hace una pregunta general como "dime toda esa información general", y no te proporciono datos del sistema (es decir, mi mensaje no tiene el prefijo '[Datos del sistema: ...]'), debes sugerir los tipos de consultas específicas que sí puedes manejar (basado en el punto 5). Ejemplo: "Puedo darte una lista de productos, detalles de un producto o proveedor específico, o el stock de un producto. ¿Qué información específica te gustaría saber?"
-8.  Responde en ESPAÑOL. Sé conciso y profesional. NO generes código. Utiliza markdown para formatear tu respuesta (listas, negritas, etc.).`;
-
+1.  **BAJO NINGUNA CIRCUNSTANCIA DEBES generar el texto '[Datos del sistema: ...]' o '[Instrucción del sistema: ...]' por tu cuenta.** Este texto es una señal que SOLO YO (el frontend) usaré para darte contexto.
+2.  Si mi mensaje (el que recibes como 'user') CONTIENE '[Instrucción del sistema: ...]', tu única tarea es seguir esa instrucción al pie de la letra para formular tu respuesta al usuario. Ejemplo: si la instrucción dice "pide el nombre de la categoría", tu respuesta debe ser algo como "¿De qué categoría te gustaría ver los productos?".
+3.  Si mi mensaje CONTIENE '[Datos del sistema: ...]', esa es la información real y actualizada que debes usar para responder la pregunta del usuario. Si los datos dicen "No se encontró X", DEBES informar eso.
+4.  Si mi mensaje NO CONTIENE ninguno de esos prefijos, significa que no se encontró una función de datos relevante para la pregunta. En este caso, DEBES indicar que no tienes la información específica y sugerir los tipos de consultas que sí puedes manejar (listas de productos, stock de un ítem, detalles de un proveedor, etc.).
+5.  **NO INVENTES datos.** Si no tienes la información (porque no te la di), di que no la tienes.
+6.  NO tienes acceso a información personal detallada de Empleados (cédula, firma) o Perfiles de Usuario (contraseñas, emails).
+7.  Responde en ESPAÑOL. Sé conciso y profesional. NO generes código. Utiliza markdown para formatear tu respuesta (listas, negritas, etc.).`;
 
   const handleSendMessage = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
     const trimmedInput = inputValue.trim();
     if (!trimmedInput) return;
 
-    const userMessage: ChatMessage = {
-      id: Date.now().toString() + '-user',
-      text: trimmedInput,
-      sender: 'user',
-      timestamp: new Date(),
-    };
+    const userMessage: ChatMessage = { id: Date.now().toString() + '-user', text: trimmedInput, sender: 'user', timestamp: new Date() };
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
     setIsFetchingContext(true);
 
-    let contextDataString = ""; 
-    const lowerInput = trimmedInput.toLowerCase();
-    let dataServiceCallMade = false; // Flag to track if any data service function was called
-
+    let contextDataString = "";
     try {
-        if (lowerInput.includes("solicitudes pendientes")) {
-            dataServiceCallMade = true;
-            const result = await aiDataService.getPendingRequestsCount();
-            contextDataString = typeof result === 'number' ? `Actualmente hay ${result} solicitudes de compra pendientes.` : `${result}`;
-        } else if (lowerInput.match(/cuántas órdenes de compra hay|total de órdenes de compra/i)) {
-            dataServiceCallMade = true;
-            const result = await aiDataService.getTotalPurchaseOrdersCount();
-            contextDataString = typeof result === 'number' ? `Hay ${result} órdenes de compra registradas en total.` : `${result}`;
-        } else if (lowerInput.match(/cuántos productos hay|total de productos/i)) {
-            dataServiceCallMade = true;
-            const result = await aiDataService.getTotalProductsCount();
-            contextDataString = typeof result === 'number' ? `Hay un total de ${result} productos registrados.` : `${result}`;
-        } else if (lowerInput.match(/lista de productos|todos los productos/i)) {
-            dataServiceCallMade = true;
-            const result = await aiDataService.getAllProducts(10); 
-            if (Array.isArray(result)) {
-              const totalCountResult = await aiDataService.getTotalProductsCount();
-              const totalCount = typeof totalCountResult === 'number' ? totalCountResult : 'varios';
-              contextDataString = `Aquí tienes los primeros ${result.length} productos de ${totalCount} en total: ${JSON.stringify(result.map(p => ({ id: p.id, descripcion: p.descripcion, codigo_interno: p.codigo_interno, categoria_nombre: p.categoria_nombre })))}. Esta lista no incluye precios ni stock.`;
-            } else { // Is a string (e.g., "No hay productos...")
-              contextDataString = `${result}`;
-            }
-        } else if (lowerInput.match(/(?:productos (?:de|en) la categor(?:í|ia)a|qu(?:é|e) productos hay en la categor(?:í|ia)a|ver los productos de|dame los productos de(?: la categor(?:í|ia)a)?)\s*([\w\sáéíóúñÁÉÍÓÚÑ]+)/i)) {
-            dataServiceCallMade = true;
-            const categoryMatch = lowerInput.match(/(?:productos (?:de|en) la categor(?:í|ia)a|qu(?:é|e) productos hay en la categor(?:í|ia)a|ver los productos de|dame los productos de(?: la categor(?:í|ia)a)?)\s*([\w\sáéíóúñÁÉÍÓÚÑ]+)/i);
-            if (categoryMatch && categoryMatch[1]) {
-                const categoryName = categoryMatch[1].trim();
-                const result = await aiDataService.getProductsByCategoryName(categoryName, 10);
-                if (Array.isArray(result)) {
-                     contextDataString = `Productos de la categoría '${categoryName}' (hasta 10): ${JSON.stringify(result.map(p => ({ id: p.id, descripcion: p.descripcion, codigo_interno: p.codigo_interno })))}. Esta lista no incluye precios ni stock.`;
-                } else { // Is a string (e.g., "Categoría no encontrada" or "No hay productos...")
-                    contextDataString = `${result}`;
-                }
-            }
-        } else if (lowerInput.match(/(?:dime las|lista de|cuáles son las|que) categor(?:í|ia)as (?:de productos)?(?: hay| existen| disponibles)?/i)) {
-            dataServiceCallMade = true;
-            const result = await aiDataService.getAllProductCategories();
-            if (Array.isArray(result)) {
-                contextDataString = `Las categorías de productos disponibles son: ${result.map(c => c.nombre).join(', ')}.`;
-            } else { // Is a string (e.g., "No hay categorías...")
-                contextDataString = `${result}`;
-            }
-        } else if (lowerInput.match(/cuántos proveedores hay|total de proveedores/i)) {
-            dataServiceCallMade = true;
-            const result = await aiDataService.getTotalSuppliersCount();
-            contextDataString = typeof result === 'number' ? `Hay un total de ${result} proveedores registrados.` : `${result}`;
-        } else if (lowerInput.match(/cuántos departamentos hay|total de departamentos/i)) {
-            dataServiceCallMade = true;
-            const result = await aiDataService.getTotalDepartmentsCount();
-            contextDataString = typeof result === 'number' ? `Hay un total de ${result} departamentos registrados.` : `${result}`;
-        } else if (lowerInput.match(/gasto(?:s)? (?:de|del departamento de|para el departamento de)\s*([\w\sáéíóúñ]+?)(?:\s+en (?:el|los)\s*(mes actual|últimos 30 días|año hasta la fecha|todos los tiempos))?/i)) {
-            dataServiceCallMade = true;
-            const expenseMatch = lowerInput.match(/gasto(?:s)? (?:de|del departamento de|para el departamento de)\s*([\w\sáéíóúñ]+?)(?:\s+en (?:el|los)\s*(mes actual|últimos 30 días|año hasta la fecha|todos los tiempos))?/i);
-            if (expenseMatch && expenseMatch[1]) {
-                const deptName = expenseMatch[1].trim();
-                const periodMap = { "mes actual": "current_month", "últimos 30 días": "last_30_days", "año hasta la fecha": "year_to_date", "todos los tiempos": "all_time"} as const;
-                type PeriodKey = keyof typeof periodMap;
-                const periodInput = expenseMatch[2] as PeriodKey | undefined;
-                const period = periodInput ? periodMap[periodInput] : 'all_time';
-                const result = await aiDataService.getDepartmentExpenses(deptName, period);
-                contextDataString = typeof result === 'number' ? `El gasto total del departamento '${deptName}' para '${periodInput || "todos los tiempos"}' es ${result.toLocaleString('es-VE', {style: 'currency', currency: 'VES'})}.` : `${result}`;
-            }
-        } else if (lowerInput.match(/(?:info(?:rmación)?|detalles) del producto (?:(?:llamado|con nombre|con código)\s*)?([a-zA-Z0-9\s\-_ÁÉÍÓÚáéíóúñÑ.]+)/i)) {
-            dataServiceCallMade = true;
-            const productMatch = lowerInput.match(/(?:info(?:rmación)?|detalles) del producto (?:(?:llamado|con nombre|con código)\s*)?([a-zA-Z0-9\s\-_ÁÉÍÓÚáéíóúñÑ.]+)/i);
-            if (productMatch && productMatch[1]) {
-              const identifier = productMatch[1].trim();
-              const result = await aiDataService.getProductDetailsByNameOrCode(identifier);
-              contextDataString = typeof result === 'object' && result !== null ? `Detalles del producto '${identifier}': ${JSON.stringify(result)}.` : `${result}`;
-            }
-        } else if (lowerInput.match(/(?:info(?:rmación)?|detalles) del proveedor (?:(?:llamado|con nombre|con RIF)\s*)?([a-zA-Z0-9\s\-_ÁÉÍÓÚáéíóúñÑJjVvGgEe]+)/i)) {
-            dataServiceCallMade = true;
-            const supplierMatch = lowerInput.match(/(?:info(?:rmación)?|detalles) del proveedor (?:(?:llamado|con nombre|con RIF)\s*)?([a-zA-Z0-9\s\-_ÁÉÍÓÚáéíóúñÑJjVvGgEe]+)/i);
-            if (supplierMatch && supplierMatch[1]) {
-                const identifier = supplierMatch[1].trim();
-                const result = await aiDataService.getSupplierDetailsByNameOrRif(identifier);
-                contextDataString = typeof result === 'object' && result !== null ? `Detalles del proveedor '${identifier}': ${JSON.stringify(result)}.` : `${result}`;
-            }
-        } else if (lowerInput.match(/(?:stock de|cuántos(?: hay de)?|hay)\s*(?:el|los|del)?\s*producto(?:s)?\s*([a-zA-Z0-9\s\-_ÁÉÍÓÚáéíóúñÑ.]+)(?:\s*en (?:el )?inventario)?/i)) {
-            dataServiceCallMade = true;
-            const stockMatch = lowerInput.match(/(?:stock de|cuántos(?: hay de)?|hay)\s*(?:el|los|del)?\s*producto(?:s)?\s*([a-zA-Z0-9\s\-_ÁÉÍÓÚáéíóúñÑ.]+)(?:\s*en (?:el )?inventario)?/i);
-            if (stockMatch && stockMatch[1]) {
-                const identifier = stockMatch[1].trim();
-                const result = await aiDataService.getInventoryByProductNameOrCode(identifier);
-                contextDataString = typeof result === 'object' && result !== null ? `Inventario para '${identifier}': ${JSON.stringify(result)}.` : `${result}`;
-            }
-        } else if (lowerInput.match(/(?:inventario actual|resumen de inventario|informaci(?:o|ó)n general del inventario)/i)) {
-            dataServiceCallMade = true;
-            const result = await aiDataService.getInventorySummary();
-            contextDataString = typeof result === 'object' && result !== null ? `Resumen del inventario: ${JSON.stringify(result)}.` : `${result}`;
-        } else if (lowerInput.match(/(?:info(?:rmación)?|detalles) de la orden (?:de compra )?#?(\d+)/i)) {
-            dataServiceCallMade = true;
-            const orderMatch = lowerInput.match(/(?:info(?:rmación)?|detalles) de la orden (?:de compra )?#?(\d+)/i);
-            if (orderMatch && orderMatch[1]) {
-                const orderId = parseInt(orderMatch[1], 10);
-                const result = await aiDataService.getOrderDetailsById(orderId);
-                contextDataString = typeof result === 'object' && result !== null ? `Detalles de la orden #${orderId}: ${JSON.stringify(result)}.` : `${result}`;
-            }
-        }
+      const intent = await getIntentFromQuery(trimmedInput);
+      setIsFetchingContext(false);
 
-        // Prefix is added ONLY if a data service was called AND it returned a non-empty string (actual data or specific "not found" message)
-        if (dataServiceCallMade && contextDataString && contextDataString.trim() !== "") {
-            contextDataString = `[Datos del sistema: ${contextDataString}]`;
-        } else if (dataServiceCallMade && (!contextDataString || contextDataString.trim() === "")) {
-            // If a data service was called but returned nothing (e.g. an empty array that wasn't converted to a "not found" string by the service)
-            // This path should ideally not be hit if services return specific "not found" strings for empty arrays.
-            contextDataString = "[Datos del sistema: No se encontró información específica para su consulta en la base de datos.]";
+      const missingArgs = Object.entries(intent.args || {}).filter(([_, value]) => value === null);
+
+      if (intent.function !== 'none' && missingArgs.length > 0) {
+        const missingArgNames = missingArgs.map(([key]) => `'${key}'`).join(', ');
+        let followUpPrompt = `The user wants to use the function '${intent.function}' but is missing the required argument(s): ${missingArgNames}. Ask the user to provide this information.`;
+        
+        if (missingArgNames.includes("'categoryName'")) {
+            followUpPrompt += " You can also suggest listing all available categories to help them choose.";
+        }
+        
+        contextDataString = `[Instrucción del sistema: ${followUpPrompt}]`;
+      
+      } else if (intent && intent.function && intent.function !== 'none') {
+        const { function: funcName, args } = intent;
+        let result: any;
+        
+        const serviceFunctions: { [key: string]: Function } = {
+          getPendingRequestsCount: aiDataService.getPendingRequestsCount,
+          getTotalPurchaseOrdersCount: aiDataService.getTotalPurchaseOrdersCount,
+          getTotalProductsCount: aiDataService.getTotalProductsCount,
+          getProductDetailsByNameOrCode: aiDataService.getProductDetailsByNameOrCode,
+          getTotalSuppliersCount: aiDataService.getTotalSuppliersCount,
+          getSupplierDetailsByNameOrRif: aiDataService.getSupplierDetailsByNameOrRif,
+          getInventoryByProductNameOrCode: aiDataService.getInventoryByProductNameOrCode,
+          getOrderDetailsById: aiDataService.getOrderDetailsById,
+          getTotalDepartmentsCount: aiDataService.getTotalDepartmentsCount,
+          getInventorySummary: aiDataService.getInventorySummary,
+          getAllProducts: aiDataService.getAllProducts,
+          getProductsByCategoryName: aiDataService.getProductsByCategoryName,
+          getAllProductCategories: aiDataService.getAllProductCategories,
+          getDepartmentExpenses: aiDataService.getDepartmentExpenses,
+          getTotalExpenses: aiDataService.getTotalExpenses,
+        };
+
+        if (serviceFunctions[funcName]) {
+          const functionArgs = Object.values(args || {});
+          result = await serviceFunctions[funcName](...functionArgs);
         } else {
-            contextDataString = ""; // Explicitly empty if no data service call was relevant.
+            console.warn(`Intent router returned unknown function: ${funcName}`);
+            result = `Función desconocida '${funcName}' solicitada.`;
         }
 
+        contextDataString = `[Datos del sistema: ${typeof result === 'object' ? JSON.stringify(result) : result}]`;
+      }
     } catch (dataFetchError) {
         console.error("Error fetching context data:", dataFetchError);
         contextDataString = "[Datos del sistema: Hubo un error al consultar la información de la base de datos para tu pregunta.]";
     }
+    
     setIsFetchingContext(false);
-
+    
     const chatHistoryForAI = messages.slice(-5).map(msg => ({
       role: msg.sender === 'user' ? 'user' : 'assistant',
       content: msg.text
@@ -249,33 +241,18 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
     const aiPromptMessages = [
         { role: 'system', content: systemPrompt },
         ...chatHistoryForAI,
-        // Pass contextDataString (which might be empty, or prefixed if data was fetched/not_found) and then the user's input
         { role: 'user', content: (contextDataString ? contextDataString + " " : "") + trimmedInput }
     ];
-    
+
     try {
       if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY.length < 10) {
-        console.warn("La clave API de OpenRouter no está configurada o es inválida. Respuesta simulada.");
-        setTimeout(() => {
-            const simulatedResponse: ChatMessage = {
-                id: Date.now().toString() + '-ai',
-                text: "Respuesta simulada: Configura tu API Key para interactuar con el asistente real. " + (contextDataString ? `(Contexto simulado: ${contextDataString}) ` : "") + "Basado en tu pregunta, ¿cómo puedo ayudarte?",
-                sender: 'ai',
-                timestamp: new Date(),
-            };
-            setMessages(prev => [...prev, simulatedResponse]);
-            setIsLoading(false);
-        }, 1000);
-        return;
+          throw new Error("API Key de OpenRouter no está configurada. Por favor, configure la clave en el archivo correspondiente.");
       }
 
       const response = await fetch(OPENROUTER_API_URL, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-          "HTTP-Referer": SITE_URL_AI_CHAT,
-          "X-Title": "RequiSoftware CIEC - Asistente IA con Datos",
-          "Content-Type": "application/json"
+        method: "POST", headers: {
+          "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json",
+          "HTTP-Referer": SITE_URL_AI_CHAT, "X-Title": "RequiSoftware CIEC - Asistente IA"
         },
         body: JSON.stringify({
           model: "qwen/qwen3-30b-a3b:free", 
@@ -284,13 +261,10 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
         })
       });
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Error de API (${response.status}): ${errorBody}`);
-      }
+      if (!response.ok) throw new Error(`Error de API (${response.status}): ${await response.text()}`);
       const data = await response.json();
 
-      if (data && data.choices && data.choices.length > 0 && data.choices[0].message && typeof data.choices[0].message.content === 'string') {
+      if (data?.choices?.[0]?.message?.content) {
         const aiMessage: ChatMessage = {
           id: Date.now().toString() + '-ai',
           text: data.choices[0].message.content,
@@ -303,10 +277,9 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
       }
     } catch (error) {
       console.error("Error al obtener respuesta del Asistente Inteligente:", error);
-      const errorMessageText = error instanceof Error ? error.message : String(error);
       const errorMessage: ChatMessage = {
         id: Date.now().toString() + '-error',
-        text: `Lo siento, ocurrió un error al procesar tu solicitud: ${errorMessageText}. Por favor, intenta reformular tu pregunta o verifica la consola para más detalles técnicos.`,
+        text: `Lo siento, ocurrió un error al procesar tu solicitud: ${error instanceof Error ? error.message : String(error)}.`,
         sender: 'ai',
         timestamp: new Date(),
       };
@@ -341,7 +314,7 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
               <div className="flex items-center space-x-2">
                 <ArrowPathIcon className="w-4 h-4 animate-spin text-gray-500 dark:text-gray-400" />
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {isFetchingContext ? "Consultando información..." : "Asistente está escribiendo..."}
+                  {isFetchingContext ? "Analizando consulta..." : "Asistente está escribiendo..."}
                 </span>
               </div>
             </div>

@@ -249,6 +249,12 @@ export const OrderForm: React.FC<OrderFormProps> = ({
     const productosFinales = productosParaOrden.filter(p => p.seleccionado);
     if (productosFinales.length === 0) { setError("Debe seleccionar al menos un producto."); setSubmittingOrder(false); return; }
 
+    if ((formData.neto_a_pagar || 0) <= 0) {
+      setError("El total de la orden de compra no puede ser 0 o menor. Verifique las cantidades y precios de los productos seleccionados.");
+      setSubmittingOrder(false);
+      return;
+    }
+
     if (productosFinales.some(p => 
         (p.isNewProductMode && (!p.newProduct_descripcion?.trim() || !p.newProduct_categoria_id)) ||
         (!p.isNewProductMode && !p.selected_producto_id) ||

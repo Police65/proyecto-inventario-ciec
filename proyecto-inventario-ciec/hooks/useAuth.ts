@@ -124,8 +124,8 @@ export function useAuth(): AuthHookResult {
 
       if (rawBasicProfileError) {
         const msg = String(rawBasicProfileError.message || "Error desconocido al obtener perfil básico.");
-        const code = (rawBasicProfileError as any).code ? `(Código: ${String((rawBasicProfileError as any).code)})` : '';
-        const details = (rawBasicProfileError as any).details ? `Detalles: ${String((rawBasicProfileError as any).details)}` : '';
+        const code = rawBasicProfileError?.code ? `(Código: ${String(rawBasicProfileError.code)})` : '';
+        const details = rawBasicProfileError?.details ? `Detalles: ${String(rawBasicProfileError.details)}` : '';
         console.error(`[useAuth] Error al obtener perfil de usuario básico: ${msg} ${code} ${details}`, rawBasicProfileError);
         throw rawBasicProfileError; // Lanzar para ser capturado por el catch principal de fetchUserProfile
       }
@@ -154,7 +154,7 @@ export function useAuth(): AuthHookResult {
              created_at: new Date().toISOString(), 
              updated_at: new Date().toISOString(), 
         } : undefined,
-        empleado: undefined, // Se cargará a continuación si existe empleado_id
+        empleado: undefined
       };
 
       // Paso 2: Si hay empleado_id, obtener detalles del empleado.
@@ -178,8 +178,8 @@ export function useAuth(): AuthHookResult {
 
         if (rawEmpleadoError) {
             const msg = String(rawEmpleadoError.message || "Error desconocido al obtener detalles de empleado.");
-            const code = (rawEmpleadoError as any).code ? `(Código: ${String((rawEmpleadoError as any).code)})` : '';
-            const details = (rawEmpleadoError as any).details ? `Detalles: ${String((rawEmpleadoError as any).details)}` : '';
+            const code = rawEmpleadoError?.code ? `(Código: ${String(rawEmpleadoError.code)})` : '';
+            const details = rawEmpleadoError?.details ? `Detalles: ${String(rawEmpleadoError.details)}` : '';
             console.error(`[useAuth] Error al obtener detalles del empleado: ${msg} ${code} ${details}`, rawEmpleadoError);
             // No lanzar error aquí, el perfil básico ya se obtuvo. Se podría retornar el perfil parcial.
         }
@@ -190,7 +190,7 @@ export function useAuth(): AuthHookResult {
             // Rellenar campos faltantes de Empleado si es necesario para la interfaz completa
             created_at: new Date().toISOString(), 
             updated_at: new Date().toISOString(), 
-          } as Empleado; 
+          } as Partial<Empleado> & { nombre: string; apellido: string; }; 
         } else if (!rawEmpleadoError) { 
             console.warn(`[useAuth] No se encontró empleado para empleado_id: ${completeProfile.empleado_id} (Usuario ${userId})`);
         }
@@ -303,7 +303,6 @@ export function useAuth(): AuthHookResult {
     };
 
     getInitialSession();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchUserProfile]); // fetchUserProfile está memoizado con useCallback
 
   // Efecto para escuchar cambios en el estado de autenticación de Supabase (login, logout, refresh token).
@@ -431,14 +430,8 @@ export function useAuth(): AuthHookResult {
 
     return () => {
       authListener?.subscription.unsubscribe(); 
-      if (isProcessingAuthEvent.current) { // Ensure lock is released if component unmounts mid-process
-          // This might be too aggressive if another part is meant to release it.
-          // console.warn("[useAuth] Unsubscribing: Releasing isProcessingAuthEvent lock due to component unmount or effect re-run.");
-          // isProcessingAuthEvent.current = false;
-      }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchUserProfile]); // Removed 'logout' from dependencies as it causes re-runs and potential issues
+  }, [fetchUserProfile]); 
 
   const login = async (email: string, password: string) => {
     if (isProcessingAuthEvent.current) {

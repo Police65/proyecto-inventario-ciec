@@ -14,7 +14,7 @@ const ProviderManagement: React.FC = () => {
   const [allCategorias, setAllCategorias] = useState<CategoriaProveedor[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentProvider, setCurrentProvider] = useState<Partial<Proveedor> & { selectedCategorias?: number[] }>({});
+  const [currentProvider, setCurrentProvider] = useState<Partial<Proveedor> & { selectedCategorias?: number[], rifPrefix?: string, rifNumber?: string }>({});
   const [loadingData, setLoadingData] = useState(true);
   const [submittingProvider, setSubmittingProvider] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -88,18 +88,18 @@ const ProviderManagement: React.FC = () => {
     });
   };
   
-  const handleRifInvalid = (event: React.InvalidEvent<HTMLInputElement>) => {
+  const handleRifNumberInvalid = (event: React.InvalidEvent<HTMLInputElement>) => {
     const target = event.target as HTMLInputElement;
     if (target.validity.patternMismatch) {
-      target.setCustomValidity("Formato de RIF inválido. Ejemplo: J-12345678-9 o V-123456789.");
+      target.setCustomValidity("Formato de número de RIF inválido. Debe ser de 8 a 9 dígitos, opcionalmente seguido de un guion y un dígito de verificación. Ej: 12345678-9");
     } else if (target.validity.valueMissing) {
-      target.setCustomValidity("El RIF es obligatorio.");
+      target.setCustomValidity("El número de RIF es obligatorio.");
     } else {
       target.setCustomValidity(""); 
     }
   };
 
-  const handleRifInput = (event: React.FormEvent<HTMLInputElement>) => {
+  const handleRifNumberInput = (event: React.FormEvent<HTMLInputElement>) => {
     (event.target as HTMLInputElement).setCustomValidity(""); 
   };
 
@@ -107,21 +107,24 @@ const ProviderManagement: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmittingProvider(true);
-    if (!currentProvider.nombre || !currentProvider.rif) {
-      alert('Nombre y RIF son obligatorios.');
+    
+    const fullRif = `${currentProvider.rifPrefix || ''}-${currentProvider.rifNumber || ''}`.toUpperCase();
+
+    if (!currentProvider.nombre || !currentProvider.rifPrefix || !currentProvider.rifNumber) {
+      alert('Nombre y RIF completo son obligatorios.');
       setSubmittingProvider(false);
       return;
     }
     
-    if (currentProvider.rif && !/^[JVGjvgeE]-\d{8,9}(-\d)?$/.test(currentProvider.rif)) {
-        alert('Formato de RIF inválido. Ejemplo: J-12345678-9 o V-123456789.');
+    if (!/^[JVGPE]-\d{8,9}(-\d)?$/.test(fullRif)) {
+        alert('Formato de RIF inválido. Use el formato correcto (ej: J-12345678-9) y verifique el número de dígitos.');
         setSubmittingProvider(false);
         return;
     }
 
     const providerData = {
       nombre: currentProvider.nombre,
-      rif: currentProvider.rif.toUpperCase(), 
+      rif: fullRif, 
       direccion: currentProvider.direccion || '',
       telefono: currentProvider.telefono || null,
       correo: currentProvider.correo || null,
@@ -193,7 +196,10 @@ const ProviderManagement: React.FC = () => {
 
   const handleEdit = (provider: Proveedor) => {
     const selectedCategorias = provider.categorias?.map(pc => pc.categoria_id) || [];
-    setCurrentProvider({ ...provider, selectedCategorias });
+    const rifParts = provider.rif.split('-');
+    const rifPrefix = rifParts.length > 1 ? rifParts[0].toUpperCase() : '';
+    const rifNumber = rifParts.length > 1 ? rifParts.slice(1).join('-') : provider.rif;
+    setCurrentProvider({ ...provider, selectedCategorias, rifPrefix, rifNumber });
     setIsEditing(true);
     setShowModal(true);
     setCategorySearchTerm('');
@@ -244,7 +250,14 @@ const ProviderManagement: React.FC = () => {
   };
 
   const openAddModal = () => {
-    setCurrentProvider({ selectedCategorias: [], estado: 'activo', tipo_contribuyente: 'normal', porcentaje_retencion_iva: 0 });
+    setCurrentProvider({ 
+        selectedCategorias: [], 
+        estado: 'activo', 
+        tipo_contribuyente: 'normal', 
+        porcentaje_retencion_iva: 0,
+        rifPrefix: 'J',
+        rifNumber: '' 
+    });
     setIsEditing(false);
     setShowModal(true);
     setCategorySearchTerm('');
@@ -429,12 +442,35 @@ const ProviderManagement: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label htmlFor="rif" className="block text-sm font-medium text-gray-700 dark:text-gray-300">RIF <span className="text-red-500">*</span></label>
-                    <input 
-                        type="text" name="rif" id="rif" value={currentProvider.rif || ''} 
-                        onChange={handleInputChange} onInvalid={handleRifInvalid} onInput={handleRifInput}
-                        required pattern="^[JVGjvgeE]-\d{8,9}(-\d)?$"
-                        className={`mt-1 ${inputFieldClasses}`} placeholder="Ej: J-12345678-9" />
+                    <label htmlFor="rifPrefix" className="block text-sm font-medium text-gray-700 dark:text-gray-300">RIF <span className="text-red-500">*</span></label>
+                    <div className="mt-1 flex rounded-md shadow-sm">
+                        <select
+                            name="rifPrefix"
+                            id="rifPrefix"
+                            value={currentProvider.rifPrefix || 'J'}
+                            onChange={handleInputChange}
+                            className="block w-14 text-center px-2 py-2 rounded-none rounded-l-md border-gray-300 dark:border-gray-600 focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                        >
+                            <option value="J">J</option>
+                            <option value="V">V</option>
+                            <option value="E">E</option>
+                            <option value="P">P</option>
+                            <option value="G">G</option>
+                        </select>
+                        <input
+                            type="text"
+                            name="rifNumber"
+                            id="rifNumber"
+                            value={currentProvider.rifNumber || ''}
+                            onChange={handleInputChange}
+                            onInvalid={handleRifNumberInvalid}
+                            onInput={handleRifNumberInput}
+                            required
+                            pattern="\d{8,9}(-\d{1})?"
+                            className={`flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md ${inputFieldClasses.replace('rounded-md', '')}`}
+                            placeholder="12345678-9"
+                        />
+                    </div>
                   </div>
               </div>
               <div>
@@ -454,7 +490,7 @@ const ProviderManagement: React.FC = () => {
                     className={`mt-1 ${inputFieldClasses}`} />
                 </div>
                 <div className="md:col-span-2">
-                    <label htmlFor="pagina_web" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Página Web</label>
+                    <label htmlFor="pagina_web" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Web o Redes Sociales</label>
                     <input type="url" name="pagina_web" id="pagina_web" value={currentProvider.pagina_web || ''} onChange={handleInputChange} 
                     className={`mt-1 ${inputFieldClasses}`} />
                 </div>

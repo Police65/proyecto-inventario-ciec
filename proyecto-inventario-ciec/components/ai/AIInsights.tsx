@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import DOMPurify from 'dompurify';
@@ -9,7 +8,6 @@ import { OPENROUTER_API_KEY, OPENROUTER_API_URL } from '../../config';
 import { AISummaryStat, ChartDataItem, OrdenCompra, SolicitudCompra, Departamento, RendimientoProveedor, ConsumoHistoricoProducto, MetricasProductoMensual, UserProfile, PartnerEvent, PartnerMeeting } from '../../types';
 import { LightBulbIcon, BanknotesIcon, TruckIcon, CpuChipIcon, UserGroupIcon, ArrowPathIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
-// @ts-ignore
 import { useOutletContext } from 'react-router-dom';
 import { fetchExternalEvents, fetchExternalMeetings } from '../../supabaseClient';
 
@@ -78,12 +76,12 @@ export const AIInsights: React.FC = () => {
             } else if (tab === 'predictor') {
                  if (consumptionData.length === 0) {
                     const { data: consumo, error: consumoErr } = await supabase.from('consumo_historico_producto').select('*, producto:producto_id(id, descripcion)');
-                    if (consumoErr) console.error("Error fetching consumption data:", consumoErr);
+                    if (consumoErr) console.error("Error al obtener datos de consumo (IAInsights):", consumoErr);
                     else setConsumptionData(consumo || []);
                  }
                  if (monthlyMetricsData.length === 0) {
                     const { data: metricas, error: metricasErr } = await supabase.from('metricas_producto_mensual').select('*, producto:producto_id(id, descripcion)');
-                    if (metricasErr) console.error("Error fetching monthly metrics:", metricasErr);
+                    if (metricasErr) console.error("Error al obtener métricas mensuales (IAInsights):", metricasErr);
                     else setMonthlyMetricsData(metricas || []);
                  }
             } else if (tab === 'eventos_externos') {
@@ -97,7 +95,7 @@ export const AIInsights: React.FC = () => {
                 }
             }
         } catch (err) {
-            console.error(`Error loading data for tab ${tab}:`, err);
+            console.error(`Error cargando datos para la pestaña ${tab}:`, err);
             setInsights(prev => ({ ...prev, [tab]: `**Error al cargar datos para ${tab}:**\n- ${err instanceof Error ? err.message : String(err)}`}));
         } finally {
             setLoading(prev => ({ ...prev, [tab]: false }));
@@ -232,7 +230,7 @@ export const AIInsights: React.FC = () => {
 
     try {
       switch (type) {
-        case "auditor":
+        case "auditor": {
           const { data: ordersData, error: ordersError } = await supabase
             .from("ordencompra")
             .select(`neto_a_pagar, solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, departamento!inner(id, nombre))`)
@@ -284,8 +282,8 @@ export const AIInsights: React.FC = () => {
             generatedInsight = await fetchAIResponse(prompt, type);
           }
           break;
-
-        case "proveedores":
+        }
+        case "proveedores": {
           const performanceSummary = providerPerformanceData.map(p => ({
               proveedor: p.proveedor?.nombre || `ID ${p.proveedor_id}`,
               calidad_producto: p.calidad_producto_evaluacion,
@@ -309,8 +307,8 @@ export const AIInsights: React.FC = () => {
             generatedInsight = await fetchAIResponse(prompt, type);
           }
           break;
-
-        case "predictor":
+        }
+        case "predictor": {
             const consumoResumen = consumptionData.map(c => ({
                 producto: c.producto?.descripcion || `ID ${c.producto_id}`,
                 cantidad_total_consumida_historica: c.cantidad_consumida,
@@ -335,8 +333,8 @@ export const AIInsights: React.FC = () => {
                 generatedInsight = await fetchAIResponse(prompt, type);
             }
           break;
-
-        case "eventos_externos":
+        }
+        case "eventos_externos": {
             const eventsSummary = externalEventsData.map(e => ({ tipo: 'Evento', nombre: e.subject, fecha: e.date, organizador: e.organizer_type + (e.organizer_name ? `: ${e.organizer_name}` : ''), lugar: e.location })).slice(0, 5);
             const meetingsSummary = externalMeetingsData.map(m => ({ tipo: 'Reunión', nombre: m.subject, fecha: m.date, comision_id: m.commission_id, lugar: m.location })).slice(0, 5);
             const externalActivitiesSummary = [...eventsSummary, ...meetingsSummary];
@@ -353,9 +351,9 @@ export const AIInsights: React.FC = () => {
                 generatedInsight = await fetchAIResponse(prompt, type);
             }
             break;
-
+        }
         // 'asistente' tab is handled by ChatInterface, so this case won't be hit by this button
-        case "tendencias":
+        case "tendencias": {
             prompt = `Eres un analista de datos para RequiSoftware CIEC. Observa estos datos (ficticios) de gastos totales por departamento (en Bs.F) durante los últimos 3 meses:
                     - Marketing: Mes 1: 1.000.000, Mes 2: 1.200.000, Mes 3: 1.500.000
                     - Ventas: Mes 1: 800.000, Mes 2: 850.000, Mes 3: 820.000
@@ -365,9 +363,10 @@ export const AIInsights: React.FC = () => {
                     Responde en ESPAÑOL. Formatea con títulos en markdown (## Tendencias de Gasto por Departamento) y listas para cada departamento y su tendencia.`;
             generatedInsight = await fetchAIResponse(prompt, type);
             break;
-
-        default:
+        }
+        default: {
              generatedInsight = "Tipo de perspectiva no reconocida.";
+        }
       }
       setInsights(prev => ({ ...prev, [type]: generatedInsight }));
     } catch (err) {

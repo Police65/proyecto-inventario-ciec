@@ -1,6 +1,5 @@
 
 import React from 'react';
-// @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'; // Outlet ya no se importa aquí directamente
 import { useAuth } from './hooks/useAuth';
 
