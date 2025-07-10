@@ -6,14 +6,13 @@ import { RealtimeChannel, RealtimePostgresChangesPayload, SupabaseClient, Realti
 const MAX_RETRY_ATTEMPTS = 5; // Máximo de intentos antes de rendirse
 
 interface UseRealtimeSubscriptionProps<
-  T extends { [key: string]: any },
-  E extends REALTIME_POSTGRES_CHANGES_LISTEN_EVENT // E es el tipo de evento específico
+  T extends { [key: string]: any }
 > {
   channelName: string; // Nombre de canal único, ej: `user-notifications-${userId}`
   tableName: string;
   schema?: string; // Por defecto 'public'
   filter?: string; // ej: `user_id=eq.${userId}` (filtro RLS)
-  event: E;       // El evento específico a escuchar, ahora requerido y de tipo E
+  event: REALTIME_POSTGRES_CHANGES_LISTEN_EVENT; // El evento específico a escuchar
   onNewPayload: (payload: RealtimePostgresChangesPayload<T>) => void;
   enabled?: boolean; // Por defecto true. Si es false, no se intentará la suscripción.
   customSupabaseClient?: SupabaseClient; // Opcional: si se usa una instancia de cliente diferente
@@ -25,18 +24,17 @@ interface UseRealtimeSubscriptionReturn {
 }
 
 export function useRealtimeSubscription<
-  T extends { [key: string]: any },
-  E extends REALTIME_POSTGRES_CHANGES_LISTEN_EVENT // E es el tipo de evento específico
+  T extends { [key: string]: any }
 >({
   channelName,
   tableName,
   schema = 'public',
   filter: rlsFilter, // Renombrado para evitar conflicto con la clave del objeto filter
-  event, // Ahora es de tipo E, pasado directamente desde las props
+  event,
   onNewPayload,
   enabled = true,
   customSupabaseClient,
-}: UseRealtimeSubscriptionProps<T, E>): UseRealtimeSubscriptionReturn {
+}: UseRealtimeSubscriptionProps<T>): UseRealtimeSubscriptionReturn {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAttempt, setRetryAttempt] = useState(0);
@@ -106,22 +104,38 @@ No se realizarán más intentos automáticos de re-suscripción para este canal.
     });
     channelRef.current = newChannel;
 
-    const postgresChangesFilter: RealtimePostgresChangesFilter<E> = {
-      event: event, 
-      schema: schema,
-      table: tableName,
+    const callback = (payload: RealtimePostgresChangesPayload<T>) => {
+      onNewPayloadRef.current(payload);
     };
-    if (rlsFilter !== undefined) { 
-      postgresChangesFilter.filter = rlsFilter;
-    }
 
-    const changes = newChannel.on(
-      'postgres_changes',
-      postgresChangesFilter,
-      (payload: RealtimePostgresChangesPayload<any>) => { // Usar 'any' inicialmente para mayor compatibilidad
-        onNewPayloadRef.current(payload as RealtimePostgresChangesPayload<T>); // Convertir a tipo específico para el callback
-      }
-    );
+    const filterOptions = {
+      schema,
+      table: tableName,
+      ...(rlsFilter !== undefined && { filter: rlsFilter }),
+    };
+
+    let changes: RealtimeChannel;
+    // Using a switch statement to narrow the type of 'event' for TypeScript's overload resolution.
+    // This resolves the issue where a union type for 'event' in the filter object fails to match specific overloads.
+    switch (event) {
+        case REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.INSERT:
+            changes = newChannel.on('postgres_changes', { event, ...filterOptions }, callback);
+            break;
+        case REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.UPDATE:
+            changes = newChannel.on('postgres_changes', { event, ...filterOptions }, callback);
+            break;
+        case REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.DELETE:
+            changes = newChannel.on('postgres_changes', { event, ...filterOptions }, callback);
+            break;
+        case REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.ALL:
+            changes = newChannel.on('postgres_changes', { event, ...filterOptions }, callback);
+            break;
+        default:
+            // This case should be unreachable due to the prop's type, but it's good for type safety.
+            const exhaustiveCheck: never = event;
+            console.error(`Unhandled Realtime event type: ${exhaustiveCheck}`);
+            return;
+    }
 
     changes.subscribe((status, err) => {
       const baseMessage = `[useRealtimeSubscription] Canal '${channelName}' (Tabla: ${schema}.${tableName})`;

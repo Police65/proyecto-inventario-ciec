@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PaperAirplaneIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 import { UserProfile } from '../../types'; // Relative path
-import { OPENROUTER_API_KEY, OPENROUTER_API_URL } from '../../config'; // Relative path
+import { GoogleGenAI } from "@google/genai";
+import { GEMINI_API_KEY } from '../../config';
 import DOMPurify from 'dompurify'; // From esm.sh
 import * as aiDataService from '../../services/aiDataService'; // Changed to relative path
 
@@ -15,8 +16,6 @@ interface ChatMessage {
 interface ChatInterfaceProps {
   userProfile: UserProfile;
 }
-
-const SITE_URL_AI_CHAT = typeof window !== 'undefined' ? window.location.origin : "https://requisoftware-ciec.example.com";
 
 // Moved parseChatResponseToHTML outside the component
 const parseChatResponseToHTML = (text: string): string => {
@@ -79,27 +78,30 @@ const parseChatResponseToHTML = (text: string): string => {
 
 // This helper function asks the AI to act as a router, choosing which data function to call.
 const getIntentFromQuery = async (query: string): Promise<{function: string; args: any}> => {
-    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY.length < 10) {
-        console.warn("API Key not found for intent router. Falling back to 'none'.");
-        return { function: 'none', args: {} };
+    if (!GEMINI_API_KEY) {
+      console.error("La clave API de Gemini no está configurada en config.ts");
+      return { function: 'none', args: {} };
     }
-
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
     const availableFunctions = `
-- getInventorySummary: Returns a high-level summary of the inventory. Call for general questions about inventory like 'how many products are in inventory?', 'what is the inventory status?'. Returns total distinct items in inventory and low-stock items count.
-- getTotalProductsCount: Returns the total number of distinct products in the entire catalog, regardless of stock. Call for questions like 'how many product types do you manage?'.
-- getTotalPurchaseOrdersCount: Returns the total number of purchase orders ever created. Call for 'how many orders have been made?'.
-- getPendingRequestsCount: Returns the number of purchase requests with 'Pendiente' status. Call for questions about pending, open, or new requests.
-- getProductDetailsByNameOrCode: Takes a required 'identifier' (string: product name or code). Returns details for a single product. Call for 'details of product X'.
+- getInventorySummary: Returns a high-level summary of the inventory. Call for general questions about inventory like 'how many products are in inventory?', 'what is the inventory status?'.
 - getInventoryByProductNameOrCode: Takes a required 'identifier' (string: product name or code). Returns the current stock level and location for a single product. Call this for any question about "stock", "cuanto(s) hay", "existencias", "disponibilidad" for a specific item.
 - getAllProducts: Takes an optional 'limit' (number, default 10). Returns a list of all products. Call for "list of products", "show me the products".
-- getProductsByCategoryName: Takes a required 'categoryName' (string) and an optional 'limit' (number, default 10). Returns a list of products in a given category.
+- getTotalProductsCount: Returns the total number of distinct products in the entire catalog, regardless of stock. Call for questions like 'how many product types do you manage?'.
+- getProductDetailsByNameOrCode: Takes a required 'identifier' (string: product name or code). Returns details for a single product. Call for 'details of product X'.
 - getAllProductCategories: Returns a list of all available product categories. Call for "what are the categories?".
+- getProductsByCategoryName: Takes a required 'categoryName' (string) and an optional 'limit' (number, default 10). Returns a list of products in a given category.
+- getTotalPurchaseOrdersCount: Returns the total number of purchase orders ever created. Call for 'how many orders have been made?'.
 - getOrderDetailsById: Takes a required 'orderId' (number). Returns details of a specific purchase order.
-- getSupplierDetailsByNameOrRif: Takes a required 'identifier' (string, supplier name or RIF). Returns details for a single supplier.
+- getPendingRequestsCount: Returns the number of purchase requests with 'Pendiente' status. Call for questions about pending, open, or new requests.
+- getSolicitudDetailsById: Takes a required 'solicitudId' (number). Returns details of a specific purchase request.
 - getTotalSuppliersCount: Returns the total number of suppliers.
+- getSupplierDetailsByNameOrRif: Takes a required 'identifier' (string, supplier name or RIF). Returns details for a single supplier.
 - getTotalDepartmentsCount: Returns the total number of departments.
-- getTotalExpenses: Takes an optional 'period' (string from 'current_month', 'last_30_days', 'year_to_date', 'all_time'). Returns the total amount of money spent on all completed purchase orders. Call for questions like 'how much was spent?', 'what are the total expenses?'.
 - getDepartmentExpenses: Takes a required 'departmentName' (string) and an optional 'period' (string from 'current_month', 'last_30_days', 'year_to_date', 'all_time'). Returns the total expenses for a specific department.
+- getTotalExpenses: Takes an optional 'period' (string from 'current_month', 'last_30_days', 'year_to_date', 'all_time'). Returns the total amount of money spent on all completed purchase orders. Call for questions like 'how much was spent?', 'what are the total expenses?'.
+- getEmpleadoInfo: Takes a required 'identifier' (string, employee name or cedula). Returns non-sensitive information about an employee, like their name, role, and department. Call for "who is employee X?", "details about employee Y".
+- getRecentActivity: Takes an optional 'limit' (number, default 5). Returns the most recent purchase requests and orders. Call for "what's new?", "recent activity", "latest updates".
     `;
 
     const intentPrompt = `You are a smart JSON-only router for a database query system. Analyze the user's question and determine which function to call and what arguments to extract.
@@ -113,22 +115,24 @@ const getIntentFromQuery = async (query: string): Promise<{function: string; arg
     If a required argument is missing, return the argument key with a null value. E.g., for "dame los productos por categoria", respond: {"function": "getProductsByCategoryName", "args": {"categoryName": null}}.
     Extract arguments precisely. E.g., for "cuanto stock hay de la laptop dell xps", respond: {"function": "getInventoryByProductNameOrCode", "args": {"identifier": "laptop dell xps"}}.
     For "dame los detalles de la orden 123", respond: {"function": "getOrderDetailsById", "args": {"orderId": 123}}.
+    For "dame los detalles del empleado juan perez", respond: {"function": "getEmpleadoInfo", "args": {"identifier": "juan perez"}}.
+    For "actividad reciente", respond: {"function": "getRecentActivity", "args": {}}.
     For "cuales son las categorias", respond: {"function": "getAllProductCategories", "args": {}}.
     For "cuantos productos hay en el inventario?", respond: {"function": "getInventorySummary", "args": {}}.
     For "cuanto se ha gastado?", respond: {"function": "getTotalExpenses", "args": {"period": "all_time"}}.
     `;
 
     try {
-        const response = await fetch(OPENROUTER_API_URL, {
-            method: "POST", headers: {
-                "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json",
-                "HTTP-Referer": SITE_URL_AI_CHAT, "X-Title": "RequiSoftware CIEC - Intent Router"
-            },
-            body: JSON.stringify({ model: "qwen/qwen3-30b-a3b:free", messages: [{ role: "user", content: intentPrompt }], max_tokens: 200, temperature: 0 })
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: intentPrompt,
+            config: {
+                temperature: 0,
+                responseMimeType: "application/json",
+            }
         });
-        if (!response.ok) throw new Error(`API error (${response.status}): ${await response.text()}`);
-        const data = await response.json();
-        const responseText = data.choices[0].message.content;
+        
+        const responseText = response.text;
         
         let jsonStr = responseText.trim();
         const fenceRegex = /^```json\s*\n?(.*?)\n?\s*```$/s;
@@ -137,7 +141,7 @@ const getIntentFromQuery = async (query: string): Promise<{function: string; arg
         
         return JSON.parse(jsonStr);
     } catch (e) {
-        console.error("Failed to get or parse intent from AI:", e);
+        console.error("Failed to get or parse intent from Gemini:", e);
         return { function: 'none', args: {} };
     }
 };
@@ -156,7 +160,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ userProfile }) => {
 
   useEffect(scrollToBottom, [messages]);
 
-  const systemPrompt = `Eres RequiAsistente, un asistente virtual experto integrado en RequiSoftware CIEC. Ayudas a ${userProfile.empleado?.nombre || 'un usuario'} del departamento de ${userProfile.departamento?.nombre || 'Desconocido'}.
+  const systemPrompt = `Eres RequiAsistente, un asistente virtual experto integrado en RequiSoftware para la Cámara de Industriales del estado Carabobo. Tu propósito es ayudar en la gestión de solicitudes y órdenes de compra. Ayudas a ${userProfile.empleado?.nombre || 'un usuario'} del departamento de ${userProfile.departamento?.nombre || 'Desconocido'}.
 REGLAS CRÍTICAS E INQUEBRANTABLES:
 1.  **BAJO NINGUNA CIRCUNSTANCIA DEBES generar el texto '[Datos del sistema: ...]' o '[Instrucción del sistema: ...]' por tu cuenta.** Este texto es una señal que SOLO YO (el frontend) usaré para darte contexto.
 2.  Si mi mensaje (el que recibes como 'user') CONTIENE '[Instrucción del sistema: ...]', tu única tarea es seguir esa instrucción al pie de la letra para formular tu respuesta al usuario. Ejemplo: si la instrucción dice "pide el nombre de la categoría", tu respuesta debe ser algo como "¿De qué categoría te gustaría ver los productos?".
@@ -214,6 +218,9 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
           getAllProductCategories: aiDataService.getAllProductCategories,
           getDepartmentExpenses: aiDataService.getDepartmentExpenses,
           getTotalExpenses: aiDataService.getTotalExpenses,
+          getSolicitudDetailsById: aiDataService.getSolicitudDetailsById,
+          getEmpleadoInfo: aiDataService.getEmpleadoInfo,
+          getRecentActivity: aiDataService.getRecentActivity,
         };
 
         if (serviceFunctions[funcName]) {
@@ -234,49 +241,43 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
     setIsFetchingContext(false);
     
     const chatHistoryForAI = messages.slice(-5).map(msg => ({
-      role: msg.sender === 'user' ? 'user' : 'assistant',
-      content: msg.text
+      role: msg.sender === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.text }]
     }));
 
-    const aiPromptMessages = [
-        { role: 'system', content: systemPrompt },
+    const contents = [
         ...chatHistoryForAI,
-        { role: 'user', content: (contextDataString ? contextDataString + " " : "") + trimmedInput }
+        { role: 'user', parts: [{ text: (contextDataString ? contextDataString + " " : "") + trimmedInput }] }
     ];
 
     try {
-      if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY.length < 10) {
-          throw new Error("API Key de OpenRouter no está configurada. Por favor, configure la clave en el archivo correspondiente.");
-      }
+        if (!GEMINI_API_KEY) {
+          throw new Error("La clave API de Gemini no está configurada en config.ts");
+        }
+        const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: contents,
+            config: {
+                systemInstruction: systemPrompt,
+                maxOutputTokens: 1500,
+            }
+        });
 
-      const response = await fetch(OPENROUTER_API_URL, {
-        method: "POST", headers: {
-          "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json",
-          "HTTP-Referer": SITE_URL_AI_CHAT, "X-Title": "RequiSoftware CIEC - Asistente IA"
-        },
-        body: JSON.stringify({
-          model: "qwen/qwen3-30b-a3b:free", 
-          messages: aiPromptMessages,
-          max_tokens: 1500,
-        })
-      });
-
-      if (!response.ok) throw new Error(`Error de API (${response.status}): ${await response.text()}`);
-      const data = await response.json();
-
-      if (data?.choices?.[0]?.message?.content) {
-        const aiMessage: ChatMessage = {
-          id: Date.now().toString() + '-ai',
-          text: data.choices[0].message.content,
-          sender: 'ai',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, aiMessage]);
-      } else {
-        throw new Error("Respuesta de IA inválida o inesperada.");
-      }
+        const responseText = response.text;
+        if (responseText) {
+            const aiMessage: ChatMessage = {
+            id: Date.now().toString() + '-ai',
+            text: responseText,
+            sender: 'ai',
+            timestamp: new Date(),
+            };
+            setMessages(prev => [...prev, aiMessage]);
+        } else {
+            throw new Error("Respuesta de IA inválida o inesperada.");
+        }
     } catch (error) {
-      console.error("Error al obtener respuesta del Asistente Inteligente:", error);
+      console.error("Error al obtener respuesta del Asistente Inteligente (Gemini):", error);
       const errorMessage: ChatMessage = {
         id: Date.now().toString() + '-error',
         text: `Lo siento, ocurrió un error al procesar tu solicitud: ${error instanceof Error ? error.message : String(error)}.`,

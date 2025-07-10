@@ -2,13 +2,12 @@
 import React, { useState } from 'react';
 // @ts-ignore
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { RequestForm } from '../components/requests/RequestForm'; // Changed to named import
+import { RequestForm } from '../components/requests/RequestForm'; // Se cambió a importación nombrada
 import { UserProfile, NotificacionInsert } from '../types';
-// import { supabase } from '../supabaseClient'; // Supabase client is used by services now
 import { generateDescription as aiGenerateDescription } from '../services/aiService';
-import { createNotifications, fetchAdminUserIds } from '../services/notificationService'; // Import notification service
+import { createNotifications, fetchAdminUserIds } from '../services/notificationService'; // Importar servicio de notificaciones
 import { ArrowPathIcon } from '@heroicons/react/24/outline'; 
-import { supabase } from '../supabaseClient'; // Keep for direct DB operations if needed
+import { supabase } from '../supabaseClient'; // Mantener para operaciones directas de BD si es necesario
 
 interface RequestFormPageContext {
   userProfile: UserProfile;
@@ -68,7 +67,6 @@ const RequestFormPage: React.FC = () => {
           estado: 'Pendiente',
           empleado_id: userProfile.empleado_id,
           departamento_id: userProfile.departamento_id,
-          // created_at, updated_at, fecha_solicitud son manejados por la DB
         })
         .select('id')
         .single();
@@ -93,9 +91,9 @@ const RequestFormPage: React.FC = () => {
         // Insertar múltiples detalles para solicitud estándar
         const detalles = requestData.products.map(p => ({
           solicitud_compra_id: solicitudId,
-          producto_id: parseInt(p.productId), // Ya validado que es parseable
+          producto_id: parseInt(p.productId),
           cantidad: p.quantity,
-          descripcion_producto_personalizado: null, // Sin descripción personalizada para items estándar
+          descripcion_producto_personalizado: null,
         })).filter(d => !isNaN(d.producto_id)); // Doble verificación, aunque ya debería estar filtrado
         
         if (detalles.length > 0) {
@@ -112,7 +110,6 @@ const RequestFormPage: React.FC = () => {
           title: 'Nueva Solicitud de Compra',
           description: `El empleado ${userProfile.empleado?.nombre || 'Desconocido'} (${userProfile.departamento?.nombre || 'Dpto. Desc.'}) ha creado la solicitud #${solicitudId}: ${finalDescriptionForSolicitud}.`,
           type: 'nueva_solicitud',
-          // related_id: solicitudId, // Removed
         }));
         const notifResult = await createNotifications(notificationsPayload);
         if (!notifResult.success) {

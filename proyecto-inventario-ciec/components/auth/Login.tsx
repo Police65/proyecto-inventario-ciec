@@ -15,15 +15,14 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false); // Estado de carga para el botón de login
   
   const navigate = useNavigate();
-  const { login: authLogin, userProfile } = useAuth(); // Obtener función de login y perfil del hook useAuth
+  const { login: authLogin, session } = useAuth(); // Usar `session` para la lógica de redirección
 
-  // Redirigir a /home si el usuario ya está logueado (tiene un userProfile).
-  // El hook useAuth maneja la verificación inicial de la sesión.
+  // Redirigir a /home si el usuario ya tiene una sesión activa.
   React.useEffect(() => {
-    if (userProfile) {
+    if (session) {
       navigate('/home');
     }
-  }, [userProfile, navigate]);
+  }, [session, navigate]);
 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -33,8 +32,7 @@ const Login: React.FC = () => {
     try {
       await authLogin(email, password); // Llamar a la función de login del hook
       // Si el login es exitoso, el hook useAuth (a través de onAuthStateChange)
-      // actualizará userProfile, y el useEffect anterior debería redirigir.
-      // Se puede añadir una navegación explícita aquí como respaldo o si se prefiere ese flujo.
+      // actualizará la sesión, y el useEffect anterior debería redirigir.
       navigate('/home'); 
     } catch (err) {
       // El hook useAuth ya debería formatear errores comunes de Supabase al español.

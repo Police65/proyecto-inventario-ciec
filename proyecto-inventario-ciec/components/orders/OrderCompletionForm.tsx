@@ -93,7 +93,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
       return;
     }
 
-    // --- New Validation for Unique Invoice ---
+    // --- Nueva Validación para Factura Única ---
     if (facturaNumero.trim()) {
       try {
         const { data: existingFactura, error: checkError } = await supabase
@@ -101,7 +101,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
           .select('id, orden_compra_id')
           .eq('numero_factura', facturaNumero.trim())
           .limit(1)
-          .maybeSingle(); // Use maybeSingle to not error on no rows
+          .maybeSingle();
         
         if (checkError) {
           throw new Error(`Error al verificar la factura: ${checkError.message}`);
@@ -118,13 +118,13 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
         return;
       }
     }
-    // --- End of New Validation ---
+    // --- Fin de la Nueva Validación ---
 
     const notificationsToCreate: NotificacionInsert[] = [];
     const adminUserIds = await fetchAdminUserIds();
 
     try {
-      // Mark order as completed
+      // Marcar orden como completada
       const { data: updatedOrderData, error: orderUpdateError } = await supabase
         .from('ordencompra')
         .update({ 
@@ -139,18 +139,17 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
       if (orderUpdateError) throw orderUpdateError;
       if (!updatedOrderData) throw new Error('Failed to update order status.');
 
-      // Notify admins about order completion
+      // Notificar a los administradores sobre la finalización de la orden
       if (adminUserIds.length > 0) {
         notificationsToCreate.push(...adminUserIds.map(adminId => ({
           user_id: adminId,
           title: 'Orden Completada',
           description: `La orden de compra #${order.id} (Proveedor: ${order.proveedor?.nombre || 'N/D'}) ha sido marcada como completada.`,
           type: 'orden_completada',
-          // related_id: order.id, // Removed
         })));
       }
       
-      // Notify original requester (if from a solicitud)
+      // Notificar al solicitante original (si proviene de una solicitud)
       const solicitudEmpleadoId = (updatedOrderData.solicitud_compra as any)?.empleado_id;
       if (solicitudEmpleadoId) {
         const requesterAuthId = await fetchUserAuthIdByEmpleadoId(solicitudEmpleadoId);
@@ -159,13 +158,12 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
             user_id: requesterAuthId,
             title: 'Proceso de Solicitud Completado',
             description: `La orden de compra #${order.id}, generada a partir de tu solicitud, ha sido completada.`,
-            type: 'solicitud_procesada_orden_completada', // New type
-            // related_id: order.id, // Removed
+            type: 'solicitud_procesada_orden_completada',
           });
         }
       }
 
-      // 1. Handle missing products (productos_no_recibidos)
+      // 1. Manejar productos faltantes (productos_no_recibidos)
       const productosNoRecibidosDbPayload: Omit<ProductoNoRecibido, 'id' | 'created_at' | 'updated_at' | 'producto' | 'orden_compra'>[] = [];
       for (const status of productStatuses) {
         if (status.cantidadFaltante > 0) {
@@ -187,12 +185,11 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
                 title: 'Productos Faltantes en Orden Completada',
                 description: `La orden #${order.id} se completó con ${productosNoRecibidosDbPayload.length} tipo(s) de producto(s) faltante(s). Revisar detalles.`,
                 type: 'productos_faltantes_orden',
-                // related_id: order.id, // Removed
             })));
         }
       }
 
-      // 2. Handle invoice (facturas_orden) if numero_factura is provided
+      // 2. Manejar factura (facturas_orden) si se proporciona numero_factura
       if (facturaNumero.trim()) {
         const { error: facturaError } = await supabase.from('facturas_orden').insert({
           orden_compra_id: order.id,
@@ -203,7 +200,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
         if (facturaError) console.error('Error guardando factura:', facturaError);
       }
 
-      // 3. Update inventory for received products
+      // 3. Actualizar inventario para productos recibidos
       for (const status of productStatuses) {
         if (status.cantidadRecibida > 0 && status.producto_id) {
           const { data: currentInventory, error: invFetchError } = await supabase
@@ -252,7 +249,6 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
                   title: 'Alerta de Bajo Stock',
                   description: `El producto "${productDetails.descripcion || 'ID ' + status.producto_id}" tiene bajo stock (${newExistencias} uds) tras recepción de orden #${order.id}. Mínimo: ${productDetails.stock_minimo}.`,
                   type: 'alerta_bajo_stock',
-                  // related_id: status.producto_id, // Removed
                 })));
             }
           }

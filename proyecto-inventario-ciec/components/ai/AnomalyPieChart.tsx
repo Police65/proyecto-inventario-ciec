@@ -7,7 +7,7 @@ interface AnomalyPieChartProps {
   title?: string;
 }
 
-const COLORS = ['#EF4444', '#10B981']; // Red for anomalies, Green for normal
+const COLORS = ['#EF4444', '#10B981']; // Rojo para anomalías, Verde para normales
 
 const AnomalyPieChart: React.FC<AnomalyPieChartProps> = ({ data, title = "Distribución de Transacciones" }) => {
   if (!data || data.length === 0 || data.every(item => item.value === 0)) {

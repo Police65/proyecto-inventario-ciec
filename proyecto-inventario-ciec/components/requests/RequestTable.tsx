@@ -1,6 +1,6 @@
 import React from 'react';
 import { SolicitudCompra, SolicitudCompraEstado } from '../../types';
-import { CheckCircleIcon, XCircleIcon, EyeIcon, DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline'; // Import DocumentMagnifyingGlassIcon
+import { CheckCircleIcon, XCircleIcon, EyeIcon, DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline'; // Importar ícono DocumentMagnifyingGlassIcon
 
 interface RequestTableProps {
   requests: SolicitudCompra[];
@@ -72,7 +72,7 @@ const RequestTable: React.FC<RequestTableProps> = ({
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                 {request.detalles && request.detalles.length > 0 ? (
                   <ul className="list-disc list-inside space-y-1">
-                    {request.detalles.slice(0,2).map((detalle, i) => ( // Show first 2, add more indicator
+                    {request.detalles.slice(0,2).map((detalle, i) => ( // Mostrar los primeros 2, añadir indicador de "más"
                       <li key={i} className="truncate">
                         {detalle.producto?.descripcion || 'Producto no especificado'} (x{detalle.cantidad})
                       </li>
@@ -102,9 +102,9 @@ const RequestTable: React.FC<RequestTableProps> = ({
                   >
                     <XCircleIcon className="w-5 h-5" />
                   </button>
-                   {!onRowClick && ( // Show view icon only if no global onRowClick
+                   {!onRowClick && ( // Mostrar ícono de ver solo si no hay un onRowClick global
                      <button
-                        onClick={() => typeof onRowClick === 'function' && onRowClick(request)} // If there's a dedicated onRowClick for details
+                        onClick={() => typeof onRowClick === 'function' && onRowClick(request)} // Si hay un onRowClick dedicado para detalles
                         className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 rounded-md hover:bg-blue-100 dark:hover:bg-blue-700 transition-colors"
                         title="Ver Detalles"
                       >

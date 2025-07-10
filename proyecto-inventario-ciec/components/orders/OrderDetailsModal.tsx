@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react'; // Added useState
+import React, { useState } from 'react';
 import { OrdenCompra } from '../../types';
 import { XMarkIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import OrderPDF from './OrderPDF'; 

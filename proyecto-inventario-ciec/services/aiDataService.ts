@@ -1,6 +1,10 @@
 import { supabase } from '../supabaseClient';
-import { Producto, Proveedor, OrdenCompra, Inventario, CategoriaProducto, SolicitudCompra, Departamento } from '../types';
-import { startOfMonth, endOfMonth, subDays, startOfYear, formatISO } from 'date-fns';
+import { Producto, Proveedor, OrdenCompra, Inventario, CategoriaProducto, SolicitudCompra, Departamento, Empleado } from '../types';
+import { startOfMonth } from 'date-fns/startOfMonth';
+import { endOfMonth } from 'date-fns/endOfMonth';
+import { subDays } from 'date-fns/subDays';
+import { startOfYear } from 'date-fns/startOfYear';
+import { formatISO } from 'date-fns/formatISO';
 
 /**
  * Obtiene el conteo de solicitudes de compra pendientes.
@@ -229,12 +233,14 @@ export const getProductDetailsByNameOrCode = async (identifier: string): Promise
     
     const inventarioEntry = Array.isArray(data.inventario) ? data.inventario[0] : data.inventario;
     const inventarioExistencias = inventarioEntry?.existencias !== undefined ? inventarioEntry.existencias : "No en inventario";
+    const categoriaData = Array.isArray(data.categoria) ? data.categoria[0] : data.categoria;
+
 
     return {
         id: data.id,
         descripcion: data.descripcion,
         codigo_interno: data.codigo_interno,
-        categoria_nombre: Array.isArray(data.categoria) ? data.categoria[0]?.nombre || "Sin categoría" : data.categoria?.nombre || "Sin categoría",
+        categoria_nombre: categoriaData?.nombre || "Sin categoría",
         inventario_existencias: inventarioExistencias,
     };
   } catch (err) {
@@ -347,7 +353,17 @@ export const getOrderDetailsById = async (orderId: number): Promise<Partial<Orde
             return `Error al obtener detalles de la orden #${orderId}.`;
         }
         if (!data) return `No se encontró la orden de compra con ID #${orderId}.`;
-        return data;
+
+        const typedData = data as any;
+        
+        return {
+            ...typedData,
+            proveedor: Array.isArray(typedData.proveedor) ? typedData.proveedor[0] : typedData.proveedor,
+            detalles: (typedData.detalles || []).map((d: any) => ({
+                ...d,
+                producto: Array.isArray(d.producto) ? d.producto[0] : d.producto,
+            })),
+        };
     } catch (err) {
         console.error(`Excepción en getOrderDetailsById para la orden con ID '${orderId}':`, err);
         return `Excepción al obtener detalles de la orden #${orderId}.`;
@@ -393,9 +409,10 @@ export const getInventorySummary = async (options?: { lowStockThresholdPercent?:
             
         if (lowStockError) return "Error al contar productos con bajo stock.";
         
-        const actualLowStockCount = (lowStockItems || []).filter(item =>
-            item.producto && item.producto.stock_minimo !== null && item.existencias !== null && item.existencias < item.producto.stock_minimo
-        ).length;
+        const actualLowStockCount = (lowStockItems || []).filter(item => {
+            const productoData = item.producto && (Array.isArray(item.producto) ? item.producto[0] : item.producto);
+            return productoData && productoData.stock_minimo !== null && item.existencias !== null && item.existencias < productoData.stock_minimo;
+        }).length;
 
 
         const { data: topStockedItems, error: topStockError } = await supabase
@@ -408,10 +425,13 @@ export const getInventorySummary = async (options?: { lowStockThresholdPercent?:
         return {
             total_productos_distintos_en_inventario: totalDistinctProducts || 0,
             productos_con_bajo_stock_critico: actualLowStockCount,
-            productos_mas_abundantes: (topStockedItems || []).map(item => ({
-                producto: item.producto?.descripcion || 'Desconocido',
-                existencias: item.existencias
-            }))
+            productos_mas_abundantes: (topStockedItems || []).map(item => {
+                const productoData = item.producto && (Array.isArray(item.producto) ? item.producto[0] : item.producto);
+                return {
+                    producto: productoData?.descripcion || 'Desconocido',
+                    existencias: item.existencias
+                };
+            })
         };
 
     } catch (err) {
@@ -437,7 +457,7 @@ export const getAllProducts = async (limit: number = 10): Promise<Array<Pick<Pro
         }
         if (!data || data.length === 0) return "No hay productos registrados en el catálogo.";
         
-        return data.map(p => {
+        return data.map((p: any) => {
             const categoria = Array.isArray(p.categoria) ? p.categoria[0] : p.categoria;
             return {
                 id: p.id,
@@ -511,5 +531,109 @@ export const getAllProductCategories = async (): Promise<Pick<CategoriaProducto,
     } catch (err) {
         console.error('Excepción en getAllProductCategories:', err);
         return "Excepción al obtener las categorías de productos.";
+    }
+};
+
+/**
+ * Obtiene detalles no sensibles de una solicitud de compra específica por su ID.
+ */
+export const getSolicitudDetailsById = async (solicitudId: number): Promise<Partial<SolicitudCompra> | string> => {
+    try {
+        const { data, error } = await supabase
+            .from('solicitudcompra')
+            .select(`
+                id, descripcion, fecha_solicitud, estado,
+                empleado:empleado_id ( nombre, apellido ),
+                departamento:departamento_id ( nombre ),
+                detalles:solicitudcompra_detalle ( cantidad, producto:producto_id ( descripcion ) )
+            `)
+            .eq('id', solicitudId)
+            .single();
+        if (error && error.code !== 'PGRST116') {
+            console.error(`Error al obtener detalles de la solicitud con ID '${solicitudId}':`, error.message);
+            return `Error al obtener detalles de la solicitud #${solicitudId}.`;
+        }
+        if (!data) return `No se encontró la solicitud de compra con ID #${solicitudId}.`;
+        
+        const typedData = data as any;
+        return {
+            ...typedData,
+            empleado: Array.isArray(typedData.empleado) ? typedData.empleado[0] : typedData.empleado,
+            departamento: Array.isArray(typedData.departamento) ? typedData.departamento[0] : typedData.departamento,
+            detalles: (typedData.detalles || []).map((d: any) => ({
+                ...d,
+                producto: Array.isArray(d.producto) ? d.producto[0] : d.producto,
+            })),
+        };
+    } catch (err) {
+        console.error(`Excepción en getSolicitudDetailsById para la solicitud con ID '${solicitudId}':`, err);
+        return `Excepción al obtener detalles de la solicitud #${solicitudId}.`;
+    }
+};
+
+/**
+ * Obtiene información no sensible de un empleado por su nombre/apellido o cédula.
+ */
+export const getEmpleadoInfo = async (identifier: string): Promise<Partial<Empleado> | string> => {
+    try {
+        const isCedula = /^\d{7,8}$/.test(identifier);
+        let query = supabase
+            .from('empleado')
+            .select('nombre, apellido, cedula, estado, cargo:cargo_actual_id(nombre), departamento:departamento_id(nombre)');
+
+        if (isCedula) {
+            query = query.eq('cedula', identifier);
+        } else {
+            query = query.or(`nombre.ilike.%${identifier}%,apellido.ilike.%${identifier}%`);
+        }
+
+        const { data, error } = await query.limit(1).single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error(`Error al obtener información del empleado '${identifier}':`, error.message);
+            return `Error al buscar al empleado '${identifier}'.`;
+        }
+        if (!data) return `No se encontró un empleado con el identificador '${identifier}'.`;
+        
+        const typedData = data as any;
+        return {
+            ...typedData,
+            cargo: Array.isArray(typedData.cargo) ? typedData.cargo[0] : typedData.cargo,
+            departamento: Array.isArray(typedData.departamento) ? typedData.departamento[0] : typedData.departamento,
+        };
+    } catch (err) {
+        console.error(`Excepción en getEmpleadoInfo para '${identifier}':`, err);
+        return `Excepción al buscar al empleado '${identifier}'.`;
+    }
+};
+
+/**
+ * Obtiene una lista de las actividades más recientes (solicitudes y órdenes).
+ */
+export const getRecentActivity = async (limit: number = 5): Promise<{ solicitudes: Partial<SolicitudCompra>[], ordenes: Partial<OrdenCompra>[] } | string> => {
+    try {
+        const [solicitudesResult, ordenesResult] = await Promise.all([
+            supabase
+                .from('solicitudcompra')
+                .select('id, descripcion, estado, fecha_solicitud, empleado:empleado_id(nombre)')
+                .order('fecha_solicitud', { ascending: false })
+                .limit(limit),
+            supabase
+                .from('ordencompra')
+                .select('id, estado, fecha_orden, neto_a_pagar, proveedor:proveedor_id(nombre)')
+                .order('fecha_orden', { ascending: false })
+                .limit(limit)
+        ]);
+        
+        if (solicitudesResult.error) return `Error al obtener solicitudes recientes: ${solicitudesResult.error.message}`;
+        if (ordenesResult.error) return `Error al obtener órdenes recientes: ${ordenesResult.error.message}`;
+        
+        return {
+            solicitudes: (solicitudesResult.data || []).map((s: any) => ({ ...s, empleado: Array.isArray(s.empleado) ? s.empleado[0] : s.empleado })),
+            ordenes: (ordenesResult.data || []).map((o: any) => ({ ...o, proveedor: Array.isArray(o.proveedor) ? o.proveedor[0] : o.proveedor })),
+        };
+    } catch (err) {
+        console.error(`Excepción en getRecentActivity:`, err);
+        return `Excepción al obtener la actividad reciente.`;
     }
 };

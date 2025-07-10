@@ -4,8 +4,8 @@ import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { SolicitudCompra, OrdenCompra, UserProfile, OrdenConsolidada, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, Proveedor, OrdenCompraDetalle as OrdenCompraDetalleType, CategoriaProducto, NotificacionInsert } from '../types';
 import LoadingSpinner from '../components/core/LoadingSpinner';
-import { THRESHOLD_ORDEN_GRANDE } from '../config'; // Import threshold
-import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } from '../services/notificationService'; // Import notification service
+import { THRESHOLD_ORDEN_GRANDE } from '../config'; // Importar umbral de valor
+import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } from '../services/notificationService'; // Importar servicio de notificaciones
 
 // Importar componentes individuales que conforman el dashboard
 import RequestTable from '../components/requests/RequestTable';
@@ -27,7 +27,7 @@ interface AdminDashboardContext {
   setActiveUITab: (tab: string) => void; // Función para cambiar la pestaña activa
 }
 
-// --- Definiciones de tipo para datos crudos de consultas Supabase ---
+// Definiciones de tipo para datos crudos de consultas Supabase
 type RawSolicitudFromQuery = Omit<SolicitudCompra, 'empleado' | 'departamento' | 'detalles'> & {
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
   departamento: Pick<Departamento, 'id' | 'nombre'> | null;
@@ -48,7 +48,7 @@ type RawOrdenFromQuery = Omit<OrdenCompra, 'proveedor' | 'detalles' | 'empleado'
     }
   > | null;
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
-  solicitud_compra: Pick<SolicitudCompra, 'id' | 'descripcion' | 'empleado_id'> | null; // Added empleado_id
+  solicitud_compra: Pick<SolicitudCompra, 'id' | 'descripcion' | 'empleado_id'> | null; // Se añadió empleado_id
 };
 
 const commonSelectOrden = `
@@ -294,7 +294,6 @@ export const AdminDashboardPage = (): React.ReactElement => {
                 title: 'Solicitud Rechazada',
                 description: `Tu solicitud #${requestId} ("${requestToNotify.descripcion || 'Sin descripción adicional'}") ha sido rechazada.`,
                 type: 'solicitud_rechazada',
-                // related_id: requestId, // Removed
             };
             await createNotifications([notifPayload]);
         } else {
@@ -341,29 +340,27 @@ export const AdminDashboardPage = (): React.ReactElement => {
       const notificationsToCreate: NotificacionInsert[] = [];
       const adminUserIds = await fetchAdminUserIds();
 
-      // Notify admins about the new order
+      // Notificar a los administradores sobre la nueva orden
       if (adminUserIds.length > 0) {
         notificationsToCreate.push(...adminUserIds.map(adminId => ({
           user_id: adminId,
           title: 'Nueva Orden de Compra Creada',
           description: `Se ha creado la orden de compra #${fullOrderData!.id}. Proveedor: ${fullOrderData!.proveedor?.nombre || 'N/D'}.`,
           type: 'orden_creada',
-          // related_id: fullOrderData!.id, // Removed
         })));
 
-        // Check for high-value order alert
+        // Verificar si la orden tiene un valor elevado
         if (fullOrderData!.neto_a_pagar > THRESHOLD_ORDEN_GRANDE) {
           notificationsToCreate.push(...adminUserIds.map(adminId => ({
             user_id: adminId,
             title: 'Alerta de Gasto Elevado en Orden',
             description: `La orden de compra #${fullOrderData!.id} supera el umbral de gasto (${THRESHOLD_ORDEN_GRANDE.toLocaleString('es-VE')} Bs) con un total de ${fullOrderData!.neto_a_pagar.toLocaleString('es-VE')} Bs.`,
             type: 'alerta_gasto_orden',
-            // related_id: fullOrderData!.id, // Removed
           })));
         }
       }
 
-      // Notify user if the order came from their request(s)
+      // Notificar al usuario si la orden proviene de su(s) solicitud(es)
       if (fullOrderData?.solicitud_compra_id && fullOrderData.solicitud_compra?.empleado_id) {
           const requesterAuthId = await fetchUserAuthIdByEmpleadoId(fullOrderData.solicitud_compra.empleado_id);
           if (requesterAuthId) {
@@ -372,13 +369,11 @@ export const AdminDashboardPage = (): React.ReactElement => {
               title: 'Solicitud Aprobada y Orden Creada',
               description: `Tu solicitud #${fullOrderData.solicitud_compra_id} ha sido aprobada y se generó la orden de compra #${fullOrderData.id}.`,
               type: 'solicitud_aprobada',
-              // related_id: fullOrderData.id, // Removed
             });
           }
       }
-      // If the order was from multiple consolidated requests, we'd need to iterate solicitudesIds here.
-      // This part needs adjustment if handleOrderCreated is also called from a consolidation flow that passes multiple solicitud_ids.
-      // For now, it assumes a single solicitud_compra_id linked to the order, or a direct order.
+      // Nota: esta parte necesita ajustarse si handleOrderCreated se llama también desde un flujo de consolidación que pasa múltiples solicitud_ids.
+      // Por ahora, asume una única solicitud_compra_id vinculada a la orden, o una orden directa.
 
       if(notificationsToCreate.length > 0) {
         await createNotifications(notificationsToCreate);
@@ -388,7 +383,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
         const catchedError = e as Error;
         console.error("Exception fetching full order details or sending notifications:", catchedError);
         setError(catchedError.message || "Excepción al obtener detalles de la orden o enviar notificaciones.");
-        if (!newlyCreatedOrder) setNewlyCreatedOrder({ id: createdOrderInfo.id } as OrdenCompra); // Fallback for PDF
+        if (!newlyCreatedOrder) setNewlyCreatedOrder({ id: createdOrderInfo.id } as OrdenCompra); // Fallback para PDF
     } finally {
         setLoading(false);
         setShowPDFConfirmationModal(true);

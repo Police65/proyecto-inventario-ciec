@@ -301,7 +301,6 @@ export interface Notificacion {
   created_at: string; // Fecha de creación
   type?: string; // Tipo de notificación (ej: 'nueva_solicitud', 'solicitud_aprobada')
   read: boolean; // Estado de lectura (true si ya fue leída)
-  // related_id?: number; // ID relacionado (ej: id de solicitud_compra, id de orden_compra) -- REMOVED
   updated_at: string;
 }
 

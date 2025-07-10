@@ -3,11 +3,13 @@ import { supabase } from '../../supabaseClient';
 import DOMPurify from 'dompurify';
 import DepartmentExpensesChart from './DepartmentExpensesChart';
 import AnomalyPieChart from './AnomalyPieChart';
-import ChatInterface from '@/components/ai/ChatInterface'; // Changed to aliased import
-import { OPENROUTER_API_KEY, OPENROUTER_API_URL } from '../../config';
+import ChatInterface from '@/components/ai/ChatInterface'; // Se cambió a importación con alias
+import { GoogleGenAI } from "@google/genai";
+import { GEMINI_API_KEY } from '../../config';
 import { AISummaryStat, ChartDataItem, OrdenCompra, SolicitudCompra, Departamento, RendimientoProveedor, ConsumoHistoricoProducto, MetricasProductoMensual, UserProfile, PartnerEvent, PartnerMeeting } from '../../types';
 import { LightBulbIcon, BanknotesIcon, TruckIcon, CpuChipIcon, UserGroupIcon, ArrowPathIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
+// @ts-ignore
 import { useOutletContext } from 'react-router-dom';
 import { fetchExternalEvents, fetchExternalMeetings } from '../../supabaseClient';
 
@@ -40,8 +42,6 @@ type OrderForAuditor = Pick<OrdenCompra, 'neto_a_pagar'> & {
   }) | null;
 };
 
-const SITE_URL_AI_INSIGHTS = typeof window !== 'undefined' ? window.location.origin : "https://requisoftware-ciec.example.com";
-
 
 export const AIInsights: React.FC = () => {
   const { userProfile } = useOutletContext<AIInsightsContext>();
@@ -60,10 +60,9 @@ export const AIInsights: React.FC = () => {
 
   useEffect(() => {
     const loadDataForTab = async (tab: InsightType) => {
-        // For 'asistente' tab, no specific data pre-loading is needed for the static insight generator anymore
-        // as it's being replaced by the chat interface.
+        // Para la pestaña 'asistente', ya no se necesita precargar datos, ya que se reemplaza por la interfaz de chat.
         if (tab === 'asistente') {
-            setLoading(prev => ({ ...prev, [tab]: false })); // Ensure loading is false if no pre-load
+            setLoading(prev => ({ ...prev, [tab]: false }));
             return;
         }
 
@@ -76,12 +75,12 @@ export const AIInsights: React.FC = () => {
             } else if (tab === 'predictor') {
                  if (consumptionData.length === 0) {
                     const { data: consumo, error: consumoErr } = await supabase.from('consumo_historico_producto').select('*, producto:producto_id(id, descripcion)');
-                    if (consumoErr) console.error("Error al obtener datos de consumo (IAInsights):", consumoErr);
+                    if (consumoErr) console.error("Error fetching consumption data:", consumoErr);
                     else setConsumptionData(consumo || []);
                  }
                  if (monthlyMetricsData.length === 0) {
                     const { data: metricas, error: metricasErr } = await supabase.from('metricas_producto_mensual').select('*, producto:producto_id(id, descripcion)');
-                    if (metricasErr) console.error("Error al obtener métricas mensuales (IAInsights):", metricasErr);
+                    if (metricasErr) console.error("Error fetching monthly metrics:", metricasErr);
                     else setMonthlyMetricsData(metricas || []);
                  }
             } else if (tab === 'eventos_externos') {
@@ -95,7 +94,7 @@ export const AIInsights: React.FC = () => {
                 }
             }
         } catch (err) {
-            console.error(`Error cargando datos para la pestaña ${tab}:`, err);
+            console.error(`Error loading data for tab ${tab}:`, err);
             setInsights(prev => ({ ...prev, [tab]: `**Error al cargar datos para ${tab}:**\n- ${err instanceof Error ? err.message : String(err)}`}));
         } finally {
             setLoading(prev => ({ ...prev, [tab]: false }));
@@ -179,48 +178,38 @@ export const AIInsights: React.FC = () => {
   };
 
   const fetchAIResponse = async (prompt: string, type: InsightType): Promise<string> => {
-    if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY.length < 10) {
-      console.warn("La clave API de OpenRouter no está configurada o es inválida. Las perspectivas de IA serán simuladas.");
-      return `**Información Simulada para ${type}**\n- Esta es una respuesta simulada porque la clave API no está configurada o es inválida.\n- Configure su clave API de OpenRouter en config.ts para obtener información real.\n- Este es un ejemplo de formato con **markdown** y listas:\n  * Punto uno.\n  * Punto dos con *énfasis*.`;
-    }
     try {
-        const response = await fetch(OPENROUTER_API_URL, {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-            "HTTP-Referer": SITE_URL_AI_INSIGHTS,
-            "X-Title": "RequiSoftware CIEC - AI Insights",
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            model: "qwen/qwen3-30b-a3b:free",
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 2000
-        }),
-        });
-        if (!response.ok) {
-            const errorBody = await response.text();
-            console.error(`Error de API de IA para ${type}: ${response.status} - ${errorBody}`, response);
-            throw new Error(`Error de API de IA (${response.status}): ${errorBody}`);
+        if (!GEMINI_API_KEY) {
+          throw new Error("La clave API de Gemini no está configurada en config.ts");
         }
-        const data = await response.json();
+        const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: {
+            temperature: 0.5,
+            maxOutputTokens: 2000,
+            thinkingConfig: { thinkingBudget: 1000 }
+          }
+        });
 
-        if (data && data.choices && data.choices.length > 0 && data.choices[0].message && typeof data.choices[0].message.content === 'string') {
-            return data.choices[0].message.content;
+        const responseText = response.text;
+        if (responseText) {
+            return responseText;
         } else {
-            console.error(`Estructura de respuesta de IA inválida para ${type}. Recibido:`, JSON.stringify(data, null, 2));
-            throw new Error("Estructura de respuesta inválida o inesperada de la API de IA.");
+            console.error(`Respuesta de Gemini vacía para ${type}.`);
+            throw new Error("La respuesta de la IA llegó vacía.");
         }
 
     } catch (fetchError) {
         const errorMessageText = fetchError instanceof Error ? fetchError.message : String(fetchError);
-        console.error(`Error de fetch para respuesta de IA para ${type}: ${errorMessageText}`, fetchError);
-        throw new Error(`Error de red o de fetch para la API de IA: ${errorMessageText}`);
+        console.error(`Error al contactar la API de Gemini para ${type}: ${errorMessageText}`, fetchError);
+        throw new Error(`Error al contactar la API de IA: ${errorMessageText}`);
     }
   };
 
   const handleGenerateInsight = async (type: InsightType) => {
-    // This function will not be called for 'asistente' tab as it uses ChatInterface
+    // Esta función no se llamará para la pestaña 'asistente' ya que usa ChatInterface
     if (type === 'asistente') return;
 
     setLoading(prev => ({ ...prev, [type]: true }));
@@ -230,7 +219,7 @@ export const AIInsights: React.FC = () => {
 
     try {
       switch (type) {
-        case "auditor": {
+        case "auditor":
           const { data: ordersData, error: ordersError } = await supabase
             .from("ordencompra")
             .select(`neto_a_pagar, solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, departamento!inner(id, nombre))`)
@@ -282,8 +271,8 @@ export const AIInsights: React.FC = () => {
             generatedInsight = await fetchAIResponse(prompt, type);
           }
           break;
-        }
-        case "proveedores": {
+
+        case "proveedores":
           const performanceSummary = providerPerformanceData.map(p => ({
               proveedor: p.proveedor?.nombre || `ID ${p.proveedor_id}`,
               calidad_producto: p.calidad_producto_evaluacion,
@@ -307,8 +296,8 @@ export const AIInsights: React.FC = () => {
             generatedInsight = await fetchAIResponse(prompt, type);
           }
           break;
-        }
-        case "predictor": {
+
+        case "predictor":
             const consumoResumen = consumptionData.map(c => ({
                 producto: c.producto?.descripcion || `ID ${c.producto_id}`,
                 cantidad_total_consumida_historica: c.cantidad_consumida,
@@ -333,8 +322,8 @@ export const AIInsights: React.FC = () => {
                 generatedInsight = await fetchAIResponse(prompt, type);
             }
           break;
-        }
-        case "eventos_externos": {
+
+        case "eventos_externos":
             const eventsSummary = externalEventsData.map(e => ({ tipo: 'Evento', nombre: e.subject, fecha: e.date, organizador: e.organizer_type + (e.organizer_name ? `: ${e.organizer_name}` : ''), lugar: e.location })).slice(0, 5);
             const meetingsSummary = externalMeetingsData.map(m => ({ tipo: 'Reunión', nombre: m.subject, fecha: m.date, comision_id: m.commission_id, lugar: m.location })).slice(0, 5);
             const externalActivitiesSummary = [...eventsSummary, ...meetingsSummary];
@@ -351,9 +340,8 @@ export const AIInsights: React.FC = () => {
                 generatedInsight = await fetchAIResponse(prompt, type);
             }
             break;
-        }
-        // 'asistente' tab is handled by ChatInterface, so this case won't be hit by this button
-        case "tendencias": {
+
+        case "tendencias":
             prompt = `Eres un analista de datos para RequiSoftware CIEC. Observa estos datos (ficticios) de gastos totales por departamento (en Bs.F) durante los últimos 3 meses:
                     - Marketing: Mes 1: 1.000.000, Mes 2: 1.200.000, Mes 3: 1.500.000
                     - Ventas: Mes 1: 800.000, Mes 2: 850.000, Mes 3: 820.000
@@ -363,10 +351,9 @@ export const AIInsights: React.FC = () => {
                     Responde en ESPAÑOL. Formatea con títulos en markdown (## Tendencias de Gasto por Departamento) y listas para cada departamento y su tendencia.`;
             generatedInsight = await fetchAIResponse(prompt, type);
             break;
-        }
-        default: {
+
+        default:
              generatedInsight = "Tipo de perspectiva no reconocida.";
-        }
       }
       setInsights(prev => ({ ...prev, [type]: generatedInsight }));
     } catch (err) {

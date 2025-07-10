@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { Link } from 'react-router-dom';
@@ -5,7 +6,7 @@ import { supabase } from '../../supabaseClient';
 import { UserProfile, Notificacion } from '../../types';
 import ThemeToggle from './ThemeToggle';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription'; // Importar el nuevo hook
-import { Bars3Icon, BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { REALTIME_POSTGRES_CHANGES_LISTEN_EVENT } from '@supabase/supabase-js';
 import { LIGHT_MODE_LOGO_URL, DARK_MODE_LOGO_URL } from '../../assets/paths';
 
@@ -16,8 +17,6 @@ interface CustomNavbarProps {
   onLogout: () => void;
   setHasInteracted: (interacted: boolean) => void; // Para registrar la primera interacción del usuario
 }
-
-// MAX_NOTIFICATION_RETRY_ATTEMPTS ahora es manejado por useRealtimeSubscription
 
 const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted }: CustomNavbarProps): React.ReactElement => {
   const [showNotifications, setShowNotifications] = useState(false); 
@@ -58,7 +57,7 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
   }, [userProfile?.id]);
 
   // Suscripción en tiempo real usando el nuevo hook
-  const { isSubscribed, error: subscriptionError } = useRealtimeSubscription<Notificacion, typeof REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.INSERT>({
+  const { isSubscribed, error: subscriptionError } = useRealtimeSubscription<Notificacion>({
     channelName: `user-notifications-${userProfile?.id || 'guest'}`, // Asegurar que channelName siempre sea válido
     tableName: 'notificaciones',
     filter: userProfile?.id ? `user_id=eq.${userProfile.id}` : undefined, // Filtrar solo si userProfile.id existe
@@ -77,16 +76,18 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
     enabled: !!userProfile?.id, // Habilitar solo si userProfile.id existe
   });
 
+  const hasSubscriptionError = !!subscriptionError;
+
   // Registrar estado de suscripción (opcional, para depuración)
   useEffect(() => {
     if (userProfile?.id) {
-      if (subscriptionError) {
+      if (hasSubscriptionError) {
         console.error(`[Navbar] Error de suscripción a notificaciones para ${userProfile.id}: ${subscriptionError}`);
       } else if (isSubscribed) {
         console.log(`[Navbar] Suscrito exitosamente a notificaciones del usuario ${userProfile.id}.`);
       }
     }
-  }, [isSubscribed, subscriptionError, userProfile?.id]);
+  }, [isSubscribed, subscriptionError, userProfile?.id, hasSubscriptionError]);
 
 
   const handleMarkNotificationAsRead = async (notificationId: number): Promise<void> => {
@@ -156,45 +157,59 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
 
           <div className="relative">
             <button
-              ref={notificationRef} 
+              ref={notificationRef}
               onClick={() => { setShowNotifications(!showNotifications); setHasInteracted(true); }}
               className="p-2 rounded-md text-gray-500 hover:text-primary-500 dark:text-gray-400 dark:hover:text-primary-400 focus:outline-none relative"
               aria-haspopup="true"
               aria-expanded={showNotifications}
-              aria-label={`Notificaciones (${notifications.length} no leídas)`}
+              aria-label={hasSubscriptionError ? "Error en notificaciones en tiempo real" : `Notificaciones (${notifications.length} no leídas)`}
+              title={hasSubscriptionError ? "Error de conexión en tiempo real. Verifique la configuración de replicación de Supabase para la tabla 'notificaciones'." : "Notificaciones"}
             >
-              <BellIcon className="w-5 h-5 sm:w-6 sm:h-6" /> 
-              {notifications.length > 0 && ( 
-                <span className="absolute top-0 right-0 block h-2 w-2 rounded-full ring-2 ring-white dark:ring-gray-800 bg-red-500" aria-hidden="true" />
+              <BellIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${hasSubscriptionError ? 'text-yellow-500' : ''}`} />
+              {notifications.length > 0 && !hasSubscriptionError && (
+                <span className="absolute top-1 right-1 block h-2 w-2 rounded-full ring-2 ring-white dark:ring-gray-800 bg-red-500" aria-hidden="true" />
               )}
-                <span className="sr-only">{notifications.length} notificaciones no leídas</span>
+              {hasSubscriptionError && (
+                <ExclamationTriangleIcon className="absolute top-0 right-0 h-3.5 w-3.5 text-red-500 bg-white dark:bg-gray-800 rounded-full" />
+              )}
+              <span className="sr-only">{hasSubscriptionError ? "Error en notificaciones" : `${notifications.length} notificaciones no leídas`}</span>
             </button>
-            {showNotifications && ( 
+            {showNotifications && (
               <div className="origin-top-right absolute right-0 mt-2 w-80 md:w-96 rounded-md shadow-lg bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
                 <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="notifications-button">
                   <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 font-semibold border-b dark:border-gray-600">
-                    Notificaciones ({notifications.length})
+                    {hasSubscriptionError ? "Error de Conexión" : `Notificaciones (${notifications.length})`}
                   </div>
-                  <div className="max-h-80 overflow-y-auto"> 
-                  {notifications.length > 0 ? (
-                    notifications.map((notification) => (
-                      <div key={notification.id} className="px-4 py-3 border-b dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{notification.title}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">{notification.description}</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                          {new Date(notification.created_at).toLocaleString('es-VE')} 
+                  <div className="max-h-80 overflow-y-auto">
+                    {hasSubscriptionError ? (
+                      <div className="p-4 text-sm text-red-800 dark:text-red-200 bg-red-50 dark:bg-red-900/40">
+                        <p className="font-bold">No se pueden recibir notificaciones.</p>
+                        <p className="mt-1 text-xs">
+                          Error de conexión con el servicio de notificaciones. Esto usualmente se debe a que la replicación para la tabla 'notificaciones' no está habilitada en la configuración de Supabase.
                         </p>
-                          <button 
+                        <a href="https://supabase.com/docs/guides/database/replication" target="_blank" rel="noopener noreferrer" className="text-xs text-primary-600 dark:text-primary-400 hover:underline mt-2 block">
+                          Aprender más sobre la replicación &rarr;
+                        </a>
+                      </div>
+                    ) : notifications.length > 0 ? (
+                      notifications.map((notification) => (
+                        <div key={notification.id} className="px-4 py-3 border-b dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{notification.title}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">{notification.description}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            {new Date(notification.created_at).toLocaleString('es-VE')}
+                          </p>
+                          <button
                             onClick={() => notification.id && handleMarkNotificationAsRead(notification.id)}
                             className="text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300 mt-1"
                           >
                             Marcar como leída
                           </button>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">No hay notificaciones nuevas.</p>
-                  )}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">No hay notificaciones nuevas.</p>
+                    )}
                   </div>
                 </div>
               </div>

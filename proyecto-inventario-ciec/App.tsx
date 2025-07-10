@@ -1,5 +1,6 @@
 
 import React from 'react';
+// @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'; // Outlet ya no se importa aquí directamente
 import { useAuth } from './hooks/useAuth';
 
@@ -8,7 +9,7 @@ import Login from './components/auth/Login';
 import MainDashboardPage from './pages/MainDashboardPage'; 
 import HomePage from './pages/HomePage'; 
 import { AdminDashboardPage } from './pages/AdminDashboardPage'; 
-import UserRequestsPage from './pages/UserRequestsPage'; 
+import { UserRequestsPage } from './pages/UserRequestsPage'; 
 import RequestFormPage from './pages/RequestFormPage';
 import InventoryPage from './pages/InventoryPage';
 import ExternalEventsPage from './pages/ExternalEventsPage'; // Página para eventos externos
@@ -16,36 +17,53 @@ import ExternalEventsPage from './pages/ExternalEventsPage'; // Página para eve
 import LoadingSpinner from './components/core/LoadingSpinner';
 
 const App: React.FC = () => {
-  const { userProfile, loading, error, logout } = useAuth();
+  const { session, userProfile, loading, error, logout } = useAuth();
 
-  // Mientras se verifica el estado de autenticación y no hay error, mostrar spinner.
-  if (loading && !error) { 
+  // Mientras se verifica el estado de autenticación inicial, mostrar spinner.
+  if (loading) { 
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
         <LoadingSpinner message="Cargando aplicación..." size="lg" />
       </div>
     );
   }
-  // Si hay un error durante la carga inicial de autenticación (ej. Supabase no disponible),
-  // se podría mostrar un mensaje de error global aquí antes de intentar renderizar rutas.
-  // if (error && !userProfile) { ... } -> Esto se maneja mejor en ErrorBoundary o Login si es un error de credenciales.
+
+  // Nuevo estado de error: si hay sesión pero el perfil no se pudo cargar, es un error crítico para el usuario.
+  if (session && !userProfile && error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 text-center p-4">
+          <h1 className="text-2xl font-bold text-red-600 dark:text-red-400">Error al Cargar Perfil</h1>
+          <p className="mt-2 text-gray-700 dark:text-gray-300">
+              Hay una sesión activa, pero no se pudo cargar su perfil de usuario. Esto puede deberse a un problema de conexión o de configuración de la cuenta.
+          </p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Error: {error.message}</p>
+          <div className="flex space-x-4 mt-6">
+              <button onClick={() => window.location.reload()} className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700">
+                  Recargar Página
+              </button>
+              <button onClick={logout} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                  Cerrar Sesión
+              </button>
+          </div>
+      </div>
+    );
+  }
 
   return (
     <HashRouter>
       <Routes>
-        {/* Ruta de Login: si no hay perfil de usuario, muestra Login, sino redirige a /home */}
-        <Route path="/login" element={!userProfile ? <Login /> : <Navigate to="/home" replace />} />
+        {/* Ruta de Login: si no hay sesión, muestra Login. Si la hay, redirige a /home. */}
+        <Route path="/login" element={!session ? <Login /> : <Navigate to="/home" replace />} />
 
-        {/* Rutas Protegidas: requieren un perfil de usuario válido. */}
-        {/* AuthenticatedLayout ahora maneja el Outlet para sus rutas anidadas. */}
+        {/* Rutas Protegidas: requieren sesión y perfil de usuario válidos. */}
         <Route
           path="/*" // Cualquier otra ruta no definida explícitamente arriba
           element={
-            userProfile ? (
-              // Si hay perfil, renderiza el Layout Autenticado que a su vez contiene el Outlet para rutas hijas.
+            session && userProfile ? (
+              // Si hay sesión y perfil, renderiza el Layout Autenticado.
               <AuthenticatedLayout userProfile={userProfile} onLogout={logout} />
             ) : (
-              // Si no hay perfil, redirige a login.
+              // Si no hay sesión, redirige a login. El caso de sesión sin perfil ya fue manejado.
               <Navigate to="/login" replace /> 
             )
           }
@@ -70,8 +88,6 @@ const App: React.FC = () => {
                 ? <AdminDashboardPage /> 
                 : (userProfile?.rol === 'usuario' 
                     ? <UserRequestsPage /> 
-                    // Caso improbable: usuario autenticado pero sin rol admin/usuario asignado correctamente.
-                    // Idealmente, esto se manejaría en la lógica de login o perfil para asignar un rol por defecto o mostrar error.
                     : <Navigate to="/home" replace />) 
             } 
           />
@@ -84,16 +100,12 @@ const App: React.FC = () => {
           {/* Rutas solo para admin */}
           {userProfile?.rol === 'admin' && (
             <>
-              {/* InventoryPage ahora maneja sus propias sub-rutas con <Routes> anidadas */}
               <Route path="inventory/*" element={<InventoryPage />} /> 
               <Route path="external-events" element={<ExternalEventsPage />} />
-              {/* Aquí se podrían añadir más rutas solo para admin, por ejemplo: */}
-              {/* <Route path="provider-performance" element={<ProviderPerformancePage />} /> */}
             </>
           )}
 
           {/* Redirección por defecto para cualquier otra ruta autenticada no reconocida */}
-          {/* Esto asegura que si se entra a una ruta como /app/ruta-inexistente, se redirija a /home */}
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Route>
       </Routes>

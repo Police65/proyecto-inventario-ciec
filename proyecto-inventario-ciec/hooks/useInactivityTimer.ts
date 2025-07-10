@@ -1,9 +1,8 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const INACTIVITY_WARNING_TIME = 5 * 60 * 1000; // 5 minutos para mostrar advertencia de inactividad
+const INACTIVITY_WARNING_TIME = 10 * 60 * 1000; // 10 minutos para mostrar advertencia de inactividad
 const INACTIVITY_LOGOUT_TIME = 15 * 60 * 1000; // 15 minutos totales desde la última actividad para cerrar sesión
-const COUNTDOWN_DURATION = (INACTIVITY_LOGOUT_TIME - INACTIVITY_WARNING_TIME) / 1000; // Duración de la cuenta regresiva en segundos (10 minutos)
+const COUNTDOWN_DURATION = (INACTIVITY_LOGOUT_TIME - INACTIVITY_WARNING_TIME) / 1000; // Duración de la cuenta regresiva en segundos (5 minutos)
 
 interface UseInactivityTimerProps {
   onLogout: () => void; // Función a ejecutar al cerrar sesión por inactividad
@@ -39,13 +38,14 @@ export function useInactivityTimer({ onLogout, isUserActive }: UseInactivityTime
       setTimeLeft((prevTime) => {
         if (prevTime <= 1) { // Si el tiempo llega a 0 o menos
           if (countdownInterval.current) clearInterval(countdownInterval.current);
-          onLogout(); // Ejecutar cierre de sesión
+          // onLogout() es manejado por el logoutTimer principal para evitar llamadas dobles.
+          // Este intervalo es solo para la UI.
           return 0;
         }
         return prevTime - 1; // Decrementar tiempo
       });
     }, 1000); // Cada segundo
-  }, [onLogout]);
+  }, []);
 
   // Reinicia todos los temporizadores. Se llama con actividad del usuario o al continuar sesión.
   const resetTimers = useCallback(() => {

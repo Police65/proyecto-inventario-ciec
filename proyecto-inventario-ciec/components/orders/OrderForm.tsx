@@ -97,7 +97,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({
       setProductCategories(data || []);
     } catch (err) {
       console.error("Error fetching product categories for OrderForm:", err);
-      // No establecer error global, permitir que el formulario cargue
     }
   }, []);
 
@@ -281,7 +280,6 @@ export const OrderForm: React.FC<OrderFormProps> = ({
 
       const detallesOrden = await Promise.all(productosFinales.map(async p => {
         let productoRealId = p.selected_producto_id;
-        // let descripcionParaDetalle = p.display_descripcion; // No usado para el payload
 
         if (p.isNewProductMode) {
           const newProdData: Partial<Producto> = {
@@ -292,14 +290,12 @@ export const OrderForm: React.FC<OrderFormProps> = ({
           if (newProdError) throw new Error(`Error creando producto '${p.newProduct_descripcion}': ${newProdError.message}`);
           if (!newProd) throw new Error(`No se pudo crear el producto '${p.newProduct_descripcion}'.`);
           productoRealId = newProd.id;
-          // descripcionParaDetalle = newProd.descripcion; // No usado para el payload
         }
         if (!productoRealId) throw new Error(`Producto ID es nulo para '${p.display_descripcion || 'un item'}'.`);
         
         return {
           orden_compra_id: ordenId, producto_id: productoRealId,
           cantidad: Number(p.quantity), precio_unitario: Number(p.precio_unitario),
-          // descripcion_producto_personalizado: p.isNewProductMode ? descripcionParaDetalle : null, // REMOVED
         };
       }));
       const { error: detallesError } = await supabase.from('ordencompra_detalle').insert(detallesOrden);
