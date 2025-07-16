@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estructura de Tablas</title>
+<style>
+  /* Contenedor para alinear las tarjetas */
+  .erd-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px; /* Espacio entre tarjetas */
+    padding: 10px 0;
+  }
+
+  /* Estilo de cada tarjeta/tabla */
+  .erd-table {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 16px;
+    min-width: 200px;
+    background-color: #ffffff; /* Fondo blanco para resaltar las tarjetas */
+    text-align: left;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Sombra sutil */
+  }
+
+  /* Título de la tabla */
+  .erd-table h5 {
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+    font-size: 1em;
+  }
+
+  /* Lista de campos */
+  .erd-table ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.9em;
+  }
+
+  .erd-table li {
+    padding: 4px 0;
+  }
+
+  /* Estilo para llave primaria (Primary Key) 🔑 */
+  .pk {
+    font-weight: bold;
+  }
+  .pk::before {
+    content: '🔑';
+    margin-right: 8px;
+  }
+
+  /* Estilo para llave foránea (Foreign Key) 🔗 */
+  .fk {
+    font-style: italic;
+    color: #333;
+  }
+  .fk::before {
+    content: '🔗';
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div style="font-family: Arial, sans-serif; padding: 20px; border-radius: 10px; background-color: #f9f9f9;">
+
+  <div class="erd-container">
+
+    <div class="erd-table">
+      <h5>metricas_producto_mensual</h5>
+      <ul>
+        <li class="pk">id</li>
+        <li class="fk">producto_id</li>
+        <li>mes</li>
+        <li>gasto_total_producto</li>
+      </ul>
+    </div>
+
+    <div class="erd-table">
+      <h5>rendimiento_proveedor</h5>
+      <ul>
+        <li class="pk">id</li>
+        <li class="fk">proveedor_id</li>
+        <li class="fk">orden_compra_id</li>
+        <li>calificacion_promedio</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <p style="font-size: 12px; margin-top: 20px; text-align: left;">Fuente: Elaboración propia (2025).</p>
+
+</div>
+
+</body>
+</html>

@@ -1,3 +1,4 @@
+
 // hooks/useRealtimeSubscription.ts
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
@@ -132,8 +133,7 @@ No se realizarán más intentos automáticos de re-suscripción para este canal.
             break;
         default:
             // This case should be unreachable due to the prop's type, but it's good for type safety.
-            const exhaustiveCheck: never = event;
-            console.error(`Unhandled Realtime event type: ${exhaustiveCheck}`);
+            console.error(`Unhandled Realtime event type: ${event}`);
             return;
     }
 

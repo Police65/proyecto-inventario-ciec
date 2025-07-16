@@ -17,17 +17,6 @@ interface AuthHookResult {
   logout: () => Promise<void>;
 }
 
-const withTimeout = <T>(
-  promise: PromiseLike<T>,
-  ms: number,
-  timeoutError = new Error('La operación ha tardado demasiado y ha excedido el tiempo límite.')
-): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(timeoutError), ms)),
-  ]) as Promise<T>;
-};
-
 export function useAuth(): AuthHookResult {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -50,12 +39,15 @@ export function useAuth(): AuthHookResult {
         .select(`id, rol, empleado_id, departamento_id, departamento:departamento_id(id, nombre)`)
         .eq("id", userId)
         .single<SelectedUserProfileData>();
-
-      const { data: basicProfileData, error: rawBasicProfileError } = await withTimeout(
-        userProfileQuery,
-        USER_PROFILE_FETCH_TIMEOUT_MS,
-        new Error("Timeout: La obtención del perfil básico del usuario tardó demasiado.")
+      
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout: La obtención del perfil básico del usuario tardó demasiado.")), USER_PROFILE_FETCH_TIMEOUT_MS)
       );
+
+      const { data: basicProfileData, error: rawBasicProfileError } = await Promise.race([
+        userProfileQuery,
+        timeoutPromise,
+      ]);
 
       if (rawBasicProfileError) {
         throw rawBasicProfileError;
@@ -88,11 +80,14 @@ export function useAuth(): AuthHookResult {
           .eq("id", completeProfile.empleado_id)
           .single<Partial<Empleado>>();
 
-        const { data: empleadoData, error: rawEmpleadoError } = await withTimeout(
-          empleadoQuery,
-          INTERNAL_QUERY_TIMEOUT_MS,
-          new Error("Timeout: La obtención de detalles del empleado tardó demasiado.")
+        const timeoutPromiseEmpleado = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout: La obtención de detalles del empleado tardó demasiado.")), INTERNAL_QUERY_TIMEOUT_MS)
         );
+
+        const { data: empleadoData, error: rawEmpleadoError } = await Promise.race([
+          empleadoQuery,
+          timeoutPromiseEmpleado,
+        ]);
 
         if (rawEmpleadoError) {
           console.error(`[useAuth] Error al obtener detalles del empleado:`, rawEmpleadoError);

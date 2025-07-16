@@ -136,18 +136,17 @@ const UserManagement: React.FC = () => {
     try {
       // --- Create Auth User (only for new employees) ---
       if (!isEditing) {
-        // Use admin.createUser to create a user without sending a confirmation email.
-        // This is an admin-level action and requires the service_role key to be configured in the Supabase client.
-        // This is necessary to bypass the "Email not confirmed" error on login.
-        const { data: createUserData, error: createUserError } = await supabase.auth.admin.createUser({
+        // Use supabase.auth.signUp for client-side user creation.
+        // This will send a confirmation email to the user.
+        // Using supabase.auth.admin.createUser is not possible from the client as it requires a service_role key.
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: email!,
           password: password!,
-          email_confirm: true, // This confirms the user's email immediately.
         });
 
-        if (createUserError) throw new Error(`Error de autenticación: ${createUserError.message}`);
-        if (!createUserData.user) throw new Error('No se pudo crear el usuario en el sistema de autenticación.');
-        authUserId = createUserData.user.id;
+        if (signUpError) throw new Error(`Error de autenticación: ${signUpError.message}`);
+        if (!signUpData.user) throw new Error('No se pudo crear el usuario en el sistema de autenticación. Es posible que el correo ya exista.');
+        authUserId = signUpData.user.id;
       }
       
       // --- Create or Update Empleado ---
@@ -178,8 +177,14 @@ const UserManagement: React.FC = () => {
         await supabase.from('empleadocargohistorial').insert({ empleado_id: newEmpleadoId!, cargo_id: cargo_actual_id, fecha_inicio: new Date().toISOString().split('T')[0] });
       }
 
-      setFeedbackMessage(`Empleado y usuario ${isEditing ? 'actualizado' : 'creado'} exitosamente.`); setFeedbackType('success'); setShowFeedbackModal(true);
-      setIsModalOpen(false); fetchData();
+      const successMessage = isEditing
+        ? 'Empleado y usuario actualizado exitosamente.'
+        : 'Empleado y usuario creado exitosamente. El nuevo usuario deberá confirmar su correo electrónico para poder iniciar sesión.';
+      setFeedbackMessage(successMessage);
+      setFeedbackType('success');
+      setShowFeedbackModal(true);
+      setIsModalOpen(false);
+      fetchData();
 
     } catch (error) {
         const err = error as Error;
