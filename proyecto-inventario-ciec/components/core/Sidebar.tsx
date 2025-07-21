@@ -3,7 +3,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { UserProfile } from '../../types';
 import { 
-  HomeIcon, ListBulletIcon, ClockIcon, DocumentTextIcon, ArchiveBoxIcon, UsersIcon, BuildingStorefrontIcon, PlusCircleIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, ChartPieIcon, UserCircleIcon as UserSummaryIcon
+  HomeIcon, ListBulletIcon, ClockIcon, DocumentTextIcon, ArchiveBoxIcon, UsersIcon, BuildingStorefrontIcon, PlusCircleIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, ChartPieIcon, UserCircleIcon as UserSummaryIcon, BuildingOffice2Icon
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
@@ -107,6 +107,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
       label: 'Gestión de Usuarios', 
       adminOnly: true,
       tabKey: 'usuarios'
+    },
+    {
+      onClick: () => handleNavigation(() => {
+        if (currentPath !== '/solicitudes') navigate('/solicitudes');
+        onSelectTab('departamentos');
+      }),
+      icon: BuildingOffice2Icon,
+      label: 'Gestión Deptos.',
+      adminOnly: true,
+      tabKey: 'departamentos'
     },
     { 
       onClick: () => handleNavigation(() => navigate('/inventory')), 

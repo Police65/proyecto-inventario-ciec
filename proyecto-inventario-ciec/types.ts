@@ -42,6 +42,7 @@ export interface CategoriaProveedor {
 export interface Departamento {
   id: number;
   nombre: string; // ÚNICO
+  estado: 'activo' | 'inactivo';
   created_at: string;
   updated_at: string;
 }
@@ -57,12 +58,12 @@ export interface Empleado {
   firma?: string | null; // Podría ser una URL a una imagen de la firma o texto
   departamento_id: number; // FK a 'departamento'
   estado: EmpleadoEstado; // 'activo' o 'inactivo'
+  telefono?: string | null; // NUEVO CAMPO
   created_at: string;
   updated_at: string;
   // Relaciones opcionales para cargar datos anidados
   cargo?: Cargo | null;
   departamento?: Departamento;
-  user_profile?: UserProfile | null; // Perfil de usuario asociado a este empleado
 }
 
 export interface EmpleadoCargoHistorial {
@@ -95,7 +96,12 @@ export interface Inventario {
   existencias?: number | null; // Cantidad actual en stock
   created_at: string;
   updated_at: string;
-  producto?: Producto; // Para mostrar detalles del producto
+  producto?: { 
+    descripcion: string; 
+    categoria?: { 
+        nombre: string | null 
+    } | null 
+  } | null;
 }
 
 // Tabla de unión entre OrdenCompra y SolicitudCompra
@@ -185,7 +191,7 @@ export interface Producto {
   updated_at: string;
   categoria?: CategoriaProducto; // Para mostrar nombre de categoría
   // Relación con inventario (si producto_id en inventario es FK a producto.id y único)
-  inventario?: Inventario; 
+  inventario?: Partial<Inventario>; 
 }
 
 // Productos que no se recibieron completamente en una orden
@@ -198,7 +204,7 @@ export interface ProductoNoRecibido {
   created_at: string;
   updated_at: string;
   producto?: Producto;
-  orden_compra?: OrdenCompra;
+  // orden_compra?: OrdenCompra; // REMOVED to break circular dependency
 }
 
 // Productos que fueron solicitados pero no incluidos en una orden (por decisión o falta de stock)
@@ -212,8 +218,8 @@ export interface ProductoRezagado {
   created_at: string;
   updated_at: string;
   producto?: Producto;
-  solicitud?: SolicitudCompra;
-  orden_compra?: OrdenCompra;
+  // solicitud?: SolicitudCompra; // REMOVED to break circular dependency
+  // orden_compra?: OrdenCompra; // REMOVED to break circular dependency
 }
 
 export type ProveedorTipoContribuyente = 'normal' | 'especial';
@@ -289,7 +295,7 @@ export interface UserProfile {
   updated_at: string;
 
   // Relaciones opcionales para cargar datos anidados
-  empleado?: Partial<Empleado>; // Usar Partial si no todos los campos de Empleado son necesarios
+  empleado?: Empleado; 
   departamento?: Partial<Departamento>; 
 }
 
@@ -343,7 +349,7 @@ export interface RendimientoProveedor {
   created_at: string;
   updated_at: string;
   proveedor?: Proveedor;
-  orden_compra?: OrdenCompra;
+  // orden_compra?: OrdenCompra; // REMOVED to break circular dependency
 }
 
 export interface MetricasProductoMensual {
@@ -368,7 +374,7 @@ export interface ComprasParaEventoExterno {
   descripcion_motivo?: string | null; // Por qué esta compra se asocia al evento
   created_at: string;
   updated_at: string;
-  orden_compra?: OrdenCompra;
+  // orden_compra?: OrdenCompra; // REMOVED to break circular dependency
 }
 
 // Para registrar el consumo de productos de nuestro inventario en un evento externo
@@ -513,13 +519,13 @@ export interface Database {
       inventario: {
         Row: Inventario;
         // fecha_actualizacion tiene default NOW()
-        Insert: Omit<Inventario, 'id' | 'fecha_actualizacion' | 'created_at' | 'updated_at'>; 
-        Update: Partial<Omit<Inventario, 'id' | 'created_at'>>; // fecha_actualizacion se actualizará con trigger o explícitamente
+        Insert: Omit<Inventario, 'id' | 'fecha_actualizacion' | 'created_at' | 'updated_at' | 'producto'>; 
+        Update: Partial<Omit<Inventario, 'id' | 'created_at' | 'producto'>>; // fecha_actualizacion se actualizará con trigger o explícitamente
       };
       orden_solicitud: { // Tabla de unión
         Row: OrdenSolicitud;
-        // ordencompra_id es GENERATED ALWAYS AS IDENTITY, no se inserta manualmente
-        Insert: Omit<OrdenSolicitud, 'ordencompra_id' | 'created_at' | 'updated_at'>; 
+        // Las FKs (ordencompra_id, solicitud_id) se insertan manualmente
+        Insert: Omit<OrdenSolicitud, 'created_at' | 'updated_at'>; 
         Update: Partial<Omit<OrdenSolicitud, 'ordencompra_id' | 'created_at'>>;
       };
       ordencompra: {
@@ -586,7 +592,7 @@ export interface Database {
       notificaciones: { 
         Row: Notificacion;
         // id es serial, created_at/updated_at tienen defaults
-        Insert: Omit<Notificacion, 'id' | 'created_at' | 'updated_at' | 'read'>; // 'read' defaults a false
+        Insert: Omit<Notificacion, 'id' | 'created_at' | 'updated_at'>; // 'read' defaults a false
         Update: Partial<Omit<Notificacion, 'id' | 'created_at'>>;
       };
       // Nuevas tablas de análisis

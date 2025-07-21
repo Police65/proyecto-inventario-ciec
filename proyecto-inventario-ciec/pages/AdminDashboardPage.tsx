@@ -11,6 +11,7 @@ import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } f
 import RequestTable from '../components/requests/RequestTable';
 import OrderTable from '../components/orders/OrderTable';
 import UserManagement from '../components/admin/UserManagement';
+import DepartmentManagement from '../components/admin/DepartmentManagement'; // IMPORT NEW COMPONENT
 import ConsolidatedOrderTable from '../components/orders/ConsolidatedOrderTable';
 
 // Modales
@@ -30,7 +31,7 @@ interface AdminDashboardContext {
 // Definiciones de tipo para datos crudos de consultas Supabase
 type RawSolicitudFromQuery = Omit<SolicitudCompra, 'empleado' | 'departamento' | 'detalles'> & {
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
-  departamento: Pick<Departamento, 'id' | 'nombre'> | null;
+  departamento: Pick<Departamento, 'id' | 'nombre' | 'estado'> | null;
   detalles: Array<
     Pick<SolicitudCompraDetalleType, 'id' | 'solicitud_compra_id' | 'producto_id' | 'cantidad'> & {
       producto: (Pick<Producto, 'id' | 'descripcion' | 'categoria_id'> & {
@@ -105,7 +106,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(), user_profile: undefined,
     } : undefined,
     departamento: req.departamento ? { 
-      id: req.departamento.id, nombre: req.departamento.nombre,
+      id: req.departamento.id, nombre: req.departamento.nombre, estado: req.departamento.estado,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     } : undefined,
     detalles: req.detalles ? req.detalles.map(d => ({ 
@@ -188,7 +189,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
         id, descripcion, fecha_solicitud, estado, empleado_id, departamento_id,
         detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
         empleado:empleado_id(id, nombre, apellido),
-        departamento:departamento_id(id, nombre)
+        departamento:departamento_id(id, nombre, estado)
       `;
 
       const { data: pendingRaw, error: pendingError } = await supabase
@@ -485,6 +486,12 @@ export const AdminDashboardPage = (): React.ReactElement => {
         return (
           <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
             <UserManagement />
+          </div>
+        );
+      case 'departamentos':
+        return (
+          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
+            <DepartmentManagement />
           </div>
         );
       default:

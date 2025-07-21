@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Session, User, PostgrestSingleResponse, PostgrestError, AuthError } from '@supabase/supabase-js';
@@ -76,7 +75,7 @@ export function useAuth(): AuthHookResult {
       if (completeProfile.empleado_id) {
         const empleadoQuery = supabase
           .from("empleado")
-          .select(`id, estado, nombre, apellido, departamento_id, cargo_actual_id, cedula, firma`)
+          .select(`id, estado, nombre, apellido, departamento_id, cargo_actual_id, cedula, firma, telefono`)
           .eq("id", completeProfile.empleado_id)
           .single<Partial<Empleado>>();
 

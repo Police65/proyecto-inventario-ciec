@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 // @ts-ignore
 import { useOutletContext } from 'react-router-dom';
@@ -16,7 +15,7 @@ interface UserRequestsPageContext {
 // Fixed type definition
 type RawSolicitudFromUserQuery = Omit<SolicitudCompra, 'empleado' | 'departamento' | 'detalles'> & {
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
-  departamento: Pick<Departamento, 'id' | 'nombre'> | null;
+  departamento: Pick<Departamento, 'id' | 'nombre' | 'estado'> | null;
   detalles: Array<
     Pick<SolicitudCompraDetalleType, 'id' | 'solicitud_compra_id' | 'producto_id' | 'cantidad'> & {
       producto: (Pick<Producto, 'id' | 'descripcion' | 'categoria_id'> & {
@@ -43,6 +42,7 @@ const mapSolicitudData = (req: RawSolicitudFromUserQuery): SolicitudCompra => ({
   } : undefined,
   departamento: req.departamento ? { 
     id: req.departamento.id, nombre: req.departamento.nombre,
+    estado: req.departamento.estado,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   } : undefined,
   detalles: req.detalles ? req.detalles.map(d => ({ 
@@ -81,7 +81,7 @@ export const UserRequestsPage: React.FC = () => {
         id, descripcion, fecha_solicitud, estado, empleado_id, departamento_id,
         detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
         empleado:empleado_id(id, nombre, apellido),
-        departamento:departamento_id(id, nombre)
+        departamento:departamento_id(id, nombre, estado)
       `;
 
       const { data: pendingRaw, error: pendingError } = await supabase

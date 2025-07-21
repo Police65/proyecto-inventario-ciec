@@ -10,7 +10,48 @@ const btnPrimaryClasses = "flex items-center justify-center px-4 py-2 bg-primary
 const btnSecondaryClasses = "flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none disabled:opacity-70 dark:disabled:opacity-50 disabled:cursor-not-allowed";
 const btnDangerClasses = "flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow-sm text-sm disabled:bg-red-400 dark:disabled:bg-red-700 disabled:cursor-not-allowed";
 
-type FormData = Partial<Empleado> & Omit<Partial<UserProfile>, 'id' | 'email'> & { password?: string, email?: string };
+type FormData = Partial<Empleado> & 
+  Omit<Partial<UserProfile>, 'id' | 'email'> & 
+  { 
+    password?: string; 
+    email?: string;
+    countryCode?: string;
+    localPhoneNumber?: string;
+  };
+
+// Lista de códigos de país
+const countryCodes = [
+    { name: "Venezuela", code: "+58" }, { name: "United States", code: "+1" }, { name: "Colombia", code: "+57" },
+    { name: "Spain", code: "+34" }, { name: "Argentina", code: "+54" }, { name: "Brazil", code: "+55" },
+    { name: "Chile", code: "+56" }, { name: "Mexico", code: "+52" }, { name: "Peru", code: "+51" },
+    { name: "Afghanistan", code: "+93" }, { name: "Albania", code: "+355" }, { name: "Algeria", code: "+213" },
+    { name: "Andorra", code: "+376" }, { name: "Angola", code: "+244" }, { name: "Australia", code: "+61" },
+    { name: "Austria", code: "+43" }, { name: "Bahamas", code: "+1-242" }, { name: "Bahrain", code: "+973" },
+    { name: "Bangladesh", code: "+880" }, { name: "Belgium", code: "+32" }, { name: "Bolivia", code: "+591" },
+    { name: "Canada", code: "+1" }, { name: "China", code: "+86" }, { name: "Costa Rica", code: "+506" },
+    { name: "Croatia", code: "+385" }, { name: "Cuba", code: "+53" }, { name: "Cyprus", code: "+357" },
+    { name: "Czech Republic", code: "+420" }, { name: "Denmark", code: "+45" }, { name: "Dominican Republic", code: "+1-809" },
+    { name: "Ecuador", code: "+593" }, { name: "Egypt", code: "+20" }, { name: "El Salvador", code: "+503" },
+    { name: "Finland", code: "+358" }, { name: "France", code: "+33" }, { name: "Germany", code: "+49" },
+    { name: "Greece", code: "+30" }, { name: "Guatemala", code: "+502" }, { name: "Honduras", code: "+504" },
+    { name: "Hungary", code: "+36" }, { name: "Iceland", code: "+354" }, { name: "India", code: "+91" },
+    { name: "Indonesia", code: "+62" }, { name: "Iran", code: "+98" }, { name: "Iraq", code: "+964" },
+    { name: "Ireland", code: "+353" }, { name: "Israel", code: "+972" }, { name: "Italy", code: "+39" },
+    { name: "Jamaica", code: "+1-876" }, { name: "Japan", code: "+81" }, { name: "Jordan", code: "+962" },
+    { name: "Kenya", code: "+254" }, { name: "Kuwait", code: "+965" }, { name: "Lebanon", code: "+961" },
+    { name: "Malaysia", code: "+60" }, { name: "Morocco", code: "+212" }, { name: "Netherlands", code: "+31" },
+    { name: "New Zealand", code: "+64" }, { name: "Nicaragua", code: "+505" }, { name: "Nigeria", code: "+234" },
+    { name: "Norway", code: "+47" }, { name: "Oman", code: "+968" }, { name: "Pakistan", code: "+92" },
+    { name: "Panama", code: "+507" }, { name: "Paraguay", code: "+595" }, { name: "Philippines", code: "+63" },
+    { name: "Poland", code: "+48" }, { name: "Portugal", code: "+351" }, { name: "Qatar", code: "+974" },
+    { name: "Romania", code: "+40" }, { name: "Russia", code: "+7" }, { name: "Saudi Arabia", code: "+966" },
+    { name: "Singapore", code: "+65" }, { name: "South Africa", code: "+27" }, { name: "South Korea", code: "+82" },
+    { name: "Sweden", code: "+46" }, { name: "Switzerland", code: "+41" }, { name: "Syria", code: "+963" },
+    { name: "Taiwan", code: "+886" }, { name: "Thailand", code: "+66" }, { name: "Turkey", code: "+90" },
+    { name: "Ukraine", code: "+380" }, { name: "United Arab Emirates", code: "+971" }, { name: "United Kingdom", code: "+44" },
+    { name: "Uruguay", code: "+598" }, { name: "Yemen", code: "+967" },
+].sort((a, b) => a.name.localeCompare(b.name));
+
 
 const UserManagement: React.FC = () => {
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -51,12 +92,6 @@ const UserManagement: React.FC = () => {
       const profilesMap = new Map<number, Partial<UserProfile>>();
       profilesData?.forEach(p => { if (p.empleado_id) profilesMap.set(p.empleado_id, p); });
       
-      // La llamada a supabase.auth.admin.listUsers() fue eliminada.
-      // Esta función requiere una clave de 'service_role' de Supabase y no puede ser
-      // llamada de forma segura desde el frontend (navegador), lo que causaba el error "User not allowed".
-      // Como resultado, el email de los usuarios existentes no se puede mostrar en la tabla.
-      // La funcionalidad de crear/editar usuarios permanece intacta.
-
       const processedEmpData: Empleado[] = (empData || []).map(emp => {
         const profile = emp.id ? profilesMap.get(emp.id) : undefined;
         return {
@@ -110,7 +145,10 @@ const UserManagement: React.FC = () => {
     e.preventDefault();
     setSubmitting(true);
 
-    const { nombre, apellido, cedula, cargo_actual_id, departamento_id, email, password, rol, estado } = formData;
+    const { nombre, apellido, cedula, cargo_actual_id, departamento_id, email, password, rol, estado, countryCode, localPhoneNumber } = formData;
+    
+    const fullPhoneNumber = localPhoneNumber ? `${countryCode || ''}${localPhoneNumber.replace(/\s+/g, '')}` : null;
+
 
     // --- Validations ---
     if (!nombre || !apellido || !cedula || !cargo_actual_id || !departamento_id) {
@@ -136,9 +174,6 @@ const UserManagement: React.FC = () => {
     try {
       // --- Create Auth User (only for new employees) ---
       if (!isEditing) {
-        // Use supabase.auth.signUp for client-side user creation.
-        // This will send a confirmation email to the user.
-        // Using supabase.auth.admin.createUser is not possible from the client as it requires a service_role key.
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: email!,
           password: password!,
@@ -150,7 +185,7 @@ const UserManagement: React.FC = () => {
       }
       
       // --- Create or Update Empleado ---
-      const empleadoPayload = { nombre, apellido, cedula, cargo_actual_id, departamento_id, estado: estado || 'activo' };
+      const empleadoPayload = { nombre, apellido, cedula, cargo_actual_id, departamento_id, estado: estado || 'activo', telefono: fullPhoneNumber };
       if (isEditing) {
         const { error: empUpdateError } = await supabase.from('empleado').update(empleadoPayload).eq('id', formData.id!);
         if (empUpdateError) throw new Error(`Error actualizando empleado: ${empUpdateError.message}`);
@@ -190,7 +225,6 @@ const UserManagement: React.FC = () => {
         const err = error as Error;
         let finalMessage = err.message;
         
-        // This manual cleanup might be necessary if the process fails after auth user creation.
         if (authUserId && !isEditing) {
             finalMessage += `\n\nACCIÓN MANUAL REQUERIDA: Un usuario de autenticación fue creado para '${email}' (ID: ${authUserId}) pero el proceso falló. Por favor, elimine este usuario desde el panel de Supabase (Authentication > Users) para evitar problemas futuros.`;
         }
@@ -226,14 +260,38 @@ const UserManagement: React.FC = () => {
   const openModal = (emp?: Empleado) => {
     if (emp) {
       setIsEditing(true);
+      const telefono = emp.telefono || '';
+      let countryCode = '+58';
+      let localPhoneNumber = '';
+      
+      const sortedCodes = [...countryCodes].sort((a, b) => b.code.length - a.code.length);
+      const foundCode = sortedCodes.find(c => telefono.startsWith(c.code));
+
+      if (foundCode) {
+        countryCode = foundCode.code;
+        localPhoneNumber = telefono.substring(foundCode.code.length);
+      } else if (telefono.startsWith('+')) {
+        const firstDigitIndex = telefono.search(/\d/);
+        if (firstDigitIndex > 0) {
+            countryCode = telefono.substring(0, firstDigitIndex);
+            localPhoneNumber = telefono.substring(firstDigitIndex);
+        } else {
+            localPhoneNumber = telefono;
+        }
+      } else {
+        localPhoneNumber = telefono;
+      }
+      
       setFormData({
         ...emp,
         email: emp.user_profile?.email || '',
         rol: emp.user_profile?.rol || 'usuario',
+        countryCode,
+        localPhoneNumber,
       });
     } else {
       setIsEditing(false);
-      setFormData({ rol: 'usuario', estado: 'activo' });
+      setFormData({ rol: 'usuario', estado: 'activo', countryCode: '+58', localPhoneNumber: '' });
     }
     setIsModalOpen(true);
   };
@@ -269,7 +327,7 @@ const UserManagement: React.FC = () => {
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              {['Empleado', 'Cédula', 'Cargo', 'Perfil de Usuario', 'Estado Emp.', 'Acciones'].map(header => (
+              {['Empleado', 'Cédula', 'Teléfono', 'Cargo', 'Perfil', 'Estado Emp.', 'Acciones'].map(header => (
                 <th key={header} className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{header}</th>
               ))}
             </tr>
@@ -279,6 +337,7 @@ const UserManagement: React.FC = () => {
               <tr key={emp.id}>
                 <td className="px-3 py-2 whitespace-nowrap text-sm"><div className="font-medium text-gray-900 dark:text-white">{emp.nombre} {emp.apellido}</div></td>
                 <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{emp.cedula}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{emp.telefono || 'N/A'}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{emp.cargo?.nombre || 'N/A'}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{getProfileStatus(emp)}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-sm">
@@ -294,14 +353,14 @@ const UserManagement: React.FC = () => {
                 </td>
               </tr>
             ))}
-             {filteredEmpleados.length === 0 && <tr><td colSpan={6} className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No se encontraron empleados.</td></tr>}
+             {filteredEmpleados.length === 0 && <tr><td colSpan={7} className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No se encontraron empleados.</td></tr>}
           </tbody>
         </table>
       </div>
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-60 p-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">{isEditing ? 'Editar' : 'Añadir'} Empleado y Usuario</h3>
                 <form onSubmit={handleUnifiedSubmit} className="space-y-4">
                     <fieldset className="border p-4 rounded-md dark:border-gray-600"><legend className="px-2 text-sm font-medium text-gray-600 dark:text-gray-300">Datos del Empleado</legend>
@@ -309,9 +368,34 @@ const UserManagement: React.FC = () => {
                             <div><label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre <span className="text-red-500">*</span></label><input type="text" name="nombre" id="nombre" value={formData.nombre || ''} onChange={handleFormChange} required className={`mt-1 ${inputFieldClasses}`} /></div>
                             <div><label htmlFor="apellido" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Apellido <span className="text-red-500">*</span></label><input type="text" name="apellido" id="apellido" value={formData.apellido || ''} onChange={handleFormChange} required className={`mt-1 ${inputFieldClasses}`} /></div>
                             <div><label htmlFor="cedula" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cédula <span className="text-red-500">*</span></label><input type="text" name="cedula" id="cedula" value={formData.cedula || ''} onChange={handleFormChange} onInvalid={handleCedulaInvalid} onInput={handleCedulaInput} required className={`mt-1 ${inputFieldClasses}`} pattern="\d{7,8}" /></div>
+                            <div>
+                                <label htmlFor="localPhoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Teléfono</label>
+                                <div className="mt-1 flex rounded-md shadow-sm">
+                                    <select
+                                        name="countryCode"
+                                        id="countryCode"
+                                        value={formData.countryCode || '+58'}
+                                        onChange={handleFormChange}
+                                        className="block w-28 px-3 py-2 rounded-none rounded-l-md border-r-0 border-gray-300 dark:border-gray-600 focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                                    >
+                                        {countryCodes.map(c => <option key={c.name} value={c.code}>{c.name} ({c.code})</option>)}
+                                    </select>
+                                    <input
+                                        type="tel"
+                                        name="localPhoneNumber"
+                                        id="localPhoneNumber"
+                                        value={formData.localPhoneNumber || ''}
+                                        onChange={handleFormChange}
+                                        className={`flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md ${inputFieldClasses.replace('rounded-md', '')}`}
+                                        placeholder="4121234567"
+                                        pattern="\d{7,15}"
+                                        title="Ingrese solo el número de teléfono, sin el código de país."
+                                    />
+                                </div>
+                            </div>
                             <div><label htmlFor="cargo_actual_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cargo <span className="text-red-500">*</span></label><select name="cargo_actual_id" id="cargo_actual_id" value={formData.cargo_actual_id || ''} onChange={handleFormChange} required className={`mt-1 ${inputFieldClasses}`}><option value="">Seleccionar</option>{cargos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
                             <div><label htmlFor="departamento_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Departamento <span className="text-red-500">*</span></label><select name="departamento_id" id="departamento_id" value={formData.departamento_id || ''} onChange={handleFormChange} required className={`mt-1 ${inputFieldClasses}`}><option value="">Seleccionar</option>{departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}</select></div>
-                            <div><label htmlFor="estado" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado <span className="text-red-500">*</span></label><select name="estado" id="estado" value={formData.estado || 'activo'} onChange={handleFormChange} className={`mt-1 ${inputFieldClasses}`}><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select></div>
+                            <div className="md:col-span-2"><label htmlFor="estado" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado <span className="text-red-500">*</span></label><select name="estado" id="estado" value={formData.estado || 'activo'} onChange={handleFormChange} className={`mt-1 ${inputFieldClasses}`}><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select></div>
                         </div>
                     </fieldset>
                     <fieldset className="border p-4 rounded-md dark:border-gray-600"><legend className="px-2 text-sm font-medium text-gray-600 dark:text-gray-300">Datos de Acceso</legend>
