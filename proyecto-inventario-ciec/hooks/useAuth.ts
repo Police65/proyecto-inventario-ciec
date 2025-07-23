@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Session, User, PostgrestSingleResponse, PostgrestError, AuthError } from '@supabase/supabase-js';
+import type { Session, User, PostgrestSingleResponse, PostgrestError, AuthError } from '@supabase/supabase-js';
 import { UserProfile, Empleado, UserProfileRol } from '../types';
 
 const USER_PROFILE_FETCH_TIMEOUT_MS = 30000;
@@ -116,12 +116,7 @@ export function useAuth(): AuthHookResult {
         setSession(currentSession);
         setUser(currentSession.user);
 
-        // Si ya tenemos un perfil que coincide, no es necesario volver a buscarlo
-        if (userProfile?.id === currentSession.user.id) {
-          setLoading(false);
-          return;
-        }
-
+        // Se busca el perfil del usuario.
         try {
           const profile = await fetchUserProfile(currentSession.user.id, currentSession.user.email);
           if (profile?.empleado?.estado === 'activo') {
@@ -138,6 +133,11 @@ export function useAuth(): AuthHookResult {
           setError(fetchError instanceof Error ? fetchError : new Error("No se pudo cargar su perfil de usuario."));
           setUserProfile(null);
           localStorage.removeItem("userProfile");
+        } finally {
+            // CRITICAL FIX: Set loading to false only after the profile fetch attempt is complete.
+            // This prevents a race condition in App.tsx where session is set but profile is not,
+            // which was causing an infinite redirect loop.
+            setLoading(false);
         }
       } else {
         // Este bloque maneja SIGNED_OUT y INITIAL_SESSION (si no existe sesión)
@@ -146,14 +146,14 @@ export function useAuth(): AuthHookResult {
         setUserProfile(null);
         localStorage.removeItem("userProfile");
         setError(null);
+        setLoading(false); // Finish loading when no session is found.
       }
-      setLoading(false);
     });
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [fetchUserProfile, userProfile]);
+  }, [fetchUserProfile]); // El array de dependencias SOLO debe contener 'fetchUserProfile' que es estable.
 
   const login = async (email: string, password: string) => {
     setLoading(true);

@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Empleado, UserProfile, Cargo, Departamento, EmpleadoCargoHistorial, UserProfileRol, EmpleadoEstado } from '../../types';
+import { Empleado, UserProfile, Cargo, Departamento, EmpleadoCargoHistorial, UserProfileRol, EmpleadoEstado, Database } from '../../types';
 import { PlusCircleIcon, PencilIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, EyeIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
-import { AuthError } from '@supabase/supabase-js';
+import type { AuthError } from '@supabase/supabase-js';
 
 const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-70 dark:disabled:opacity-50";
 const btnPrimaryClasses = "flex items-center justify-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md shadow-sm text-sm disabled:bg-primary-400 dark:disabled:bg-primary-700 disabled:cursor-not-allowed";
 const btnSecondaryClasses = "flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none disabled:opacity-70 dark:disabled:opacity-50 disabled:cursor-not-allowed";
 const btnDangerClasses = "flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow-sm text-sm disabled:bg-red-400 dark:disabled:bg-red-700 disabled:cursor-not-allowed";
 
-type FormData = Partial<Empleado> & 
+type EmpleadoWithProfile = Empleado & {
+  user_profile?: Partial<UserProfile> | null;
+};
+
+type FormData = Partial<EmpleadoWithProfile> & 
   Omit<Partial<UserProfile>, 'id' | 'email'> & 
   { 
     password?: string; 
@@ -54,7 +58,7 @@ const countryCodes = [
 
 
 const UserManagement: React.FC = () => {
-  const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [empleados, setEmpleados] = useState<EmpleadoWithProfile[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   
@@ -92,14 +96,14 @@ const UserManagement: React.FC = () => {
       const profilesMap = new Map<number, Partial<UserProfile>>();
       profilesData?.forEach(p => { if (p.empleado_id) profilesMap.set(p.empleado_id, p); });
       
-      const processedEmpData: Empleado[] = (empData || []).map(emp => {
+      const processedEmpData: EmpleadoWithProfile[] = (empData || []).map(emp => {
         const profile = emp.id ? profilesMap.get(emp.id) : undefined;
         return {
           ...emp,
           cargo: emp.cargo as Cargo | undefined,
           departamento: emp.departamento as Departamento | undefined,
           user_profile: profile ? { ...profile } : null,
-        } as Empleado;
+        } as EmpleadoWithProfile;
       });
       
       setEmpleados(processedEmpData);
@@ -185,7 +189,7 @@ const UserManagement: React.FC = () => {
       }
       
       // --- Create or Update Empleado ---
-      const empleadoPayload = { nombre, apellido, cedula, cargo_actual_id, departamento_id, estado: estado || 'activo', telefono: fullPhoneNumber };
+      const empleadoPayload: Database['public']['Tables']['empleado']['Insert'] = { nombre: nombre!, apellido: apellido!, cedula: cedula!, cargo_actual_id: cargo_actual_id!, departamento_id: departamento_id!, estado: estado || 'activo', telefono: fullPhoneNumber };
       if (isEditing) {
         const { error: empUpdateError } = await supabase.from('empleado').update(empleadoPayload).eq('id', formData.id!);
         if (empUpdateError) throw new Error(`Error actualizando empleado: ${empUpdateError.message}`);
@@ -197,9 +201,9 @@ const UserManagement: React.FC = () => {
       
       // --- Create or Update User Profile ---
       if (email && rol && departamento_id) { // Only process profile if fields are present
-        const profilePayload = {
-            id: authUserId,
-            empleado_id: newEmpleadoId,
+        const profilePayload: Database['public']['Tables']['user_profile']['Insert'] = {
+            id: authUserId!,
+            empleado_id: newEmpleadoId!,
             departamento_id: departamento_id,
             rol: rol as UserProfileRol
         };
@@ -234,7 +238,7 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleToggleEstado = async (empleado: Empleado) => {
+  const handleToggleEstado = async (empleado: EmpleadoWithProfile) => {
     setActionLoadingMap(prev => ({ ...prev, [empleado.id]: true }));
     const newEstado: EmpleadoEstado = empleado.estado === 'activo' ? 'inactivo' : 'activo';
     if (window.confirm(`¿Seguro que desea cambiar el estado de ${empleado.nombre} a ${newEstado}?`)) {
@@ -257,7 +261,7 @@ const UserManagement: React.FC = () => {
     setActionLoadingMap(prev => ({ ...prev, [empleadoId]: false }));
   };
 
-  const openModal = (emp?: Empleado) => {
+  const openModal = (emp?: EmpleadoWithProfile) => {
     if (emp) {
       setIsEditing(true);
       const telefono = emp.telefono || '';
@@ -303,7 +307,7 @@ const UserManagement: React.FC = () => {
     (emp.user_profile?.email && emp.user_profile.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
   
-  const getProfileStatus = (emp: Empleado): React.ReactNode => {
+  const getProfileStatus = (emp: EmpleadoWithProfile): React.ReactNode => {
     if (emp.user_profile) {
       return (<div className="text-green-600 dark:text-green-400 text-xs font-semibold">Perfil Activo</div>);
     }

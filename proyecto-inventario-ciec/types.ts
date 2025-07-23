@@ -22,7 +22,7 @@ export interface Cargo {
   departamento_id: number; // FK a 'departamento'
   created_at: string;
   updated_at: string;
-  departamento?: Departamento; // Relación opcional para cargar el nombre del departamento
+  departamento?: any; // Relación opcional para cargar el nombre del departamento
 }
 
 export interface CategoriaProducto {
@@ -62,8 +62,8 @@ export interface Empleado {
   created_at: string;
   updated_at: string;
   // Relaciones opcionales para cargar datos anidados
-  cargo?: Cargo | null;
-  departamento?: Departamento;
+  cargo?: any;
+  departamento?: any;
 }
 
 export interface EmpleadoCargoHistorial {
@@ -74,7 +74,7 @@ export interface EmpleadoCargoHistorial {
   fecha_fin?: string | null; // Fecha en formato 'YYYY-MM-DD', null si es el cargo actual
   created_at: string;
   updated_at: string;
-  cargo?: Cargo; // Para mostrar nombre del cargo en el historial
+  cargo?: any; // Para mostrar nombre del cargo en el historial
 }
 
 export interface FacturaOrden {
@@ -96,12 +96,7 @@ export interface Inventario {
   existencias?: number | null; // Cantidad actual en stock
   created_at: string;
   updated_at: string;
-  producto?: { 
-    descripcion: string; 
-    categoria?: { 
-        nombre: string | null 
-    } | null 
-  } | null;
+  producto?: any;
 }
 
 // Tabla de unión entre OrdenCompra y SolicitudCompra
@@ -140,11 +135,11 @@ export interface OrdenCompra {
   fecha_entrega_real?: string | null;     // 'YYYY-MM-DD'
   
   // Relaciones opcionales para cargar datos anidados
-  proveedor?: Proveedor;
-  detalles?: OrdenCompraDetalle[]; 
-  empleado?: Empleado; 
-  solicitud_compra?: SolicitudCompra; // Para mostrar info de la solicitud vinculada
-  factura?: FacturaOrden; // Si hay una factura asociada
+  proveedor?: any;
+  detalles?: any[]; 
+  empleado?: any; 
+  solicitud_compra?: any; // Para mostrar info de la solicitud vinculada
+  factura?: any; // Si hay una factura asociada
 }
 
 export interface OrdenCompraDetalle {
@@ -156,7 +151,7 @@ export interface OrdenCompraDetalle {
   monto_total?: number | null; // Calculado en DB: cantidad * precio_unitario
   created_at: string;
   updated_at: string;
-  producto?: Producto; // Para mostrar descripción del producto
+  producto?: any; // Para mostrar descripción del producto
   // Campo para descripción personalizada si el producto no existe en catálogo
   // (útil si se crea un producto sobre la marcha para la orden)
   // Este campo NO existe en la tabla 'ordencompra_detalle' según el schema.sql proporcionado por el usuario.
@@ -176,7 +171,7 @@ export interface OrdenConsolidada {
   solicitudes: number[]; 
   created_at: string;
   updated_at: string;
-  proveedor?: Pick<Proveedor, 'id' | 'nombre'>; // Solo necesitamos ID y nombre del proveedor aquí
+  proveedor?: any; // Solo necesitamos ID y nombre del proveedor aquí
 }
 
 export interface Producto {
@@ -189,9 +184,9 @@ export interface Producto {
   codigo_interno?: string | null; // ÚNICO
   created_at: string;
   updated_at: string;
-  categoria?: CategoriaProducto; // Para mostrar nombre de categoría
+  categoria?: any; // Para mostrar nombre de categoría
   // Relación con inventario (si producto_id en inventario es FK a producto.id y único)
-  inventario?: Partial<Inventario>; 
+  // inventario?: Omit<Inventario, 'producto'>; // REMOVED: This causes a circular dependency error that breaks Supabase type inference.
 }
 
 // Productos que no se recibieron completamente en una orden
@@ -203,7 +198,7 @@ export interface ProductoNoRecibido {
   motivo?: string | null;
   created_at: string;
   updated_at: string;
-  producto?: Producto;
+  producto?: any;
   // orden_compra?: OrdenCompra; // REMOVED to break circular dependency
 }
 
@@ -217,7 +212,7 @@ export interface ProductoRezagado {
   solicitud_id?: number | null; // Solicitud original del producto
   created_at: string;
   updated_at: string;
-  producto?: Producto;
+  producto?: any;
   // solicitud?: SolicitudCompra; // REMOVED to break circular dependency
   // orden_compra?: OrdenCompra; // REMOVED to break circular dependency
 }
@@ -240,7 +235,7 @@ export interface Proveedor {
   created_at: string;
   updated_at: string;
   // Para join con tabla de unión 'proveedor_categoria'
-  categorias?: Array<{ categoria_id: number; categoria?: Pick<CategoriaProveedor, 'id' | 'nombre'> }>;
+  categorias?: any[];
 }
 
 // Tabla de unión para relación muchos-a-muchos entre Proveedor y CategoriaProveedor
@@ -249,7 +244,7 @@ export interface ProveedorCategoria {
   categoria_id: number; // FK a 'categoria_proveedor'
   created_at: string;
   updated_at: string;
-  categoria?: CategoriaProveedor; // Para mostrar nombre de la categoría del proveedor
+  categoria?: any; // Para mostrar nombre de la categoría del proveedor
 }
 
 export type SolicitudCompraEstado = 'Pendiente' | 'Aprobada' | 'Rechazada';
@@ -265,9 +260,9 @@ export interface SolicitudCompra {
   updated_at: string;
   
   // Relaciones opcionales para cargar datos anidados
-  detalles?: SolicitudCompraDetalle[];
-  empleado?: Empleado; 
-  departamento?: Departamento; 
+  detalles?: any[];
+  empleado?: any; 
+  departamento?: any; 
 }
 
 export interface SolicitudCompraDetalle {
@@ -279,7 +274,7 @@ export interface SolicitudCompraDetalle {
   descripcion_producto_personalizado?: string | null; 
   created_at: string;
   updated_at: string;
-  producto?: Producto; // Para mostrar detalles del producto si es catalogado
+  producto?: any; // Para mostrar detalles del producto si es catalogado
 }
 
 export type UserProfileRol = 'admin' | 'usuario'; // Roles de usuario en la aplicación
@@ -295,8 +290,8 @@ export interface UserProfile {
   updated_at: string;
 
   // Relaciones opcionales para cargar datos anidados
-  empleado?: Empleado; 
-  departamento?: Partial<Departamento>; 
+  empleado?: any; 
+  departamento?: any; 
 }
 
 export interface Notificacion {
@@ -330,8 +325,8 @@ export interface ConsumoHistoricoProducto {
   descripcion_adicional?: string | null; // Notas adicionales sobre el consumo
   created_at: string;
   updated_at: string;
-  producto?: Producto;
-  departamento?: Departamento;
+  producto?: any;
+  departamento?: any;
 }
 
 export interface RendimientoProveedor {
@@ -348,7 +343,7 @@ export interface RendimientoProveedor {
   observaciones?: string | null;
   created_at: string;
   updated_at: string;
-  proveedor?: Proveedor;
+  proveedor?: any;
   // orden_compra?: OrdenCompra; // REMOVED to break circular dependency
 }
 
@@ -363,7 +358,7 @@ export interface MetricasProductoMensual {
   numero_ordenes?: number;   // Cuántas órdenes incluyeron este producto en el mes
   created_at: string;
   updated_at: string;
-  producto?: Producto;
+  producto?: any;
 }
 
 // Para registrar qué compras se hicieron específicamente para un evento externo
@@ -394,8 +389,8 @@ export interface ConsumoParaEventoExterno {
   costo_estimado_consumo?: number | null; // Calculado si es posible (cantidad * costo_unitario_producto)
   created_at: string;
   updated_at: string;
-  producto?: Producto;
-  departamento?: Departamento;
+  producto?: any;
+  departamento?: any;
 }
 
 // --- Tipos para la Base de Datos del Compañero (Eventos Externos) ---
@@ -478,12 +473,12 @@ export interface Database {
       camaraindustriales: {
         Row: Camaraindustriales;
         Insert: Omit<Camaraindustriales, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<Camaraindustriales, 'id' | 'created_at'>>; // No actualizamos created_at
+        Update: Partial<Omit<Camaraindustriales, 'id' | 'created_at'>>;
       };
       cargo: {
         Row: Cargo;
-        Insert: Omit<Cargo, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<Cargo, 'id' | 'created_at'>>;
+        Insert: Omit<Cargo, 'id' | 'created_at' | 'updated_at' | 'departamento'>;
+        Update: Partial<Omit<Cargo, 'id' | 'created_at' | 'departamento'>>;
       };
       categoria_producto: {
         Row: CategoriaProducto;
@@ -502,14 +497,13 @@ export interface Database {
       };
       empleado: {
         Row: Empleado;
-        // 'id' es serial, 'created_at', 'updated_at' tienen defaults y se manejan por DB
-        Insert: Omit<Empleado, 'id' | 'created_at' | 'updated_at'>; 
-        Update: Partial<Omit<Empleado, 'id' | 'created_at'>>;
+        Insert: Omit<Empleado, 'id' | 'created_at' | 'updated_at' | 'cargo' | 'departamento'>;
+        Update: Partial<Omit<Empleado, 'id' | 'created_at' | 'cargo' | 'departamento'>>;
       };
       empleadocargohistorial: {
         Row: EmpleadoCargoHistorial;
-        Insert: Omit<EmpleadoCargoHistorial, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<EmpleadoCargoHistorial, 'id' | 'created_at'>>;
+        Insert: Omit<EmpleadoCargoHistorial, 'id' | 'created_at' | 'updated_at' | 'cargo'>;
+        Update: Partial<Omit<EmpleadoCargoHistorial, 'id' | 'created_at' | 'cargo'>>;
       };
       facturas_orden: {
         Row: FacturaOrden;
@@ -518,98 +512,88 @@ export interface Database {
       };
       inventario: {
         Row: Inventario;
-        // fecha_actualizacion tiene default NOW()
-        Insert: Omit<Inventario, 'id' | 'fecha_actualizacion' | 'created_at' | 'updated_at' | 'producto'>; 
-        Update: Partial<Omit<Inventario, 'id' | 'created_at' | 'producto'>>; // fecha_actualizacion se actualizará con trigger o explícitamente
+        Insert: Omit<Inventario, 'id' | 'fecha_actualizacion' | 'created_at' | 'updated_at' | 'producto'>;
+        Update: Partial<Omit<Inventario, 'id' | 'created_at' | 'producto'>>;
       };
-      orden_solicitud: { // Tabla de unión
+      orden_solicitud: {
         Row: OrdenSolicitud;
-        // Las FKs (ordencompra_id, solicitud_id) se insertan manualmente
-        Insert: Omit<OrdenSolicitud, 'created_at' | 'updated_at'>; 
+        Insert: Omit<OrdenSolicitud, 'created_at' | 'updated_at'>;
         Update: Partial<Omit<OrdenSolicitud, 'ordencompra_id' | 'created_at'>>;
       };
       ordencompra: {
         Row: OrdenCompra;
-        // Varios campos tienen defaults o son serial
-        Insert: Omit<OrdenCompra, 'id' | 'fecha_orden' | 'fecha_modificacion' | 'created_at' | 'updated_at'>; 
-        Update: Partial<Omit<OrdenCompra, 'id' | 'fecha_orden' | 'created_at'>>; // fecha_modificacion se actualiza
+        Insert: Omit<OrdenCompra, 'id' | 'fecha_orden' | 'fecha_modificacion' | 'created_at' | 'updated_at' | 'proveedor' | 'detalles' | 'empleado' | 'solicitud_compra' | 'factura'>;
+        Update: Partial<Omit<OrdenCompra, 'id' | 'fecha_orden' | 'created_at' | 'proveedor' | 'detalles' | 'empleado' | 'solicitud_compra' | 'factura'>>;
       };
       ordencompra_detalle: {
         Row: OrdenCompraDetalle;
-        // monto_total es generado en DB
-        // descripcion_producto_personalizado no existe en la tabla según schema.sql, se omite del Insert/Update.
-        Insert: Omit<OrdenCompraDetalle, 'id' | 'monto_total' | 'created_at' | 'updated_at' | 'descripcion_producto_personalizado'>; 
-        Update: Partial<Omit<OrdenCompraDetalle, 'id' | 'monto_total' | 'created_at' | 'descripcion_producto_personalizado'>>;
+        Insert: Omit<OrdenCompraDetalle, 'id' | 'monto_total' | 'created_at' | 'updated_at' | 'descripcion_producto_personalizado' | 'producto'>;
+        Update: Partial<Omit<OrdenCompraDetalle, 'id' | 'monto_total' | 'created_at' | 'descripcion_producto_personalizado' | 'producto'>>;
       };
       ordenes_consolidadas: {
         Row: OrdenConsolidada;
-        Insert: Omit<OrdenConsolidada, 'id' | 'fecha_creacion' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<OrdenConsolidada, 'id' | 'fecha_creacion' | 'created_at'>>;
+        Insert: Omit<OrdenConsolidada, 'id' | 'fecha_creacion' | 'created_at' | 'updated_at' | 'proveedor'>;
+        Update: Partial<Omit<OrdenConsolidada, 'id' | 'fecha_creacion' | 'created_at' | 'proveedor'>>;
       };
       producto: {
         Row: Producto;
-        Insert: Omit<Producto, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<Producto, 'id' | 'created_at'>>;
+        Insert: Omit<Producto, 'id' | 'created_at' | 'updated_at' | 'categoria'>;
+        Update: Partial<Omit<Producto, 'id' | 'created_at' | 'categoria'>>;
       };
       productos_no_recibidos: {
         Row: ProductoNoRecibido;
-        Insert: Omit<ProductoNoRecibido, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<ProductoNoRecibido, 'id' | 'created_at'>>;
+        Insert: Omit<ProductoNoRecibido, 'id' | 'created_at' | 'updated_at' | 'producto'>;
+        Update: Partial<Omit<ProductoNoRecibido, 'id' | 'created_at' | 'producto'>>;
       };
       productos_rezagados: {
         Row: ProductoRezagado;
-        Insert: Omit<ProductoRezagado, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<ProductoRezagado, 'id' | 'created_at'>>;
+        Insert: Omit<ProductoRezagado, 'id' | 'created_at' | 'updated_at' | 'producto'>;
+        Update: Partial<Omit<ProductoRezagado, 'id' | 'created_at' | 'producto'>>;
       };
       proveedor: {
         Row: Proveedor;
-        Insert: Omit<Proveedor, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<Proveedor, 'id' | 'created_at'>>;
+        Insert: Omit<Proveedor, 'id' | 'created_at' | 'updated_at' | 'categorias'>;
+        Update: Partial<Omit<Proveedor, 'id' | 'created_at' | 'categorias'>>;
       };
-      proveedor_categoria: { // Tabla de unión
+      proveedor_categoria: {
         Row: ProveedorCategoria;
-        // Las PKs son las FKs, se insertan manualmente
-        Insert: Omit<ProveedorCategoria, 'created_at' | 'updated_at'>; 
-        Update: Partial<Omit<ProveedorCategoria, 'created_at'>>;
+        Insert: Omit<ProveedorCategoria, 'created_at' | 'updated_at' | 'categoria'>;
+        Update: Partial<Omit<ProveedorCategoria, 'created_at' | 'categoria'>>;
       };
       solicitudcompra: {
         Row: SolicitudCompra;
-        Insert: Omit<SolicitudCompra, 'id' | 'fecha_solicitud' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<SolicitudCompra, 'id' | 'fecha_solicitud' | 'created_at'>>;
+        Insert: Omit<SolicitudCompra, 'id' | 'fecha_solicitud' | 'created_at' | 'updated_at' | 'detalles' | 'empleado' | 'departamento'>;
+        Update: Partial<Omit<SolicitudCompra, 'id' | 'fecha_solicitud' | 'created_at' | 'detalles' | 'empleado' | 'departamento'>>;
       };
       solicitudcompra_detalle: {
         Row: SolicitudCompraDetalle;
-        Insert: Omit<SolicitudCompraDetalle, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<SolicitudCompraDetalle, 'id' | 'created_at'>>;
+        Insert: Omit<SolicitudCompraDetalle, 'id' | 'created_at' | 'updated_at' | 'producto'>;
+        Update: Partial<Omit<SolicitudCompraDetalle, 'id' | 'created_at' | 'producto'>>;
       };
       user_profile: {
         Row: UserProfile;
-        // 'email' no se inserta/actualiza aquí, se maneja por auth.users y se consulta por FK.
-        // 'id' es FK a auth.users.id y se provee al insertar.
-        Insert: Omit<UserProfile, 'created_at' | 'updated_at' | 'email'>; 
-        Update: Partial<Omit<UserProfile, 'created_at' | 'email'>>; // No actualizar email ni created_at directamente
+        Insert: Omit<UserProfile, 'created_at' | 'updated_at' | 'email' | 'empleado' | 'departamento'>;
+        Update: Partial<Omit<UserProfile, 'created_at' | 'email' | 'empleado' | 'departamento'>>;
       };
       notificaciones: { 
         Row: Notificacion;
-        // id es serial, created_at/updated_at tienen defaults
-        Insert: Omit<Notificacion, 'id' | 'created_at' | 'updated_at'>; // 'read' defaults a false
+        Insert: Omit<Notificacion, 'id' | 'created_at' | 'updated_at' | 'read'>;
         Update: Partial<Omit<Notificacion, 'id' | 'created_at'>>;
       };
-      // Nuevas tablas de análisis
       consumo_historico_producto: {
         Row: ConsumoHistoricoProducto;
-        Insert: Omit<ConsumoHistoricoProducto, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<ConsumoHistoricoProducto, 'id' | 'created_at'>>;
+        Insert: Omit<ConsumoHistoricoProducto, 'id' | 'created_at' | 'updated_at' | 'producto' | 'departamento'>;
+        Update: Partial<Omit<ConsumoHistoricoProducto, 'id' | 'created_at' | 'producto' | 'departamento'>>;
       };
       rendimiento_proveedor: {
         Row: RendimientoProveedor;
-        Insert: Omit<RendimientoProveedor, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<RendimientoProveedor, 'id' | 'created_at'>>;
+        Insert: Omit<RendimientoProveedor, 'id' | 'created_at' | 'updated_at' | 'proveedor'>;
+        Update: Partial<Omit<RendimientoProveedor, 'id' | 'created_at' | 'proveedor'>>;
       };
       metricas_producto_mensual: {
         Row: MetricasProductoMensual;
-        Insert: Omit<MetricasProductoMensual, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<MetricasProductoMensual, 'id' | 'created_at'>>;
+        Insert: Omit<MetricasProductoMensual, 'id' | 'created_at' | 'updated_at' | 'producto'>;
+        Update: Partial<Omit<MetricasProductoMensual, 'id' | 'created_at' | 'producto'>>;
       };
       compras_para_evento_externo: {
         Row: ComprasParaEventoExterno;
@@ -618,21 +602,21 @@ export interface Database {
       };
       consumo_para_evento_externo: {
         Row: ConsumoParaEventoExterno;
-        Insert: Omit<ConsumoParaEventoExterno, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<ConsumoParaEventoExterno, 'id' | 'created_at'>>;
+        Insert: Omit<ConsumoParaEventoExterno, 'id' | 'created_at' | 'updated_at' | 'producto' | 'departamento'>;
+        Update: Partial<Omit<ConsumoParaEventoExterno, 'id' | 'created_at' | 'producto' | 'departamento'>>;
       };
     };
-    Views: { // Vistas de la base de datos, si las hubiera
-      [_ in never]: never; // Placeholder si no hay vistas
+    Views: {
+      [_ in never]: never;
     };
-    Functions: { // Funciones de PostgreSQL, si las hubiera
-      [_ in never]: never; // Placeholder si no hay funciones
+    Functions: {
+      [_ in never]: never;
     };
     Enums: {
        tipo_contribuyente_enum: 'normal' | 'especial'
     };
-    CompositeTypes: { // Tipos Compuestos de PostgreSQL, si los hubiera
-      [_ in never]: never; // Placeholder
+    CompositeTypes: {
+      [_ in never]: never;
     };
   };
 }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { Link } from 'react-router-dom';
@@ -7,7 +6,6 @@ import { UserProfile, Notificacion } from '../../types';
 import ThemeToggle from './ThemeToggle';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription'; // Importar el nuevo hook
 import { Bars3Icon, BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { REALTIME_POSTGRES_CHANGES_LISTEN_EVENT } from '@supabase/supabase-js';
 import { LIGHT_MODE_LOGO_URL, DARK_MODE_LOGO_URL } from '../../assets/paths';
 
 
@@ -61,7 +59,7 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
     channelName: `user-notifications-${userProfile?.id || 'guest'}`, // Asegurar que channelName siempre sea válido
     tableName: 'notificaciones',
     filter: userProfile?.id ? `user_id=eq.${userProfile.id}` : undefined, // Filtrar solo si userProfile.id existe
-    event: REALTIME_POSTGRES_CHANGES_LISTEN_EVENT.INSERT,
+    event: 'INSERT',
     onNewPayload: (payload) => {
       if (payload.new && typeof payload.new === 'object' && 'read' in payload.new && !(payload.new as Notificacion).read) {
         const newNotification = payload.new as Notificacion;

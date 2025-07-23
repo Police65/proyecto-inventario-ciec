@@ -49,15 +49,15 @@ type RawOrdenFromQuery = Omit<OrdenCompra, 'proveedor' | 'detalles' | 'empleado'
     }
   > | null;
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
-  solicitud_compra: Pick<SolicitudCompra, 'id' | 'descripcion' | 'empleado_id'> | null; // Se añadió empleado_id
+  solicitud_compra: Pick<SolicitudCompra, 'id' | 'descripcion' | 'empleado_id' | 'departamento_id'> | null;
 };
 
 const commonSelectOrden = `
-    id, solicitud_compra_id, proveedor_id, fecha_orden, estado, precio_unitario, sub_total, iva, ret_iva, neto_a_pagar, unidad, observaciones, empleado_id, changed_by, fecha_modificacion, retencion_porcentaje, fecha_entrega_estimada, fecha_entrega_real,
+    id, solicitud_compra_id, proveedor_id, fecha_orden, estado, precio_unitario, sub_total, iva, ret_iva, neto_a_pagar, unidad, observaciones, empleado_id, changed_by, fecha_modificacion, retencion_porcentaje, fecha_entrega_estimada, fecha_entrega_real, created_at, updated_at,
     proveedor:proveedor_id(id, nombre, rif, direccion, estado, tipo_contribuyente, porcentaje_retencion_iva),
     detalles:ordencompra_detalle(id, producto_id, cantidad, precio_unitario, producto:producto_id(id, descripcion)),
     empleado:empleado_id(id, nombre, apellido),
-    solicitud_compra:solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, descripcion, empleado_id)
+    solicitud_compra:solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, descripcion, empleado_id, departamento_id)
   `;
 
 export const AdminDashboardPage = (): React.ReactElement => {
@@ -96,33 +96,38 @@ export const AdminDashboardPage = (): React.ReactElement => {
     estado: req.estado,
     empleado_id: req.empleado_id,
     departamento_id: req.departamento_id,
-    created_at: new Date().toISOString(), 
-    updated_at: new Date().toISOString(), 
+    created_at: req.created_at,
+    updated_at: req.updated_at,
     empleado: req.empleado ? { 
       id: req.empleado.id,
       nombre: req.empleado.nombre,
       apellido: req.empleado.apellido,
-      cedula: '', cargo_actual_id: null, departamento_id: req.empleado_id, estado: 'activo',
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(), user_profile: undefined,
-    } : undefined,
+      cedula: '',
+      cargo_actual_id: null,
+      departamento_id: req.departamento_id,
+      estado: 'activo',
+      created_at: '',
+      updated_at: '',
+    } as Empleado : undefined,
     departamento: req.departamento ? { 
-      id: req.departamento.id, nombre: req.departamento.nombre, estado: req.departamento.estado,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      ...req.departamento,
+      created_at: '',
+      updated_at: '',
     } : undefined,
     detalles: req.detalles ? req.detalles.map(d => ({ 
       id: d.id,
       solicitud_compra_id: d.solicitud_compra_id,
       producto_id: d.producto_id,
       cantidad: d.cantidad,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      created_at: '', updated_at: '',
       producto: d.producto ? { 
         id: d.producto.id,
         descripcion: d.producto.descripcion,
         categoria_id: d.producto.categoria_id,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        created_at: '', updated_at: '',
         categoria: d.producto.categoria ? { 
             ...d.producto.categoria,
-            created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+            created_at: '', updated_at: '',
         } : undefined,
       } : undefined,
     })) : [], 
@@ -147,36 +152,29 @@ export const AdminDashboardPage = (): React.ReactElement => {
     retencion_porcentaje: order.retencion_porcentaje,
     fecha_entrega_estimada: order.fecha_entrega_estimada,
     fecha_entrega_real: order.fecha_entrega_real,
-    created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    created_at: order.created_at, updated_at: order.updated_at,
     proveedor: order.proveedor ? { 
-      id: order.proveedor.id, nombre: order.proveedor.nombre, rif: order.proveedor.rif, direccion: order.proveedor.direccion,
-      estado: order.proveedor.estado,
-      tipo_contribuyente: order.proveedor.tipo_contribuyente,
-      porcentaje_retencion_iva: order.proveedor.porcentaje_retencion_iva,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      ...order.proveedor,
+      created_at: '', updated_at: '',
     } : undefined,
     empleado: order.empleado ? { 
       id: order.empleado.id, nombre: order.empleado.nombre, apellido: order.empleado.apellido,
-      cedula: '', cargo_actual_id: null, departamento_id: 0, estado: 'activo',
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    } : undefined,
-    solicitud_compra: order.solicitud_compra ? { 
-        id: order.solicitud_compra.id,
-        descripcion: order.solicitud_compra.descripcion,
-        fecha_solicitud: '', estado: 'Pendiente', empleado_id: order.solicitud_compra.empleado_id, departamento_id:0,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    } : undefined,
+      cedula: '', cargo_actual_id: null, 
+      departamento_id: order.solicitud_compra?.departamento_id || 0, // Best effort
+      estado: 'activo',
+      created_at: '', updated_at: '',
+    } as Empleado : undefined,
+    solicitud_compra: order.solicitud_compra || undefined,
     detalles: order.detalles ? order.detalles.map(d => ({ 
       id: d.id,
       producto_id: d.producto_id,
       cantidad: d.cantidad,
       precio_unitario: d.precio_unitario,
       orden_compra_id: order.id,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      created_at: '', updated_at: '',
       producto: d.producto ? { 
-        id: d.producto.id,
-        descripcion: d.producto.descripcion,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        ...d.producto,
+        created_at: '', updated_at: '',
       } : undefined,
     })) : [], 
   });
@@ -186,7 +184,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
     setError(null);
     try {
       const commonSelectSolicitud = `
-        id, descripcion, fecha_solicitud, estado, empleado_id, departamento_id,
+        id, descripcion, fecha_solicitud, estado, empleado_id, departamento_id, created_at, updated_at,
         detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
         empleado:empleado_id(id, nombre, apellido),
         departamento:departamento_id(id, nombre, estado)

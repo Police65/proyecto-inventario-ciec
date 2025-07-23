@@ -1,5 +1,5 @@
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, AuthStorage } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, PARTNER_SUPABASE_URL, PARTNER_SUPABASE_ANON_KEY } from './config';
 import { Database, SolicitudCompra, Producto, PartnerDatabaseSchema, PartnerEvent, PartnerMeeting } from './types'; // SolicitudCompraDetalle ya no se usa aquí
 
@@ -23,9 +23,27 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(SUPABAS
 // --- Cliente para la instancia Supabase del Compañero (Eventos Externos) ---
 let partnerSupabaseInstance: SupabaseClient<PartnerDatabaseSchema> | null = null;
 
+// Almacenamiento ficticio en memoria para evitar conflictos de GoTrueClient
+const inMemoryStorage: AuthStorage = {
+  getItem: (key: string) => null,
+  setItem: (key: string, value: string) => {},
+  removeItem: (key: string) => {},
+};
+
 if (PARTNER_SUPABASE_URL && PARTNER_SUPABASE_ANON_KEY) {
   try {
-    partnerSupabaseInstance = createClient<PartnerDatabaseSchema>(PARTNER_SUPABASE_URL, PARTNER_SUPABASE_ANON_KEY);
+    partnerSupabaseInstance = createClient<PartnerDatabaseSchema>(PARTNER_SUPABASE_URL, PARTNER_SUPABASE_ANON_KEY, {
+      auth: {
+        // SOLUCIÓN DEFINITIVA:
+        // Se proporciona un almacenamiento ficticio para que este cliente de Supabase
+        // no intente usar el mismo localStorage que el cliente principal.
+        // Esto elimina por completo la advertencia "Multiple GoTrueClient instances".
+        storage: inMemoryStorage,
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      }
+    });
   } catch (e) {
     console.error("Error al inicializar el cliente Supabase del compañero (eventos externos):", e);
     partnerSupabaseInstance = null; // Asegurar que sea null si falla la inicialización

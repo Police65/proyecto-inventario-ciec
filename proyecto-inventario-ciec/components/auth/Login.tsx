@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth'; 
-// @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
+// @ts-ignore: useNavigate is no longer used for redirection, but keeping import just in case, or remove if linting complains.
 import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { LIGHT_MODE_LOGO_URL, DARK_MODE_LOGO_URL } from '../../assets/paths';
@@ -10,32 +10,23 @@ import { LIGHT_MODE_LOGO_URL, DARK_MODE_LOGO_URL } from '../../assets/paths';
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // Controla si la contraseña es visible
-  const [error, setError] = useState<string | null>(null); // Mensaje de error para el usuario
-  const [loading, setLoading] = useState(false); // Estado de carga para el botón de login
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   
-  const navigate = useNavigate();
-  const { login: authLogin, session } = useAuth(); // Usar `session` para la lógica de redirección
-
-  // Redirigir a /home si el usuario ya tiene una sesión activa.
-  React.useEffect(() => {
-    if (session) {
-      navigate('/home');
-    }
-  }, [session, navigate]);
-
+  // The main App component now handles all redirection logic based on session state.
+  // This simplifies the Login component and prevents race conditions.
+  const { login: authLogin } = useAuth(); 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // Evitar recarga de página
-    setLoading(true); // Mostrar indicador de carga
-    setError(null); // Limpiar errores anteriores
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
     try {
-      await authLogin(email, password); // Llamar a la función de login del hook
-      // Si el login es exitoso, el hook useAuth (a través de onAuthStateChange)
-      // actualizará la sesión, y el useEffect anterior debería redirigir.
-      navigate('/home'); 
+      await authLogin(email, password);
+      // Navigation is now handled declaratively in App.tsx based on session state change.
+      // This prevents race conditions where navigation occurred before the auth state was fully propagated.
     } catch (err) {
-      // El hook useAuth ya debería formatear errores comunes de Supabase al español.
       if (err instanceof Error) {
         setError(err.message || "Error de inicio de sesión. Verifica tus credenciales.");
       } else {
@@ -43,7 +34,7 @@ const Login: React.FC = () => {
       }
       console.error("Falló el inicio de sesión (componente Login):", err);
     } finally {
-      setLoading(false); // Ocultar indicador de carga
+      setLoading(false);
     }
   };
 

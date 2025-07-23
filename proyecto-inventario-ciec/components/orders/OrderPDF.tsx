@@ -4,17 +4,16 @@ import jsPDF from 'jspdf';
 import { supabase } from '../../supabaseClient';
 import PDFTemplate from './PDFTemplate';
 import { OrdenCompra as OrdenCompraType, Camaraindustriales, Proveedor, Empleado, OrdenCompraDetalle, Producto as ProductoType } from '../../types';
-import { DocumentArrowDownIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { DocumentArrowDownIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 interface OrderPDFProps {
-  order: OrdenCompraType; // Toma la propiedad básica de la orden
+  order: OrdenCompraType;
   buttonClass?: string;
   iconClass?: string;
   buttonText?: string;
   showText?: boolean;
 }
 
-// Interfaz para el objeto OrdenCompra completamente detallado después de la obtención
 interface FullOrdenCompraForPDF extends OrdenCompraType {
   proveedor: Proveedor | undefined;
   productos: (OrdenCompraDetalle & { producto: ProductoType | undefined })[];
@@ -28,16 +27,15 @@ interface PDFRenderData {
 
 const OrderPDF: React.FC<OrderPDFProps> = ({
   order,
-  buttonClass: customButtonClass, // Renombrado para evitar conflicto
-  iconClass: customIconClass,     // Renombrado
-  buttonText: customButtonText,   // Renombrado
+  buttonClass: customButtonClass,
+  iconClass: customIconClass,
+  buttonText: customButtonText,
   showText = false
 }) => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [pdfData, setPdfData] = useState<PDFRenderData | null>(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-
+  const [feedback, setFeedback] = useState<{ type: 'loading' | 'success' | 'error', message: string } | null>(null);
 
   const defaultButtonClass = "p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors";
   const defaultIconClass = "w-5 h-5";
@@ -47,20 +45,24 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
   const currentIconClass = customIconClass || defaultIconClass;
   const currentButtonText = customButtonText || defaultButtonText;
 
-
   const handleGeneratePDF = async () => {
     setLoading(true);
-    setPdfError(null);
+    setFeedback({ type: 'loading', message: 'Preparando datos para el PDF...' });
     setPdfData(null);
 
     try {
+      // FIX: Use .limit(1).single() to safely fetch one record or null.
       const { data: camara, error: camaraError } = await supabase
         .from('camaraindustriales')
         .select('*')
+        .limit(1)
         .single<Camaraindustriales>();
 
-      if (camaraError || !camara) {
-        throw new Error(`Error obteniendo datos de la cámara: ${camaraError?.message || 'No data'}`);
+      if (camaraError) {
+        throw new Error(`Error de base de datos al buscar datos de la cámara: ${camaraError.message}`);
+      }
+      if (!camara) {
+        throw new Error('No se encontraron los datos de la cámara industrial. Verifique la configuración.');
       }
 
       const { data: ordenCompleta, error: ordenError } = await supabase
@@ -80,8 +82,8 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
       
       setPdfData({ orden: ordenCompleta, camara });
 
-      // Esperar ciclo de renderizado completo
-      await new Promise(resolve => setTimeout(resolve, 150)); // Aumentado ligeramente desde 100ms
+      setFeedback({ type: 'loading', message: 'Generando vista previa del PDF...' });
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       if (!contentRef.current) {
         throw new Error("El contenedor del PDF no está disponible.");
@@ -93,21 +95,19 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
       contentRef.current.style.left = '0px';
       contentRef.current.style.zIndex = '9999';
       contentRef.current.style.visibility = 'visible';
-      contentRef.current.style.backgroundColor = '#FFFFFF'; // Asegurar fondo para la captura
-      // Asegurar ancho/alto basados en A4, o dejar que el contenido lo defina SI la raíz de PDFTemplate tiene estilo.
-      // Para esta versión más simple, dependemos de que el div raíz de PDFTemplate tenga dimensiones A4.
-      contentRef.current.style.width = '210mm'; // Coincidir con el estilo de PDFTemplate
-      contentRef.current.style.minHeight = '297mm'; // Coincidir con el estilo de PDFTemplate
+      contentRef.current.style.backgroundColor = '#FFFFFF';
+      contentRef.current.style.width = '210mm';
+      contentRef.current.style.minHeight = '297mm';
 
+      setFeedback({ type: 'loading', message: 'Procesando PDF, por favor espere...' });
       const canvas = await html2canvas(contentRef.current, {
         scale: 2,
         useCORS: true,
         logging: true,
-        backgroundColor: '#FFFFFF', // Asegurar fondo para la captura
-        // Eliminar ancho/alto explícitos para dejar que html2canvas use las dimensiones del elemento
+        backgroundColor: '#FFFFFF',
       });
 
-      contentRef.current.style.cssText = originalStyle; // Restaurar estilos
+      contentRef.current.style.cssText = originalStyle;
 
       if (canvas.width === 0 || canvas.height === 0) {
         throw new Error('El canvas generado no tiene dimensiones válidas.');
@@ -118,22 +118,23 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
       
-      // La lógica anterior de múltiples páginas a veces creaba una página en blanco extra.
-      // Según la solicitud del usuario de una sola página, ahora agregamos la imagen una vez.
-      // jspdf recortará automáticamente cualquier contenido que exceda las dimensiones de la página.
       pdf.addImage(canvas, 'PNG', 0, 0, pdfWidth, pdfHeight);
       
-      pdf.save(`orden_${order.id}.pdf`);
+      pdf.save(`orden_de_compra_${order.id}.pdf`);
+
+      setFeedback({ type: 'success', message: '¡PDF generado! La descarga ha comenzado.' });
+      setTimeout(() => setFeedback(null), 5000);
 
     } catch (error) {
       console.error("Error generando PDF:", error);
-      setPdfError(error instanceof Error ? error.message : String(error));
-      if (contentRef.current) { // Asegurar que los estilos se restablezcan en caso de error
-        contentRef.current.style.cssText = ''; // Restablecer al estilo predeterminado o al original guardado
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setFeedback({ type: 'error', message: errorMessage });
+      if (contentRef.current) {
+        contentRef.current.style.cssText = '';
       }
     } finally {
       setLoading(false);
-      setPdfData(null); // Limpiar datos para ocultar PDFTemplate del DOM
+      setPdfData(null);
     }
   };
 
@@ -155,6 +156,27 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
         {showText && <span className="ml-2">{loading ? 'Generando...' : currentButtonText}</span>}
       </button>
 
+      {feedback && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black bg-opacity-60 p-4" role="alertdialog" aria-modal="true" aria-labelledby="feedback-title">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl flex items-center space-x-4 max-w-md w-full">
+            {feedback.type === 'loading' && <ArrowPathIcon className="w-8 h-8 animate-spin text-primary-500 flex-shrink-0" />}
+            {feedback.type === 'success' && <CheckCircleIcon className="w-8 h-8 text-green-500 flex-shrink-0" />}
+            {feedback.type === 'error' && <ExclamationTriangleIcon className="w-8 h-8 text-red-500 flex-shrink-0" />}
+            <div>
+              <p id="feedback-title" className="font-semibold text-gray-800 dark:text-white">
+                {feedback.type === 'loading' ? 'Generando PDF' : feedback.type === 'success' ? 'Éxito' : 'Error'}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{feedback.message}</p>
+              {feedback.type !== 'loading' && (
+                <button onClick={() => setFeedback(null)} className="mt-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">
+                  Cerrar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         ref={contentRef}
         style={{
@@ -164,14 +186,13 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
           position: 'absolute',
           left: '-9999px',
           top: '0px',
-          backgroundColor: 'white', // Fondo blanco explícito para la captura
+          backgroundColor: 'white',
           padding: '0', margin: '0', border: 'none',
         }}
         aria-hidden="true"
       >
         {pdfData && <PDFTemplate orden={pdfData.orden} camara={pdfData.camara} />}
       </div>
-      {pdfError && <p className="text-xs text-red-500 mt-1" role="alert">Error PDF: {pdfError}</p>}
     </>
   );
 };
