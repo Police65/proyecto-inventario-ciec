@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 const INACTIVITY_WARNING_TIME = 10 * 60 * 1000; // 10 minutos para mostrar advertencia de inactividad
@@ -54,7 +55,7 @@ export function useInactivityTimer({ onLogout, isUserActive }: UseInactivityTime
     setTimeLeft(COUNTDOWN_DURATION); // Resetear cuenta regresiva
 
     if (isUserActive) { // Solo activar si el usuario está activo/logueado
-      localStorage.setItem("sessionTime", Date.now().toString()); // Actualizar tiempo de última actividad
+      sessionStorage.setItem("sessionTime", Date.now().toString()); // Actualizar tiempo de última actividad
 
       // Programar la advertencia
       warningTimer.current = window.setTimeout(() => {

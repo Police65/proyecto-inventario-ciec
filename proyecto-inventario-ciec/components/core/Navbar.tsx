@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
-import { UserProfile, Notificacion } from '../../types';
+import { UserProfile, Notificacion, Database } from '../../types';
 import ThemeToggle from './ThemeToggle';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription'; // Importar el nuevo hook
 import { Bars3Icon, BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';

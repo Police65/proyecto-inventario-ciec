@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Empleado, UserProfile, Cargo, Departamento, EmpleadoCargoHistorial, UserProfileRol, EmpleadoEstado, Database } from '../../types';
 import { PlusCircleIcon, PencilIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, EyeIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
-import type { AuthError } from '@supabase/supabase-js';
+import { AuthError } from '@supabase/supabase-js';
 
 const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-70 dark:disabled:opacity-50";
 const btnPrimaryClasses = "flex items-center justify-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md shadow-sm text-sm disabled:bg-primary-400 dark:disabled:bg-primary-700 disabled:cursor-not-allowed";
@@ -57,7 +58,7 @@ const countryCodes = [
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 
-const UserManagement: React.FC = () => {
+export const UserManagement: React.FC = () => {
   const [empleados, setEmpleados] = useState<EmpleadoWithProfile[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
@@ -189,7 +190,7 @@ const UserManagement: React.FC = () => {
       }
       
       // --- Create or Update Empleado ---
-      const empleadoPayload: Database['public']['Tables']['empleado']['Insert'] = { nombre: nombre!, apellido: apellido!, cedula: cedula!, cargo_actual_id: cargo_actual_id!, departamento_id: departamento_id!, estado: estado || 'activo', telefono: fullPhoneNumber };
+      const empleadoPayload = { nombre: nombre!, apellido: apellido!, cedula: cedula!, cargo_actual_id: cargo_actual_id!, departamento_id: departamento_id!, estado: estado || 'activo', telefono: fullPhoneNumber };
       if (isEditing) {
         const { error: empUpdateError } = await supabase.from('empleado').update(empleadoPayload).eq('id', formData.id!);
         if (empUpdateError) throw new Error(`Error actualizando empleado: ${empUpdateError.message}`);
@@ -205,7 +206,8 @@ const UserManagement: React.FC = () => {
             id: authUserId!,
             empleado_id: newEmpleadoId!,
             departamento_id: departamento_id,
-            rol: rol as UserProfileRol
+            rol: rol as UserProfileRol,
+            email: email,
         };
         const { error: profileError } = await supabase.from('user_profile').upsert(profilePayload);
         if (profileError) throw new Error(`Error guardando perfil: ${profileError.message}`);
@@ -445,5 +447,3 @@ const UserManagement: React.FC = () => {
     </div>
   );
 };
-
-export default UserManagement;

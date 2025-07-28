@@ -1,7 +1,14 @@
 
-import { createClient, SupabaseClient, AuthStorage } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, PARTNER_SUPABASE_URL, PARTNER_SUPABASE_ANON_KEY } from './config';
 import { Database, SolicitudCompra, Producto, PartnerDatabaseSchema, PartnerEvent, PartnerMeeting } from './types'; // SolicitudCompraDetalle ya no se usa aquí
+
+// AuthStorage is not exported in Supabase v2. This is a local definition for type safety.
+interface AuthStorage {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+}
 
 // Asegurar que las variables de configuración de Supabase estén provistas
 if (!SUPABASE_URL) {
@@ -13,10 +20,10 @@ if (!SUPABASE_ANON_KEY) {
 
 export const supabase: SupabaseClient<Database> = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: localStorage, // Usar localStorage para persistencia de sesión
+    storage: sessionStorage, // Usar sessionStorage para que la sesión dure solo mientras la pestaña del navegador esté abierta.
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // Útil si se usa OAuth, pero desactivado por ahora
+    detectSessionInUrl: false,
   },
 });
 
@@ -105,6 +112,23 @@ export const fetchExternalMeetings = async (limit = 20): Promise<PartnerMeeting[
   }
 };
 
+type AgrupableSolicitud = {
+  id: number;
+  estado: string;
+  detalles: {
+    producto_id: number | null;
+    cantidad: number;
+    producto: {
+      id: number;
+      descripcion: string;
+      categoria_id: number | null;
+    } | null;
+  }[];
+  empleado: {
+    nombre: string;
+    apellido: string;
+  } | null;
+};
 
 // Agrupar Solicitudes (lógica para encontrar solicitudes similares para posible consolidación)
 export const agruparSolicitudes = async (solicitudId: number) => {
@@ -170,7 +194,7 @@ export const agruparSolicitudes = async (solicitudId: number) => {
   }
   // Nota: El filtrado por categoría se hace en la función `agruparPorCategoria` después de obtener los datos.
 
-  const { data: agrupables, error: agrupablesError } = await query;
+  const { data: agrupables, error: agrupablesError } = await query.returns<AgrupableSolicitud[]>();
 
   if (agrupablesError) {
     console.error("Error al obtener solicitudes agrupables:", agrupablesError);
@@ -185,12 +209,12 @@ export const agruparSolicitudes = async (solicitudId: number) => {
 };
 
 // Función auxiliar para agrupar por producto
-const agruparPorProducto = (solicitudes: any[]) => {
+const agruparPorProducto = (solicitudes: AgrupableSolicitud[]) => {
   // Objeto para mantener los grupos, la clave es el ID del producto
   const grupos: { [key: number]: { producto_id: number; descripcion?: string; cantidadTotal: number; solicitudes: Set<number>; detalles: any[] } } = {};
   
   solicitudes?.forEach(solicitud => {
-    solicitud.detalles?.forEach((detalle: any) => {
+    solicitud.detalles?.forEach((detalle) => {
       if (!detalle.producto_id || !detalle.producto) return; // Saltar si no hay producto o ID de producto
 
       const productoId = detalle.producto_id;
@@ -215,11 +239,11 @@ const agruparPorProducto = (solicitudes: any[]) => {
 };
 
 // Función auxiliar para agrupar por categoría
-const agruparPorCategoria = (solicitudes: any[], categoriasPermitidas: number[]) => {
+const agruparPorCategoria = (solicitudes: AgrupableSolicitud[], categoriasPermitidas: number[]) => {
   const grupos: { [key: number]: { categoria_id: number; cantidadTotal: number; solicitudes: Set<number>; productos: Set<number>; detalles: any[] } } = {};
   
   solicitudes?.forEach(solicitud => {
-    solicitud.detalles?.forEach((detalle: any) => {
+    solicitud.detalles?.forEach((detalle) => {
       const categoriaId = detalle.producto?.categoria_id; 
       if (!categoriaId) return; // Saltar si no hay ID de categoría
 

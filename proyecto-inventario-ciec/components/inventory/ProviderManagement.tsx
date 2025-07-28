@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Proveedor, CategoriaProveedor, ProveedorTipoContribuyente } from '../../types';
+import { Proveedor, CategoriaProveedor, ProveedorTipoContribuyente, Database } from '../../types';
 import { PlusCircleIcon, PencilIcon, TrashIcon, ArrowPathIcon, TagIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 

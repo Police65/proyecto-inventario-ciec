@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { SolicitudCompra, OrdenCompra, UserProfile, OrdenConsolidada, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, Proveedor, OrdenCompraDetalle as OrdenCompraDetalleType, CategoriaProducto, NotificacionInsert } from '../types';
+import { SolicitudCompra, OrdenCompra, UserProfile, OrdenConsolidada, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, Proveedor, OrdenCompraDetalle as OrdenCompraDetalleType, CategoriaProducto, NotificacionInsert, Database } from '../types';
 import LoadingSpinner from '../components/core/LoadingSpinner';
 import { THRESHOLD_ORDEN_GRANDE } from '../config'; // Importar umbral de valor
 import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } from '../services/notificationService'; // Importar servicio de notificaciones
@@ -10,8 +10,8 @@ import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } f
 // Importar componentes individuales que conforman el dashboard
 import RequestTable from '../components/requests/RequestTable';
 import OrderTable from '../components/orders/OrderTable';
-import UserManagement from '../components/admin/UserManagement';
-import DepartmentManagement from '../components/admin/DepartmentManagement'; // IMPORT NEW COMPONENT
+import { UserManagement } from '../components/admin/UserManagement';
+import { DepartmentManagement } from '../components/admin/DepartmentManagement'; // IMPORT NEW COMPONENT
 import ConsolidatedOrderTable from '../components/orders/ConsolidatedOrderTable';
 
 // Modales

@@ -22,9 +22,9 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Estado para la visibilidad de la barra lateral, persistido en localStorage.
+  // Estado para la visibilidad de la barra lateral, persistido en sessionStorage.
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    const storedSidebarState = localStorage.getItem('sidebarOpen');
+    const storedSidebarState = sessionStorage.getItem('sidebarOpen');
     const onMainPage = location.pathname === '/home' || location.pathname === '/'; // ¿Está en la página principal?
     
     if (storedSidebarState !== null) { // Si hay un estado guardado, usarlo.
@@ -61,10 +61,10 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
       setHasInteracted(true); // Marcar como interactuado si carga en una página que no es la principal.
       // Si es la primera vez que no está en la página principal y no hay estado de sidebar guardado,
       // decidir si la sidebar debe estar abierta por defecto en pantallas grandes.
-      if (localStorage.getItem('sidebarOpen') === null) {
+      if (sessionStorage.getItem('sidebarOpen') === null) {
         const shouldBeOpenByDefault = window.innerWidth >= 1024;
         setIsSidebarOpen(shouldBeOpenByDefault);
-        localStorage.setItem('sidebarOpen', String(shouldBeOpenByDefault));
+        sessionStorage.setItem('sidebarOpen', String(shouldBeOpenByDefault));
       }
     }
   }, [location.pathname, hasInteracted, isOnMainPage]); // Dependencias para re-evaluar
@@ -93,7 +93,7 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
   const toggleSidebar = useCallback(() => {
     const newIsOpen = !isSidebarOpen;
     setIsSidebarOpen(newIsOpen);
-    localStorage.setItem('sidebarOpen', String(newIsOpen)); // Guardar estado
+    sessionStorage.setItem('sidebarOpen', String(newIsOpen)); // Guardar estado
     if (!hasInteracted) { // Si es la primera interacción, marcarla.
       setHasInteracted(true);
     }
@@ -118,7 +118,7 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
       // Si desliza hacia la derecha lo suficiente Y la barra está cerrada -> Abrir sidebar.
       if (deltaX > SWIPE_THRESHOLD && !isSidebarOpen) { 
         setIsSidebarOpen(true);
-        localStorage.setItem('sidebarOpen', 'true');
+        sessionStorage.setItem('sidebarOpen', 'true');
         if (!hasInteracted) setHasInteracted(true);
       }
       // (Podría añadirse lógica para cerrar con swipe hacia la izquierda si está abierta)
@@ -140,13 +140,13 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
     if (window.innerWidth < 1024 && isSidebarOpen) { // Si es pantalla pequeña y la sidebar está abierta
       // Comprobar si la ruta actual es diferente a la última ruta donde se interactuó con la sidebar.
       // Esto evita que se cierre si el usuario solo abrió y cerró la sidebar sin navegar.
-      if (location.pathname !== (localStorage.getItem('lastPathForSidebarToggle') || '')) {
+      if (location.pathname !== (sessionStorage.getItem('lastPathForSidebarToggle') || '')) {
         setIsSidebarOpen(false);
-        localStorage.setItem('sidebarOpen', 'false');
+        sessionStorage.setItem('sidebarOpen', 'false');
       }
     }
     // Guardar la ruta actual para la próxima comparación.
-    localStorage.setItem('lastPathForSidebarToggle', location.pathname);
+    sessionStorage.setItem('lastPathForSidebarToggle', location.pathname);
   }, [location.pathname, isSidebarOpen]);
 
 

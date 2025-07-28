@@ -1,10 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import type { Session, User, PostgrestSingleResponse, PostgrestError, AuthError } from '@supabase/supabase-js';
+import { Session, User, AuthError } from '@supabase/supabase-js';
 import { UserProfile, Empleado, UserProfileRol } from '../types';
-
-const USER_PROFILE_FETCH_TIMEOUT_MS = 30000;
-const INTERNAL_QUERY_TIMEOUT_MS = 30000;
 
 interface AuthHookResult {
   session: Session | null;
@@ -16,144 +13,138 @@ interface AuthHookResult {
   logout: () => Promise<void>;
 }
 
-export function useAuth(): AuthHookResult {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState<boolean>(true); // Iniciar en estado de carga hasta que se determine el estado de autenticación inicial
-  const [error, setError] = useState<Error | null>(null);
-
-  const fetchUserProfile = useCallback(async (userId: string, userEmail?: string | null): Promise<UserProfile | null> => {
-    type SelectedUserProfileData = {
-      id: string;
-      rol: UserProfileRol | null;
-      empleado_id: number | null;
-      departamento_id: number | null;
-      departamento: { id: number; nombre: string } | null;
-    };
-
+// Se mueve fuera del hook para asegurar que sea una función estable y no se recree en cada render.
+const fetchUserProfile = async (userId: string, userEmail?: string | null): Promise<UserProfile | null> => {
+  const fetchPromise = (async () => {
     try {
-      const userProfileQuery = supabase
+      type SelectedUserProfileData = {
+        id: string;
+        rol: UserProfileRol | null;
+        empleado_id: number | null;
+        departamento_id: number | null;
+        departamento: { id: number; nombre: string; estado: 'activo' | 'inactivo'; } | null;
+      };
+
+      const { data: basicProfileData, error: rawBasicProfileError } = await supabase
         .from("user_profile")
-        .select(`id, rol, empleado_id, departamento_id, departamento:departamento_id(id, nombre)`)
+        .select(`id, rol, empleado_id, departamento_id, departamento:departamento_id(id, nombre, estado)`)
         .eq("id", userId)
         .single<SelectedUserProfileData>();
+
+      if (rawBasicProfileError) throw rawBasicProfileError;
+      if (!basicProfileData) return null;
       
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout: La obtención del perfil básico del usuario tardó demasiado.")), USER_PROFILE_FETCH_TIMEOUT_MS)
-      );
-
-      const { data: basicProfileData, error: rawBasicProfileError } = await Promise.race([
-        userProfileQuery,
-        timeoutPromise,
-      ]);
-
-      if (rawBasicProfileError) {
-        throw rawBasicProfileError;
-      }
-
-      if (!basicProfileData) {
-        return null;
-      }
-
       const completeProfile: UserProfile = {
-        id: basicProfileData.id,
-        email: userEmail || undefined,
-        rol: basicProfileData.rol,
-        empleado_id: basicProfileData.empleado_id,
-        departamento_id: basicProfileData.departamento_id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        id: basicProfileData.id, email: userEmail || undefined, rol: basicProfileData.rol,
+        empleado_id: basicProfileData.empleado_id, departamento_id: basicProfileData.departamento_id,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         departamento: basicProfileData.departamento ? {
           ...basicProfileData.departamento,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         } : undefined,
         empleado: undefined,
       };
 
       if (completeProfile.empleado_id) {
-        const empleadoQuery = supabase
+        const { data: empleadoData, error: rawEmpleadoError } = await supabase
           .from("empleado")
           .select(`id, estado, nombre, apellido, departamento_id, cargo_actual_id, cedula, firma, telefono`)
           .eq("id", completeProfile.empleado_id)
           .single<Partial<Empleado>>();
 
-        const timeoutPromiseEmpleado = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout: La obtención de detalles del empleado tardó demasiado.")), INTERNAL_QUERY_TIMEOUT_MS)
-        );
-
-        const { data: empleadoData, error: rawEmpleadoError } = await Promise.race([
-          empleadoQuery,
-          timeoutPromiseEmpleado,
-        ]);
-
-        if (rawEmpleadoError) {
-          console.error(`[useAuth] Error al obtener detalles del empleado:`, rawEmpleadoError);
-        } else if (empleadoData) {
-          completeProfile.empleado = {
-            ...empleadoData,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          } as Empleado;
-        }
+        if (rawEmpleadoError) console.error(`[useAuth] Error al obtener detalles del empleado:`, rawEmpleadoError);
+        else if (empleadoData) completeProfile.empleado = { ...empleadoData, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as Empleado;
       }
       return completeProfile;
-    } catch (e) {
-      console.error(`[useAuth] fetchUserProfile: Error procesando perfil para usuario ${userId}.`, e);
-      throw e;
+    } catch (e: any) {
+        console.error(`[useAuth] fetchUserProfile (dentro de Promise.race): Error procesando perfil para usuario ${userId}.`, e);
+        throw e;
     }
+  })();
+
+  const timeoutPromise = new Promise<null>((_, reject) =>
+    setTimeout(() => reject(new Error("La obtención del perfil de usuario tardó demasiado. Por favor, recargue la página.")), 60000)
+  );
+
+  try {
+      return await Promise.race([fetchPromise, timeoutPromise]);
+  } catch (e) {
+      console.error(`[useAuth] fetchUserProfile: Error o timeout procesando perfil para usuario ${userId}.`, e);
+      throw e;
+  }
+};
+
+
+export function useAuth(): AuthHookResult {
+  const [session, setSession] = useState<Session | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  // EFECTO 1: Manejar cambios de estado de autenticación de Supabase.
+  // Su única responsabilidad es mantener el estado `session` sincronizado.
+  useEffect(() => {
+    // Para la carga inicial, obtenemos la sesión inmediatamente.
+    // Esto evita un parpadeo y acelera la carga.
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      // El segundo efecto se encargará de la lógica de carga y perfil.
+    });
+
+    // Escuchamos cambios futuros (login, logout, refresh de token).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log(`[useAuth] onAuthStateChange event: '${_event}'`);
+      setSession(session);
+    });
+
+    // Limpieza al desmontar el componente.
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
+  // EFECTO 2: Reaccionar a los cambios en `session`.
+  // Se encarga de buscar el perfil de usuario y gestionar los estados de carga y error.
   useEffect(() => {
-    // onAuthStateChange es la única fuente de verdad para los cambios de autenticación.
-    // Dispara un evento 'INITIAL_SESSION' al cargar la página, que maneja la verificación inicial.
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log(`[useAuth] onAuthStateChange event: '${event}'`);
-
-      if (currentSession) {
-        // Este bloque maneja SIGNED_IN y INITIAL_SESSION (si existe una sesión)
-        setSession(currentSession);
-        setUser(currentSession.user);
-
-        // Se busca el perfil del usuario.
-        try {
-          const profile = await fetchUserProfile(currentSession.user.id, currentSession.user.email);
+    // Si hay una sesión, intentamos buscar el perfil del usuario.
+    if (session?.user) {
+      // Solo mostramos el spinner de carga si aún no tenemos un perfil para este usuario.
+      // Esto previene un parpadeo de "cargando" durante un simple refresco de token.
+      if (!userProfile || userProfile.id !== session.user.id) {
+          setLoading(true);
+      }
+      setError(null);
+      
+      fetchUserProfile(session.user.id, session.user.email)
+        .then(profile => {
           if (profile?.empleado?.estado === 'activo') {
             setUserProfile(profile);
-            localStorage.setItem("userProfile", JSON.stringify(profile));
-            setError(null);
+            sessionStorage.setItem("userProfile", JSON.stringify(profile));
+            setError(null); // Limpiar errores previos
           } else {
             const reason = profile ? "Su cuenta de empleado está inactiva." : "No se encontró un perfil de usuario válido.";
             setError(new Error(reason));
             setUserProfile(null);
-            localStorage.removeItem("userProfile");
+            sessionStorage.removeItem("userProfile");
           }
-        } catch (fetchError) {
+        })
+        .catch(fetchError => {
           setError(fetchError instanceof Error ? fetchError : new Error("No se pudo cargar su perfil de usuario."));
           setUserProfile(null);
-          localStorage.removeItem("userProfile");
-        } finally {
-            // CRITICAL FIX: Set loading to false only after the profile fetch attempt is complete.
-            // This prevents a race condition in App.tsx where session is set but profile is not,
-            // which was causing an infinite redirect loop.
-            setLoading(false);
-        }
-      } else {
-        // Este bloque maneja SIGNED_OUT y INITIAL_SESSION (si no existe sesión)
-        setSession(null);
-        setUser(null);
-        setUserProfile(null);
-        localStorage.removeItem("userProfile");
-        setError(null);
-        setLoading(false); // Finish loading when no session is found.
-      }
-    });
+          sessionStorage.removeItem("userProfile");
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else {
+      // Si no hay sesión (logout o sesión expirada), limpiamos el perfil y detenemos la carga.
+      setUserProfile(null);
+      setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]); // Este efecto depende únicamente del objeto `session`.
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [fetchUserProfile]); // El array de dependencias SOLO debe contener 'fetchUserProfile' que es estable.
+  const user = session?.user ?? null;
 
   const login = async (email: string, password: string) => {
     setLoading(true);
@@ -161,14 +152,14 @@ export function useAuth(): AuthHookResult {
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
-      // El éxito es manejado por onAuthStateChange.
+      // La actualización de estado se manejará por el listener de onAuthStateChange.
     } catch (e) {
       const authError = e as AuthError;
       const errorMessage = authError.message.includes("Invalid login credentials")
         ? "Credenciales inválidas. Por favor, verifica tu email y contraseña."
         : authError.message || "Error desconocido durante el inicio de sesión.";
       setError(new Error(errorMessage));
-      setLoading(false); // Establecer manualmente la carga a falso en caso de fallo de inicio de sesión
+      setLoading(false); 
       throw new Error(errorMessage);
     }
   };
@@ -179,11 +170,12 @@ export function useAuth(): AuthHookResult {
     try {
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) throw signOutError;
-      // onAuthStateChange se encargará de la limpieza del estado.
+       // La limpieza de estado se manejará por el listener de onAuthStateChange.
     } catch (e) {
       const error = e as Error;
       setError(error);
-      setLoading(false); // Establecer manualmente la carga a falso en caso de fallo al cerrar sesión
+    } finally {
+        setLoading(false);
     }
   };
 

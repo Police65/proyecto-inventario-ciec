@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Departamento } from '../../types';
@@ -10,7 +11,7 @@ const btnSecondaryClasses = "px-4 py-2 text-sm font-medium text-gray-700 dark:te
 
 type FormData = Partial<Departamento>;
 
-const DepartmentManagement: React.FC = () => {
+export const DepartmentManagement: React.FC = () => {
     const [departments, setDepartments] = useState<Departamento[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -75,7 +76,7 @@ const DepartmentManagement: React.FC = () => {
                 const { error: updateError } = await supabase.from('departamento').update(departmentPayload).eq('id', formData.id);
                 if (updateError) throw updateError;
             } else {
-                const { error: insertError } = await supabase.from('departamento').insert(departmentPayload);
+                const { error: insertError } = await supabase.from('departamento').insert([departmentPayload]);
                 if (insertError) throw insertError;
             }
             setIsModalOpen(false);
@@ -211,5 +212,3 @@ const DepartmentManagement: React.FC = () => {
         </div>
     );
 };
-
-export default DepartmentManagement;

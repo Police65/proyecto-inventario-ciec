@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 // @ts-ignore
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { RequestForm } from '../components/requests/RequestForm'; // Se cambió a importación nombrada
-import { UserProfile, NotificacionInsert } from '../types';
+import { UserProfile, NotificacionInsert, Database } from '../types';
 import { generateDescription as aiGenerateDescription } from '../services/aiService';
 import { createNotifications, fetchAdminUserIds } from '../services/notificationService'; // Importar servicio de notificaciones
 import { ArrowPathIcon } from '@heroicons/react/24/outline'; 

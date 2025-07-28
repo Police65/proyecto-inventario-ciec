@@ -1,7 +1,7 @@
 // hooks/useRealtimeSubscription.ts
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import type { RealtimeChannel, RealtimePostgresChangesPayload, SupabaseClient } from '@supabase/supabase-js';
+import { RealtimeChannel, RealtimePostgresChangesPayload, SupabaseClient } from '@supabase/supabase-js';
 
 const MAX_RETRY_ATTEMPTS = 5; // Máximo de intentos antes de rendirse
 

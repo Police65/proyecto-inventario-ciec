@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { OrdenCompra, OrdenCompraEstado, NotificacionInsert } from '../../types';
+import { OrdenCompra, OrdenCompraEstado, NotificacionInsert, Database } from '../../types';
 import { supabase } from '../../supabaseClient';
 import { CheckCircleIcon, XCircleIcon, ArrowUturnLeftIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { OrderCompletionForm } from './OrderCompletionForm'; 
