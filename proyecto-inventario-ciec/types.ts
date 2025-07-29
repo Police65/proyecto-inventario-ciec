@@ -60,6 +60,9 @@ export interface Empleado {
   telefono?: string | null;
   created_at: string;
   updated_at: string;
+  // Propiedades de relación (cargadas con JOINs)
+  cargo?: Pick<Cargo, 'id' | 'nombre'>;
+  departamento?: Pick<Departamento, 'id' | 'nombre'>;
 }
 
 export interface EmpleadoCargoHistorial {
@@ -70,6 +73,8 @@ export interface EmpleadoCargoHistorial {
   fecha_fin?: string | null;
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  cargo?: Pick<Cargo, 'nombre'>;
 }
 
 export interface FacturaOrden {
@@ -92,6 +97,8 @@ export interface Inventario {
   existencias?: number | null;
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  producto?: Producto & { categoria?: Pick<CategoriaProducto, 'nombre'> };
 }
 
 // Tabla de unión entre OrdenCompra y SolicitudCompra
@@ -127,6 +134,11 @@ export interface OrdenCompra {
   updated_at: string;
   fecha_entrega_estimada?: string | null;
   fecha_entrega_real?: string | null;
+  // Propiedades de relación
+  proveedor?: Proveedor;
+  empleado?: Empleado;
+  solicitud_compra?: Partial<SolicitudCompra>;
+  detalles?: (OrdenCompraDetalle & { producto?: Producto })[];
 }
 
 export interface OrdenCompraDetalle {
@@ -139,6 +151,8 @@ export interface OrdenCompraDetalle {
   created_at: string;
   updated_at: string;
   descripcion_producto_personalizado?: string | null;
+  // Propiedades de relación
+  producto?: Producto;
 }
 
 export interface OrdenConsolidada {
@@ -150,6 +164,8 @@ export interface OrdenConsolidada {
   solicitudes: number[];
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  proveedor?: Pick<Proveedor, 'id' | 'nombre'>;
 }
 
 export interface Producto {
@@ -162,6 +178,8 @@ export interface Producto {
   codigo_interno?: string | null;
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  categoria?: CategoriaProducto;
 }
 
 // Productos que no se recibieron completamente en una orden
@@ -204,6 +222,8 @@ export interface Proveedor {
   porcentaje_retencion_iva: number;
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  categorias?: ({ categoria_id: number; categoria?: Pick<CategoriaProveedor, 'id' | 'nombre'> })[];
 }
 
 // Tabla de unión para relación muchos-a-muchos entre Proveedor y CategoriaProveedor
@@ -225,6 +245,10 @@ export interface SolicitudCompra {
   departamento_id: number;
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  empleado?: Empleado;
+  departamento?: Departamento;
+  detalles?: (SolicitudCompraDetalle & { producto?: Producto & { categoria?: CategoriaProducto } })[];
 }
 
 export interface SolicitudCompraDetalle {
@@ -235,18 +259,25 @@ export interface SolicitudCompraDetalle {
   descripcion_producto_personalizado?: string | null;
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  producto?: Producto;
 }
 
 export type UserProfileRol = 'admin' | 'usuario'; // Roles de usuario en la aplicación
 
 export interface UserProfile {
-  id: string;
-  email?: string | null;
-  empleado_id?: number | null;
-  departamento_id?: number | null;
+  id: string; // PK, FK a auth.users.id
+  empleado_id?: number | null; // FK a 'empleado'
+  departamento_id?: number | null; // FK a 'departamento'
   rol?: UserProfileRol | null;
   created_at: string;
   updated_at: string;
+  // La propiedad 'email' se añade en el cliente combinando datos de auth.users.
+  // No existe como columna en la tabla 'user_profile'.
+  email?: string | null; 
+  // Propiedades de relación
+  empleado?: Empleado;
+  departamento?: Departamento;
 }
 
 export interface Notificacion {
@@ -279,6 +310,9 @@ export interface ConsumoHistoricoProducto {
   descripcion_adicional?: string | null;
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  producto?: Pick<Producto, 'id' | 'descripcion'>;
+  departamento?: Pick<Departamento, 'id' | 'nombre'>;
 }
 
 export interface RendimientoProveedor {
@@ -295,6 +329,9 @@ export interface RendimientoProveedor {
   observaciones?: string | null;
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  proveedor?: Pick<Proveedor, 'nombre'>;
+  orden_compra?: Pick<OrdenCompra, 'id' | 'fecha_orden'>;
 }
 
 export interface MetricasProductoMensual {
@@ -308,6 +345,8 @@ export interface MetricasProductoMensual {
   numero_ordenes?: number;
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  producto?: Pick<Producto, 'id' | 'descripcion'>;
 }
 
 // Para registrar qué compras se hicieron específicamente para un evento externo
