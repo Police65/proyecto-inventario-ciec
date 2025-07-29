@@ -40,7 +40,7 @@ function getLocalIpAddress() {
 }
 
 const server = http.createServer((req, res) => {
-    // La lógica para servir archivos se mantiene igual...
+
     console.log(`Petición recibida para: ${req.url}`);
     const normalizedUrl = path.normalize(decodeURIComponent(req.url));
     let resourcePath = (normalizedUrl === path.sep) ? '/index.html' : normalizedUrl;
@@ -74,20 +74,19 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOSTNAME, () => {
     const localIp = getLocalIpAddress();
     console.log('=================================================');
-    console.log('       🚀 Servidor Personalizado Iniciado 🚀     ');
+    console.log('    🚀 Servidor de RequiSoftware iniciado 🚀    ');
     console.log('=================================================');
     console.log(`✅ Escuchando en el puerto: ${PORT}`);
     console.log(`✅ Accesible en este equipo: http://localhost:${PORT}`);
     console.log(`✅ Accesible en tu red local: http://${localIp}:${PORT}`);
 
-    // --- 2. INICIAMOS Y PUBLICAMOS EL SERVICIO BONJOUR ---
+    // --- SERVICIO BONJOUR ---
     try {
         const bonjourInstance = new Bonjour();
-        const serviceName = 'Inventario CIEC'; // Puedes cambiar este nombre
+        const serviceName = 'RequiSoftware';
         bonjourInstance.publish({ name: serviceName, type: 'http', port: PORT });
         
-        // El nombre de host se genera automáticamente a partir del serviceName
-        // Ej: "Inventario CIEC" se convierte en "inventario-ciec.local"
+
         const hostname = serviceName.replace(/\s/g, '-').toLowerCase() + '.local';
 
         console.log(`✅ Nombre amigable (mDNS):   http://${hostname}:${PORT}`);
