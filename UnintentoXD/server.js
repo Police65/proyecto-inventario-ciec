@@ -1,11 +1,12 @@
 const http = require('http');
-const fs =require('fs');
+const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const PORT = 3000;
-const HOSTNAME = '0.0.0.0';
-const basePath = path.join(__dirname, 'RequiSoftware');
+// Usamos variables de entorno para la configuración
+const PORT = process.env.PORT || 3000;
+const HOSTNAME = process.env.HOSTNAME || '0.0.0.0';
+const basePath = process.env.BASE_PATH || path.join(__dirname, 'dist'); // ¡Ahora es dinámico!
 
 const mimeTypes = {
     '.html': 'text/html',
@@ -41,15 +42,13 @@ function getLocalIpAddress() {
 const server = http.createServer((req, res) => {
     console.log(`Petición recibida para: ${req.url}`);
     const normalizedUrl = path.normalize(decodeURIComponent(req.url));
-    let resourcePath = (normalizedUrl === path.sep) ? '/index.html' : normalizedUrl;
-    if (resourcePath.startsWith(path.sep)) {
-        resourcePath = resourcePath.substring(1);
-    }
+    let resourcePath = (normalizedUrl === path.sep) ? 'index.html' : normalizedUrl.substring(1);
+    
     const filePath = path.join(basePath, resourcePath);
 
     fs.stat(filePath, (err, stats) => {
         if (err || !stats.isFile()) {
-            console.log(`Recurso no encontrado, sirviendo index.html como fallback.`);
+            console.log(`Recurso no encontrado en ${filePath}, sirviendo index.html como fallback.`);
             fs.readFile(path.join(basePath, 'index.html'), (error, content) => {
                 if (error) {
                     res.writeHead(500, { 'Content-Type': 'text/plain' });
@@ -75,7 +74,9 @@ server.listen(PORT, HOSTNAME, () => {
     console.log('    🚀 Servidor de RequiSoftware iniciado 🚀    ');
     console.log('=================================================');
     console.log(`✅ Escuchando en el puerto: ${PORT}`);
+    console.log(`✅ Sirviendo desde: ${basePath}`);
     console.log(`✅ Accesible en este equipo: http://localhost:${PORT}`);
     console.log(`✅ Accesible en tu red local: http://${localIp}:${PORT}`);
     console.log('=================================================');
 });
+

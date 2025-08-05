@@ -3,9 +3,9 @@ const fs =require('fs');
 const path = require('path');
 const os = require('os');
 
-const PORT = 3000;
+const PORT = 3001;
 const HOSTNAME = '0.0.0.0';
-const basePath = path.join(__dirname, 'RequiSoftware');
+const basePath = path.join(__dirname, 'Biblioteca_digital');
 
 const mimeTypes = {
     '.html': 'text/html',
@@ -72,7 +72,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOSTNAME, () => {
     const localIp = getLocalIpAddress();
     console.log('=================================================');
-    console.log('    🚀 Servidor de RequiSoftware iniciado 🚀    ');
+    console.log('    🚀 Servidor de Gestor de Documentos iniciado 🚀    ');
     console.log('=================================================');
     console.log(`✅ Escuchando en el puerto: ${PORT}`);
     console.log(`✅ Accesible en este equipo: http://localhost:${PORT}`);

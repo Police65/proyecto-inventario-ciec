@@ -1,0 +1,253 @@
+{
+  "meta": {
+    "instanceId": "6052a1b29f061469e8139dae44556603650099c3365d7598798f132ae827fa1c"
+  },
+  "nodes": [
+    {
+      "id": "7cb53e04-9028-4a1d-8a9d-90e9404cdece",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -300,
+        60
+      ],
+      "parameters": {
+        "color": "#1B365D",
+        "width": 500,
+        "height": 520,
+        "content": "## WhatsApp Conversational AI with Gemini\n\nThis workflow connects to WhatsApp via Evolution API and uses Google's Gemini to generate intelligent responses to user messages.\n\n### How it works\n1.  **Webhook** receives a notification when a new message arrives from a user.\n2.  **Set Variables** node holds all your important credentials like API keys and URLs.\n3.  **Filter** checks that the message is not from a group chat.\n4.  **Call Gemini API** sends the user's message to Google Gemini for processing.\n5.  **Send WhatsApp Reply** sends the AI-generated response back to the user.\n\n### Setup Instructions\n1.  Fill in all the values in the **\"⚙️ Set Variables - Configure Here\"** node.\n2.  Copy the Webhook URL and configure it in your Evolution API instance for the `message.upsert` event.\n3.  Activate the workflow and test by sending a message to your WhatsApp number."
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "664a1877-b92e-4254-bd77-5b2fec53fe61",
+      "name": "Webhook - Receive WhatsApp Message",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        360,
+        260
+      ],
+      "webhookId": "69cde77c-86df-4573-96a3-3444732040c2",
+      "parameters": {
+        "path": "whatsapp-gemini-bot",
+        "options": {},
+        "httpMethod": "POST"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "9db51839-242e-45f8-bc39-6d191a4f130c",
+      "name": "Sticky Note 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        580,
+        60
+      ],
+      "parameters": {
+        "width": 240,
+        "content": "⚙️ **Set Variables - Configure Here**\n\nUpdate these values with your own credentials and preferences."
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "a4bae5fe-6215-4785-8014-53bcad7f44f3",
+      "name": "⚙️ Set Variables - Configure Here",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        600,
+        260
+      ],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "gemini-api-key",
+              "name": "geminiApiKey",
+              "type": "string",
+              "value": "YOUR_GEMINI_API_KEY_HERE"
+            },
+            {
+              "id": "evolution-api-key",
+              "name": "evolutionApiKey",
+              "type": "string",
+              "value": "YOUR_EVOLUTION_API_KEY_HERE"
+            },
+            {
+              "id": "instance-name",
+              "name": "instanceName",
+              "type": "string",
+              "value": "YourInstanceName"
+            },
+            {
+              "id": "evolution-url",
+              "name": "evolutionApiUrl",
+              "type": "string",
+              "value": "https://your-evolution-api.com"
+            },
+            {
+              "id": "system-prompt",
+              "name": "systemPrompt",
+              "type": "string",
+              "value": "You are a helpful and friendly assistant. Your name is Jarvis. Keep your answers concise and clear."
+            }
+          ]
+        }
+      },
+      "typeVersion": 3.4
+    },
+    {
+      "id": "890c7d0b-584f-4c42-9c62-75bf5823b93e",
+      "name": "Filter - Is not Group Chat",
+      "type": "n8n-nodes-base.filter",
+      "position": [
+        840,
+        260
+      ],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "version": 2,
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "check-group-id",
+              "operator": {
+                "name": "filter.operator.notContains",
+                "type": "string",
+                "operation": "notContains"
+              },
+              "leftValue": "={{ $json.body.data.key.remoteJid }}",
+              "rightValue": "@g.us"
+            }
+          ]
+        }
+      },
+      "typeVersion": 2.2
+    },
+    {
+      "id": "1b6d56e8-03f2-4fbe-a859-00ddbfb19715",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        840,
+        460
+      ],
+      "parameters": {
+        "url": "={{ $('⚙️ Set Variables - Configure Here').item.json.evolutionApiUrl }}/message/sendText/{{ $('⚙️ Set Variables - Configure Here').item.json.instanceName }}",
+        "method": "POST",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          },
+          "allowUnauthorizedCerts": true
+        },
+        "sendBody": true,
+        "sendHeaders": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $json.body.data.key.remoteJid }}"
+            },
+            {
+              "name": "options",
+              "type": "json",
+              "value": "{\n  \"delay\": 1200,\n  \"presence\": \"composing\"\n}"
+            },
+            {
+              "name": "textMessage",
+              "type": "json",
+              "value": "{\n\t\"text\": \"{{ $('Call Gemini API').item.json.candidates[0].content.parts[0].text }}\"\n}"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('⚙️ Set Variables - Configure Here').item.json.evolutionApiKey }}"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "2b3c4d5e-6f78-9a0b-c1d2-e3f4a5b6c7d8",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        600,
+        460
+      ],
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={{ $('⚙️ Set Variables - Configure Here').item.json.geminiApiKey }}",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "type": "json",
+              "value": "[\n\t{\n\t\t\"parts\": [\n\t\t\t{\"text\": \"{{ $('⚙️ Set Variables - Configure Here').item.json.systemPrompt }}\"},\n\t\t\t{\"text\": \"User message: {{ $json.body.data.message.conversation }}\"}\n\t\t]\n\t}\n]"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Filter - Is not Group Chat": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Set Variables - Configure Here": {
+      "main": [
+        [
+          {
+            "node": "Filter - Is not Group Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Receive WhatsApp Message": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Set Variables - Configure Here",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

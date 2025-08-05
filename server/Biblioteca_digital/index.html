@@ -1,0 +1,81 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestor Documental IA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              light: '#e0f2fe', // sky-100
+              DEFAULT: '#0ea5e9', // sky-500 (updated from sky-600 for better visibility with dark text)
+              dark: '#0369a1',  // sky-700
+            },
+            secondary: {
+              light: '#fef3c7', // amber-100
+              DEFAULT: '#f59e0b', // amber-500 (updated from amber-400)
+              dark: '#b45309', // amber-700
+            },
+            neutral: {
+              lightest: '#f9fafb', // gray-50
+              light: '#f3f4f6',    // gray-100
+              DEFAULT: '#9ca3af',   // gray-400
+              dark: '#374151',     // gray-700
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "react-router-dom": "https://esm.sh/react-router-dom@^6.24.1",
+    "@google/genai": "https://esm.sh/@google/genai@^1.3.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.45.0",
+    "recharts": "https://esm.sh/recharts@^2.12.7"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/assets/index-s5hh117S.js"></script>
+</head>
+<body class="bg-neutral-light">
+  <div id="root"></div>
+
+  <script>
+    // window.process.env no es necesario aquí, ya que las claves
+    // de Gemini y Supabase se gestionan ahora en config.ts
+    // y se importan directamente en sus respectivos servicios (geminiService.ts y supabaseClient.ts).
+
+    // Las advertencias de consola para las claves de Supabase se manejan
+    // ahora dentro de supabaseClient.ts.
+    // Las advertencias de consola para la clave de Gemini se manejan
+    // ahora dentro de geminiService.ts.
+  </script>
+
+  <!-- External libraries: PDF.js, Mammoth.js, SheetJS, and JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  
+  <!-- Entry point for React app - MUST BE LAST SCRIPT (except other type="module" if any) -->
+</body>
+</html>
