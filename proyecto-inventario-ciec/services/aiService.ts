@@ -12,10 +12,12 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
     return [];
   }
   try {
+    // FIX: Explicitly type the return to avoid 'never' type inference issues.
     const { data, error } = await supabase
       .from('producto')
       .select('id, descripcion')
-      .in('id', productIds);
+      .in('id', productIds)
+      .returns<{id: number, descripcion: string | null}[]>();
 
     if (error) {
       console.error('Error de Supabase al obtener nombres de productos:', error.message, error.details, error.code);

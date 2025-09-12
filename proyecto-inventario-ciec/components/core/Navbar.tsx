@@ -3,10 +3,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { UserProfile, Notificacion, Database } from '../../types';
-import ThemeToggle from './ThemeToggle';
 import { useRealtimeSubscription } from '../../hooks/useRealtimeSubscription'; // Importar el nuevo hook
 import { Bars3Icon, BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { LIGHT_MODE_LOGO_URL, DARK_MODE_LOGO_URL } from '../../assets/paths';
+import ThemeToggle from './ThemeToggle';
 
 
 interface CustomNavbarProps {
@@ -136,8 +136,9 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
         <div className="flex items-center">
           <button
             onClick={handleToggleSidebarAndInteract} 
-            className="p-1 sm:p-2 rounded-md text-gray-500 hover:text-primary-500 dark:text-gray-400 dark:hover:text-primary-400 focus:outline-none"
+            className="p-1 sm:p-2 rounded-md text-gray-500 hover:text-primary-500 dark:text-gray-400 dark:hover:text-primary-400 focus:outline-none transition-transform duration-150 ease-in-out active:scale-95"
             aria-label="Alternar barra lateral"
+            data-tour-id="navbar-sidebar-toggle"
           >
             <Bars3Icon className="w-6 h-6" /> 
           </button>
@@ -151,13 +152,12 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
         </div>
 
         <div className="flex items-center space-x-3 ml-auto"> 
-          <ThemeToggle /> 
-
+          <ThemeToggle />
           <div className="relative">
             <button
               ref={notificationRef}
               onClick={() => { setShowNotifications(!showNotifications); setHasInteracted(true); }}
-              className="p-2 rounded-md text-gray-500 hover:text-primary-500 dark:text-gray-400 dark:hover:text-primary-400 focus:outline-none relative"
+              className="p-2 rounded-md text-gray-500 hover:text-primary-500 dark:text-gray-400 dark:hover:text-primary-400 focus:outline-none relative transition-transform duration-150 ease-in-out active:scale-95"
               aria-haspopup="true"
               aria-expanded={showNotifications}
               aria-label={hasSubscriptionError ? "Error en notificaciones en tiempo real" : `Notificaciones (${notifications.length} no leídas)`}
@@ -199,7 +199,7 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
                           </p>
                           <button
                             onClick={() => notification.id && handleMarkNotificationAsRead(notification.id)}
-                            className="text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300 mt-1"
+                            className="text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300 mt-1 transition-transform duration-150 ease-in-out active:scale-95"
                           >
                             Marcar como leída
                           </button>
@@ -218,10 +218,11 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
             <button
               ref={profileRef} 
               onClick={() => { setShowProfileMenu(!showProfileMenu); setHasInteracted(true);}}
-              className="p-1 flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-primary-500"
+              className="p-1 flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-primary-500 transition-transform duration-150 ease-in-out active:scale-95"
               aria-haspopup="true"
               aria-expanded={showProfileMenu}
               aria-label="Menú de usuario"
+              data-tour-id="navbar-user-menu"
             >
               <span className="sr-only">Abrir menú de usuario</span>
               {userProfile?.empleado?.nombre ? ( 
@@ -245,7 +246,7 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
                 </div>
                 <button
                   onClick={handleLogoutAndCloseMenu}
-                  className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-700 dark:hover:text-red-300"
+                  className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-700 dark:hover:text-red-300 transition-colors duration-150"
                   role="menuitem"
                 >
                   <ArrowRightOnRectangleIcon className="w-4 h-4 inline-block mr-2" aria-hidden="true" />

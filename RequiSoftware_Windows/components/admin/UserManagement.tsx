@@ -90,9 +90,11 @@ export const UserManagement: React.FC = () => {
 
       // NOTE: This select('email') might fail if using anon key without proper policies.
       // The app should handle this gracefully. The main bug is on INSERT, not SELECT.
+      // FIX: Explicitly type the return to avoid 'never' type inference issues.
       const { data: profilesData, error: profilesError } = await supabase
         .from('user_profile')
-        .select('id, rol, empleado_id, departamento_id');
+        .select('id, rol, empleado_id, departamento_id')
+        .returns<Pick<UserProfile, 'id' | 'rol' | 'empleado_id' | 'departamento_id'>[]>();
       if (profilesError) {
          console.warn("Could not fetch user profiles, possibly due to RLS. Email info will be missing.", profilesError.message);
       }
@@ -204,6 +206,8 @@ export const UserManagement: React.FC = () => {
                 const empleadoPayload = { nombre, apellido, cedula, cargo_actual_id, departamento_id, estado, telefono: fullPhoneNumber };
                 const { data: empInsertData, error: empInsertError } = await supabase.from('empleado').insert(empleadoPayload).select('id').single();
                 if (empInsertError) throw empInsertError;
+                // FIX: Add a null check for empInsertData, as .single() can return null.
+                if (!empInsertData) throw new Error("No se pudo crear el registro del empleado.");
                 const newEmpleadoId = empInsertData.id;
 
                 // 3. UPDATE User Profile (assuming a trigger created it on signup)

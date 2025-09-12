@@ -144,27 +144,28 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
         notificationsToCreate.push(...adminUserIds.map(adminId => ({
           user_id: adminId,
           title: 'Orden Completada',
-          description: `La orden de compra #${order.id} (Proveedor: ${order.proveedor?.nombre || 'N/D'}) ha sido marcada como completada.`,
+          description: `La orden de compra #${order.codigo_visible || order.id} (Proveedor: ${order.proveedor?.nombre || 'N/D'}) ha sido marcada como completada.`,
           type: 'orden_completada',
         })));
       }
       
       // Notificar al solicitante original (si proviene de una solicitud)
-      const solicitudEmpleadoId = (updatedOrderData.solicitud_compra as any)?.empleado_id;
+      // FIX: Cast updatedOrderData to any to access nested property from complex select.
+      const solicitudEmpleadoId = (updatedOrderData as any).solicitud_compra?.empleado_id;
       if (solicitudEmpleadoId) {
         const requesterAuthId = await fetchUserAuthIdByEmpleadoId(solicitudEmpleadoId);
         if (requesterAuthId) {
           notificationsToCreate.push({
             user_id: requesterAuthId,
             title: 'Proceso de Solicitud Completado',
-            description: `La orden de compra #${order.id}, generada a partir de tu solicitud, ha sido completada.`,
+            description: `La orden de compra #${order.codigo_visible || order.id}, generada a partir de tu solicitud, ha sido completada.`,
             type: 'solicitud_procesada_orden_completada',
           });
         }
       }
 
       // 1. Manejar productos faltantes (productos_no_recibidos)
-      const productosNoRecibidosDbPayload: Omit<ProductoNoRecibido, 'id' | 'created_at' | 'updated_at' | 'producto' | 'orden_compra'>[] = [];
+      const productosNoRecibidosDbPayload: Omit<ProductoNoRecibido, 'id' | 'created_at' | 'updated_at' >[] = [];
       for (const status of productStatuses) {
         if (status.cantidadFaltante > 0) {
           productosNoRecibidosDbPayload.push({
@@ -183,7 +184,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
             notificationsToCreate.push(...adminUserIds.map(adminId => ({
                 user_id: adminId,
                 title: 'Productos Faltantes en Orden Completada',
-                description: `La orden #${order.id} se completó con ${productosNoRecibidosDbPayload.length} tipo(s) de producto(s) faltante(s). Revisar detalles.`,
+                description: `La orden #${order.codigo_visible || order.id} se completó con ${productosNoRecibidosDbPayload.length} tipo(s) de producto(s) faltante(s). Revisar detalles.`,
                 type: 'productos_faltantes_orden',
             })));
         }
@@ -216,7 +217,8 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
 
           const newExistencias = (currentInventory?.existencias || 0) + status.cantidadRecibida;
 
-          if (currentInventory?.id) {
+          // FIX: Change check from `currentInventory.id` to `currentInventory` to provide a better type guard against null.
+          if (currentInventory) {
             const { error: invUpdateError } = await supabase
               .from('inventario')
               .update({ existencias: newExistencias, fecha_actualizacion: new Date().toISOString() })
@@ -234,10 +236,12 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
             if (invInsertError) console.error(`Error inserting inventory for product ${status.producto_id}:`, invInsertError);
           }
 
+          // FIX: Explicitly type the return to avoid 'never' type inference issues.
           const { data: productDetails, error: productDetailsError } = await supabase
             .from('producto')
             .select('stock_minimo, descripcion')
             .eq('id', status.producto_id)
+            .returns<{stock_minimo: number | null, descripcion: string | null}[]>()
             .single();
 
           if (productDetailsError) {
@@ -247,7 +251,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
                 notificationsToCreate.push(...adminUserIds.map(adminId => ({
                   user_id: adminId,
                   title: 'Alerta de Bajo Stock',
-                  description: `El producto "${productDetails.descripcion || 'ID ' + status.producto_id}" tiene bajo stock (${newExistencias} uds) tras recepción de orden #${order.id}. Mínimo: ${productDetails.stock_minimo}.`,
+                  description: `El producto "${productDetails.descripcion || 'ID ' + status.producto_id}" tiene bajo stock (${newExistencias} uds) tras recepción de orden #${order.codigo_visible || order.id}. Mínimo: ${productDetails.stock_minimo}.`,
                   type: 'alerta_bajo_stock',
                 })));
             }
@@ -275,7 +279,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-70 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Completar Orden de Compra #{order.id}</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Completar Orden de Compra #{order.codigo_visible || order.id}</h3>
           <button onClick={onHide} disabled={submittingCompletion} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md">
             <XMarkIcon className="w-6 h-6" />
           </button>

@@ -164,7 +164,8 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
         <img src={PDF_LOGO_URL} alt="Logo CIEC" style={baseStyles.logo} crossOrigin="anonymous" />
         <div style={baseStyles.headerTextContainer}>
           <h2 style={baseStyles.headerTitle}>{camara.nombre}</h2>
-          <h3 style={baseStyles.headerSubtitle}>Orden de Compra N°: {orden.id}</h3>
+          {/* FIX: Use codigo_visible for a user-friendly ID */}
+          <h3 style={baseStyles.headerSubtitle}>Orden de Compra N°: {orden.codigo_visible || orden.id}</h3>
           <p style={baseStyles.headerDate}>
             {format(new Date(orden.fecha_orden), 'dd/MM/yyyy')}
           </p>

@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'; // Outlet ya no se importa aquí directamente
 import { useAuth } from './hooks/useAuth';
@@ -13,6 +12,8 @@ import { UserRequestsPage } from './pages/UserRequestsPage';
 import RequestFormPage from './pages/RequestFormPage';
 import InventoryPage from './pages/InventoryPage';
 import ExternalEventsPage from './pages/ExternalEventsPage'; // Página para eventos externos
+import UserSupplierListPage from './pages/UserSupplierListPage'; // Nueva página para usuarios
+import UserProductListPage from './pages/UserProductListPage'; // Nueva página para catálogo de productos
 
 import LoadingSpinner from './components/core/LoadingSpinner';
 
@@ -94,8 +95,19 @@ const App: React.FC = () => {
           
           <Route 
             path="new-request" 
-            element={userProfile?.rol === 'usuario' ? <RequestFormPage /> : <Navigate to="/home" replace />} 
+            element={(userProfile?.rol === 'usuario' || userProfile?.rol === 'admin') ? <RequestFormPage /> : <Navigate to="/home" replace />} 
           />
+          
+          {/* Nuevas rutas solo para usuarios */}
+          <Route 
+            path="suppliers"
+            element={userProfile?.rol === 'usuario' ? <UserSupplierListPage /> : <Navigate to="/home" replace />}
+          />
+          <Route 
+            path="products"
+            element={userProfile?.rol === 'usuario' ? <UserProductListPage /> : <Navigate to="/home" replace />}
+          />
+
 
           {/* Rutas solo para admin */}
           {userProfile?.rol === 'admin' && (

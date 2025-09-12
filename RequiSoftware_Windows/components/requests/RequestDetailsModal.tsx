@@ -1,23 +1,29 @@
-
 import React from 'react';
-import { SolicitudCompra } from '../../types';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { SolicitudCompra, OrdenCompra } from '../../types';
+import { XMarkIcon, DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 interface RequestDetailsModalProps {
   show: boolean;
   onHide: () => void;
   request: SolicitudCompra | null;
+  onViewOrder?: (order: OrdenCompra) => void;
 }
 
-const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ show, onHide, request }) => {
+const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ show, onHide, request, onViewOrder }) => {
   if (!show || !request) return null;
+
+  const handleViewOrderClick = () => {
+    if (onViewOrder && request.ordenes && request.ordenes.length > 0) {
+      onViewOrder(request.ordenes[0]);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 sm:p-6 border-b dark:border-gray-700">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Detalles de la Solicitud #{request.id}
+            Detalles de la Solicitud #{request.codigo_visible || request.id}
           </h3>
           <button
             onClick={onHide}
@@ -84,10 +90,19 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ show, onHide,
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 border-t dark:border-gray-700 flex justify-end">
+        <div className="p-4 sm:p-6 border-t dark:border-gray-700 flex justify-between items-center">
+          {request.estado === 'Aprobada' && request.ordenes && request.ordenes.length > 0 && onViewOrder && (
+            <button
+              onClick={handleViewOrderClick}
+              className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm"
+            >
+              <DocumentMagnifyingGlassIcon className="w-5 h-5 mr-2" />
+              Ver Orden de Compra
+            </button>
+          )}
           <button
             onClick={onHide}
-            className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ml-auto"
           >
             Cerrar
           </button>

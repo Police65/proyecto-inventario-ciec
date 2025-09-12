@@ -84,17 +84,23 @@ export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, is
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          id="customRequest"
-          checked={customRequest}
-          onChange={(e) => setCustomRequest(e.target.checked)}
-          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700"
-        />
-        <label htmlFor="customRequest" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
-          ¿Es una Requisición Especial (sin productos específicos)?
-        </label>
+      <div>
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="customRequest"
+            checked={customRequest}
+            onChange={(e) => setCustomRequest(e.target.checked)}
+            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700"
+            aria-describedby="customRequest-description"
+          />
+          <label htmlFor="customRequest" className="ml-2 block text-sm font-medium text-gray-900 dark:text-gray-300">
+            Requisición Especial (para productos no catalogados)
+          </label>
+        </div>
+        <p id="customRequest-description" className="mt-2 ml-6 text-xs text-gray-500 dark:text-gray-400">
+          Marque esta opción si los productos que necesita no existen en el catálogo. Podrá detallarlos en la descripción y serán creados formalmente al generar la orden de compra.
+        </p>
       </div>
 
       {customRequest ? (

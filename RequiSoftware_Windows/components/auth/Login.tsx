@@ -131,7 +131,7 @@ const Login: React.FC = () => {
             </div>
 
             <div className="text-sm">
-              <a href="#" className="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300">
+              <a href="#" className="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 transition-colors duration-150">
                 ¿Olvidaste tu contraseña? {/* Enlace a recuperación de contraseña (no implementado) */}
               </a>
             </div>
@@ -141,7 +141,7 @@ const Login: React.FC = () => {
             <button
               type="submit"
               disabled={loading} // Deshabilitar si está cargando
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-gray-800 disabled:bg-primary-300 dark:disabled:bg-primary-800"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-gray-800 disabled:bg-primary-300 dark:disabled:bg-primary-800 transition-transform duration-150 ease-in-out active:scale-95"
             >
               {loading ? ( // Mostrar ícono de carga si `loading` es true
                 <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />

@@ -6,6 +6,7 @@ import CustomNavbar from './Navbar';
 import { Sidebar } from './Sidebar'; // Importación nombrada
 import { UserProfile } from '../../types';
 import { useInactivityTimer } from '../../hooks/useInactivityTimer';
+import { useGuidedTour } from '../../hooks/useGuidedTour'; // Importar el nuevo hook del tour
 import { supabase } from '../../supabaseClient'; // Para el conteo de solicitudes
 import LoadingSpinner from './LoadingSpinner';
 
@@ -21,6 +22,9 @@ const SWIPE_EDGE_ZONE = 50; // Máximo de píxeles desde el borde izquierdo para
 export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userProfile, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Iniciar el tour guiado
+  useGuidedTour({ userProfile });
 
   // Estado para la visibilidad de la barra lateral, persistido en sessionStorage.
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -50,9 +54,10 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
 
   const isOnMainPage = location.pathname === '/home' || location.pathname === '/';
 
-  // Determinar visibilidad real de navbar y sidebar basado en interacción y estado.
-  // La navbar se muestra si no está en la página principal O si ya interactuó O si la sidebar está abierta.
-  const actualNavbarVisible = (!isOnMainPage || hasInteracted) ? true : isSidebarOpen;
+  // FIX: The Navbar should always be visible for consistency and to ensure guided tour elements are present.
+  // The previous logic hid the navbar on the main page until user interaction,
+  // which caused the tour to fail as it couldn't find the navbar elements.
+  const actualNavbarVisible = true;
   const actualSidebarVisible = isSidebarOpen; // La sidebar se muestra si su estado es abierto.
 
   // Efecto para manejar la interacción inicial y el estado de la sidebar.
@@ -211,7 +216,7 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
         )}
         {/* El contenido principal (Outlet) */}
         <main className={`h-full ${actualNavbarVisible ? 'pt-16' : 'pt-0'}`}> {/* Ajustar padding superior si navbar está visible */}
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full fade-in-content">
             {/* Pasar userProfile, activeUITab, setActiveUITab, y setHasInteracted al contexto del Outlet
                 para que las páginas hijas puedan acceder a ellos y marcar interacción si es necesario. */}
             <Outlet context={{ userProfile, activeUITab, setActiveUITab, setHasInteracted }} />
@@ -232,13 +237,13 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={onLogout} // Cerrar sesión inmediatamente
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-transform duration-150 ease-in-out active:scale-95"
               >
                 Cerrar sesión ahora
               </button>
               <button
                 onClick={handleContinueSession} // Continuar sesión (resetear timers)
-                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-transform duration-150 ease-in-out active:scale-95"
               >
                 Mantener sesión
               </button>

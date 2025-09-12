@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { useOutletContext, useNavigate } from 'react-router-dom';
@@ -36,13 +37,13 @@ interface OverallSystemStats {
   activeSuppliers: number;
 }
 
-interface RecentRequestSummary extends Pick<SolicitudCompra, 'id' | 'descripcion' | 'estado' | 'fecha_solicitud'> {
+interface RecentRequestSummary extends Pick<SolicitudCompra, 'id' | 'codigo_visible' | 'descripcion' | 'estado' | 'fecha_solicitud'> {
   solicitante_nombre?: string;
   departamento_nombre?: string;
   fullRequestData?: SolicitudCompra; 
 }
 
-interface RecentOrderSummary extends Pick<OrdenCompra, 'id' | 'fecha_orden' | 'estado' | 'neto_a_pagar' | 'unidad'> {
+interface RecentOrderSummary extends Pick<OrdenCompra, 'id' | 'codigo_visible' | 'fecha_orden' | 'estado' | 'neto_a_pagar' | 'unidad'> {
   proveedor_nombre?: string;
   fullOrderData?: OrdenCompra;
 }
@@ -55,13 +56,14 @@ interface RequestStatusChartData {
 const COLORS_PIE = ['#FFBB28', '#00C49F', '#FF8042']; 
 const PAGE_SIZE = 6;
 
-const StatCard: React.FC<{ title: string; value: string | number; icon?: React.ElementType; colorClass?: string; onClick?: () => void; ctaText?: string }> = ({ title, value, icon: Icon, colorClass = "bg-primary-500", onClick, ctaText }) => (
+const StatCard: React.FC<{ title: string; value: string | number; icon?: React.ElementType; colorClass?: string; onClick?: () => void; ctaText?: string, tourId?: string }> = ({ title, value, icon: Icon, colorClass = "bg-primary-500", onClick, ctaText, tourId }) => (
   <button
     onClick={onClick}
     disabled={!onClick}
-    className={`group bg-white dark:bg-gray-800 shadow-lg rounded-xl p-5 transform transition-transform duration-300 w-full text-left
-                ${onClick ? 'hover:scale-105 cursor-pointer' : 'cursor-default'}
+    className={`group bg-white dark:bg-gray-800 shadow-lg rounded-xl p-5 transform transition-all duration-300 ease-in-out w-full text-left
+                ${onClick ? 'hover:scale-105 hover:shadow-xl cursor-pointer' : 'cursor-default'}
               `}
+    data-tour-id={tourId}
   >
     <div className="flex items-center">
       {Icon && <div className={`p-3 rounded-full ${colorClass} text-white mr-4`}><Icon className="w-7 h-7" /></div>}
@@ -115,7 +117,7 @@ interface QuickNavButtonProps {
 const QuickNavButton: React.FC<QuickNavButtonProps> = ({ title, icon: Icon, onClick, color = "bg-primary-500 hover:bg-primary-600" }) => (
     <button
         onClick={onClick}
-        className={`p-4 rounded-lg shadow-md text-white font-semibold text-center transition-all duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-opacity-50 flex flex-col items-center justify-center min-h-[100px] ${color}`}
+        className={`p-4 rounded-lg shadow-md text-white font-semibold text-center transition-all duration-200 ease-in-out transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-2 focus:ring-opacity-50 flex flex-col items-center justify-center min-h-[100px] ${color}`}
     >
         <Icon className="w-8 h-8 mb-2" />
         <span className="text-sm">{title}</span>
@@ -168,7 +170,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({ currentPage, to
       <button
         onClick={handlePrevious}
         disabled={currentPage === 1}
-        className="flex items-center px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
+        className="flex items-center px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600 transition-transform duration-150 ease-in-out active:scale-95"
       >
         <ChevronLeftIcon className="w-3.5 h-3.5 mr-1" />
         Anterior
@@ -179,7 +181,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({ currentPage, to
       <button
         onClick={handleNext}
         disabled={currentPage === totalPages}
-        className="flex items-center px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
+        className="flex items-center px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600 transition-transform duration-150 ease-in-out active:scale-95"
       >
         Siguiente
         <ChevronRightIcon className="w-3.5 h-3.5 ml-1" />
@@ -231,7 +233,8 @@ const HomePage: React.FC = () => {
     try {
       const { count: pendingReqCount, error: prError } = await supabase.from('solicitudcompra').select('*', { count: 'exact', head: true }).eq('estado', 'Pendiente');
       const { count: totalOrdCount, error: toError } = await supabase.from('ordencompra').select('*', { count: 'exact', head: true });
-      const { data: completedOrdersValData, error: covError } = await supabase.from('ordencompra').select('neto_a_pagar').eq('estado', 'Completada');
+      // FIX: Explicitly type the return to avoid 'never' type inference issues.
+      const { data: completedOrdersValData, error: covError } = await supabase.from('ordencompra').select('neto_a_pagar').eq('estado', 'Completada').returns<{neto_a_pagar: number | null}[]>();
       const { count: activeSupCount, error: asError } = await supabase.from('proveedor').select('*', { count: 'exact', head: true }).eq('estado', 'activo');
       if (prError || toError || covError || asError) console.warn("Error fetching overall stats parts", {prError, toError, covError, asError});
       
@@ -242,20 +245,22 @@ const HomePage: React.FC = () => {
         activeSuppliers: activeSupCount || 0,
       });
 
-      const { data: depts, error: deptsError } = await supabase.from('departamento').select('*');
+      const { data: depts, error: deptsError } = await supabase.from('departamento').select('*').returns<Departamento[]>();
       if (deptsError) throw deptsError;
       const statsPromises = (depts || []).map(async (dept: Departamento) => {
         const { count: pend } = await supabase.from('solicitudcompra').select('id', { count: 'exact', head: true }).match({ departamento_id: dept.id, estado: 'Pendiente' });
         const { count: aprob } = await supabase.from('solicitudcompra').select('id', { count: 'exact', head: true }).match({ departamento_id: dept.id, estado: 'Aprobada' });
         const { count: rech } = await supabase.from('solicitudcompra').select('id', { count: 'exact', head: true }).match({ departamento_id: dept.id, estado: 'Rechazada' });
-        const { data: ordenesDept } = await supabase.from('ordencompra').select('neto_a_pagar, solicitud_compra_id!inner(departamento_id)').eq('solicitud_compra_id.departamento_id', dept.id).eq('estado', 'Completada');
+        // FIX: Explicitly type the return to avoid 'never' type inference issues.
+        const { data: ordenesDept } = await supabase.from('ordencompra').select('neto_a_pagar, solicitud_compra_id!inner(departamento_id)').eq('solicitud_compra_id.departamento_id', dept.id).eq('estado', 'Completada').returns<{neto_a_pagar: number | null}[]>();
         const gasto_total = ordenesDept?.reduce((sum, o) => sum + (o.neto_a_pagar || 0), 0) || 0;
         return { id: dept.id, nombre: dept.nombre, sol_pendientes: pend || 0, sol_aprobadas: aprob || 0, sol_rechazadas: rech || 0, gasto_total };
       });
       const calculatedDeptStats = await Promise.all(statsPromises);
       setDepartmentalStats(calculatedDeptStats.sort((a,b) => a.nombre.localeCompare(b.nombre)));
 
-      const { data: allReqsForChart, error: chartReqsError } = await supabase.from('solicitudcompra').select('estado');
+      // FIX: Explicitly type the return to avoid 'never' type inference issues.
+      const { data: allReqsForChart, error: chartReqsError } = await supabase.from('solicitudcompra').select('estado').returns<{estado: SolicitudCompraEstado}[]>();
       if (chartReqsError) throw chartReqsError;
       const statusCounts = (allReqsForChart || []).reduce((acc, req) => {
         acc[req.estado] = (acc[req.estado] || 0) + 1;
@@ -267,27 +272,31 @@ const HomePage: React.FC = () => {
         { name: 'Rechazada', value: statusCounts.Rechazada || 0 },
       ]);
 
+      // FIX: Explicitly type the return to avoid 'never' type inference issues.
       const { data: recentReqsData, error: recentReqsError } = await supabase
         .from('solicitudcompra')
-        .select('*, empleado:empleado_id(id, nombre, apellido), departamento:departamento_id(id, nombre), detalles:solicitudcompra_detalle(id, cantidad, producto:producto_id(id, descripcion))')
+        .select('*, codigo_visible, empleado:empleado_id(id, nombre, apellido), departamento:departamento_id(id, nombre), detalles:solicitudcompra_detalle(id, cantidad, producto:producto_id(id, descripcion))')
         .order('fecha_solicitud', { ascending: false })
-        .limit(20); // Fetch more for pagination demonstration
+        .limit(20) // Fetch more for pagination demonstration
+        .returns<SolicitudCompra[]>();
       if (recentReqsError) throw recentReqsError;
       setRecentRequests((recentReqsData || []).map(r => ({
-        id: r.id, descripcion: r.descripcion, estado: r.estado, fecha_solicitud: r.fecha_solicitud,
+        id: r.id, codigo_visible: r.codigo_visible, descripcion: r.descripcion, estado: r.estado, fecha_solicitud: r.fecha_solicitud,
         solicitante_nombre: `${r.empleado?.nombre || ''} ${r.empleado?.apellido || ''}`.trim() || 'N/A',
         departamento_nombre: r.departamento?.nombre || 'N/A',
         fullRequestData: r as SolicitudCompra 
       })));
 
+      // FIX: Explicitly type the return to avoid 'never' type inference issues.
       const { data: recentOrdsData, error: recentOrdsError } = await supabase
         .from('ordencompra')
-        .select('*, proveedor:proveedor_id(id, nombre, rif, direccion), empleado:empleado_id(id, nombre, apellido), detalles:ordencompra_detalle(id, producto_id, cantidad, precio_unitario, producto:producto_id(id, descripcion)), solicitud_compra:solicitud_compra_id(id,descripcion,empleado_id)')
+        .select('*, codigo_visible, proveedor:proveedor_id(id, nombre, rif, direccion), empleado:empleado_id(id, nombre, apellido), detalles:ordencompra_detalle(id, producto_id, cantidad, precio_unitario, producto:producto_id(id, descripcion)), solicitud_compra:solicitud_compra_id(id,descripcion,empleado_id)')
         .order('fecha_orden', { ascending: false })
-        .limit(20); // Fetch more for pagination
+        .limit(20) // Fetch more for pagination
+        .returns<OrdenCompra[]>();
       if (recentOrdsError) throw recentOrdsError;
        setRecentOrders((recentOrdsData || []).map(o => ({
-        id: o.id, fecha_orden: o.fecha_orden, estado: o.estado, neto_a_pagar: o.neto_a_pagar, unidad: o.unidad,
+        id: o.id, codigo_visible: o.codigo_visible, fecha_orden: o.fecha_orden, estado: o.estado, neto_a_pagar: o.neto_a_pagar, unidad: o.unidad,
         proveedor_nombre: o.proveedor?.nombre || 'N/A',
         fullOrderData: o as OrdenCompra 
       })));
@@ -428,7 +437,7 @@ const HomePage: React.FC = () => {
   if (userProfile.rol === 'admin') {
     const topSpendingDepartments = [...departmentalStats].sort((a, b) => b.gasto_total - a.gasto_total).slice(0, 5);
     const filterButtonClasses = (filter: SolicitudCompraEstado | 'Todas') => 
-        `px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-opacity-50 whitespace-nowrap ${
+        `px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-opacity-50 whitespace-nowrap active:scale-95 ${
         activeStatusFilter === filter 
         ? 'bg-primary-600 text-white shadow-md focus:ring-primary-500' 
         : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 focus:ring-gray-400'
@@ -439,7 +448,7 @@ const HomePage: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard Administrativo</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard title="Solicitudes Pendientes" value={overallSystemStats?.pendingRequests || 0} icon={ListBulletIcon} colorClass="bg-yellow-500" onClick={() => handleNavigation('/solicitudes', 'solicitudes')} ctaText="Ver Solicitudes"/>
+          <StatCard title="Solicitudes Pendientes" value={overallSystemStats?.pendingRequests || 0} icon={ListBulletIcon} colorClass="bg-yellow-500" onClick={() => handleNavigation('/solicitudes', 'solicitudes')} ctaText="Ver Solicitudes" tourId="admin-stat-card-pending" />
           <StatCard title="Órdenes Generadas" value={overallSystemStats?.totalOrders || 0} icon={ArchiveBoxIcon} colorClass="bg-blue-500" onClick={() => handleNavigation('/solicitudes', 'ordenes')} ctaText="Ver Órdenes"/>
           <StatCard title="Gasto Total (Completadas)" value={`${overallSystemStats?.completedOrdersValue.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2}) || '0,00'} Bs.`} icon={BanknotesIcon} colorClass="bg-green-500" />
           <StatCard title="Proveedores Activos" value={overallSystemStats?.activeSuppliers || 0} icon={BuildingStorefrontIcon} colorClass="bg-indigo-500" onClick={() => handleNavigation('/inventory', 'add-provider')} ctaText="Gestionar Proveedores"/>
@@ -539,7 +548,7 @@ const HomePage: React.FC = () => {
                     {paginatedRecentRequests.length > 0 ? (
                     <table className="min-w-full text-sm">
                         <thead><tr className="border-b dark:border-gray-700"><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">ID</th><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Solicitante</th><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Depto.</th><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Estado</th></tr></thead>
-                        <tbody>{paginatedRecentRequests.map(req => (<tr key={req.id} onClick={() => handleRecentRequestClick(req)} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer border-b dark:border-gray-700/50"><td className="py-2 px-2 text-gray-700 dark:text-gray-200">#{req.id}</td><td className="py-2 px-2 text-gray-700 dark:text-gray-200 truncate max-w-[100px]" title={req.solicitante_nombre}>{req.solicitante_nombre}</td><td className="py-2 px-2 text-gray-700 dark:text-gray-200 truncate max-w-[100px]" title={req.departamento_nombre}>{req.departamento_nombre}</td><td className="py-2 px-2"><span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${req.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' : req.estado === 'Aprobada' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'}`}>{req.estado}</span></td></tr>))}</tbody>
+                        <tbody>{paginatedRecentRequests.map(req => (<tr key={req.id} onClick={() => handleRecentRequestClick(req)} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer border-b dark:border-gray-700/50"><td className="py-2 px-2 text-gray-700 dark:text-gray-200">#{req.codigo_visible || req.id}</td><td className="py-2 px-2 text-gray-700 dark:text-gray-200 truncate max-w-[100px]" title={req.solicitante_nombre}>{req.solicitante_nombre}</td><td className="py-2 px-2 text-gray-700 dark:text-gray-200 truncate max-w-[100px]" title={req.departamento_nombre}>{req.departamento_nombre}</td><td className="py-2 px-2"><span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${req.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' : req.estado === 'Aprobada' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'}`}>{req.estado}</span></td></tr>))}</tbody>
                     </table>
                     ) : <p className="text-sm text-gray-500 dark:text-gray-400 p-3">No hay solicitudes recientes.</p>}
                 </div>
@@ -551,7 +560,7 @@ const HomePage: React.FC = () => {
                     {paginatedRecentOrders.length > 0 ? (
                     <table className="min-w-full text-sm">
                         <thead><tr className="border-b dark:border-gray-700"><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">ID</th><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Proveedor</th><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Total</th><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Estado</th></tr></thead>
-                        <tbody>{paginatedRecentOrders.map(ord => (<tr key={ord.id} onClick={() => handleRecentOrderClick(ord)} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer border-b dark:border-gray-700/50"><td className="py-2 px-2 text-gray-700 dark:text-gray-200">#{ord.id}</td><td className="py-2 px-2 text-gray-700 dark:text-gray-200 truncate max-w-[120px]" title={ord.proveedor_nombre}>{ord.proveedor_nombre}</td><td className="py-2 px-2 text-gray-700 dark:text-gray-200">{ord.neto_a_pagar?.toLocaleString('es-VE') || '0,00'} {ord.unidad}</td><td className="py-2 px-2"><span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${ord.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' : ord.estado === 'Completada' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-100'}`}>{ord.estado}</span></td></tr>))}</tbody>
+                        <tbody>{paginatedRecentOrders.map(ord => (<tr key={ord.id} onClick={() => handleRecentOrderClick(ord)} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer border-b dark:border-gray-700/50"><td className="py-2 px-2 text-gray-700 dark:text-gray-200">#{ord.codigo_visible || ord.id}</td><td className="py-2 px-2 text-gray-700 dark:text-gray-200 truncate max-w-[120px]" title={ord.proveedor_nombre}>{ord.proveedor_nombre}</td><td className="py-2 px-2 text-gray-700 dark:text-gray-200">{ord.neto_a_pagar?.toLocaleString('es-VE') || '0,00'} {ord.unidad}</td><td className="py-2 px-2"><span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${ord.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' : ord.estado === 'Completada' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-100'}`}>{ord.estado}</span></td></tr>))}</tbody>
                     </table>
                     ) : <p className="text-sm text-gray-500 dark:text-gray-400 p-3">No hay órdenes recientes.</p>}
                 </div>

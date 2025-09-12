@@ -1,4 +1,3 @@
-
 import React from 'react';
 // @ts-ignore
 import { useOutletContext, useNavigate } from 'react-router-dom';
@@ -33,7 +32,7 @@ interface MenuCardProps {
 const MenuCard: React.FC<MenuCardProps> = ({ title, description, icon: Icon, onClick, color = 'bg-primary-500' }) => (
   <button
     onClick={onClick}
-    className="group bg-white dark:bg-gray-800 shadow-xl rounded-xl p-6 hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 ease-in-out flex flex-col justify-between items-start w-full text-left h-full" // Añadido h-full
+    className="group bg-white dark:bg-gray-800 shadow-xl rounded-xl p-6 hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 ease-in-out flex flex-col justify-between items-start w-full text-left h-full active:scale-[0.98]"
     aria-label={`Acceder a ${title}`}
   >
     <div>
@@ -68,6 +67,13 @@ const MainDashboardPage: React.FC = () => {
 
   const adminMenuItems: MenuCardProps[] = [
     {
+      title: 'Crear Nueva Solicitud',
+      description: 'Genera una nueva solicitud de compra para tu departamento.',
+      icon: PlusCircleIcon,
+      onClick: () => handleNavigation('/new-request'),
+      color: 'bg-green-500',
+    },
+    {
       title: 'Gestionar Solicitudes',
       description: 'Revisa, aprueba o rechaza solicitudes de compra pendientes.',
       icon: ClipboardDocumentListIcon,
@@ -86,7 +92,7 @@ const MainDashboardPage: React.FC = () => {
       description: 'Administra productos, proveedores y visualiza el inventario.',
       icon: BuildingStorefrontIcon,
       onClick: () => handleNavigation('/inventory'),
-      color: 'bg-green-500',
+      color: 'bg-teal-500', // Changed color for better distinction
     },
     {
       title: 'Gestión de Usuarios',

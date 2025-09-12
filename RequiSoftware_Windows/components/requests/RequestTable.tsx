@@ -1,21 +1,25 @@
 import React from 'react';
 import { SolicitudCompra, SolicitudCompraEstado } from '../../types';
-import { CheckCircleIcon, XCircleIcon, EyeIcon, DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline'; // Importar ícono DocumentMagnifyingGlassIcon
+import { CheckCircleIcon, XCircleIcon, EyeIcon, DocumentMagnifyingGlassIcon, DocumentDuplicateIcon, TruckIcon } from '@heroicons/react/24/outline';
 
 interface RequestTableProps {
   requests: SolicitudCompra[];
-  withActions?: boolean;
+  withActions?: boolean; // Para acciones de admin (Aprobar/Rechazar)
+  userActions?: boolean; // Para acciones de usuario (Clonar)
   onApprove?: (request: SolicitudCompra) => void;
   onReject?: (requestId: number) => void;
+  onClone?: (request: SolicitudCompra) => void; // Nueva prop para clonar
   showStatus?: boolean;
   onRowClick?: (request: SolicitudCompra) => void;
 }
 
 const RequestTable: React.FC<RequestTableProps> = ({ 
   requests, 
-  withActions, 
+  withActions,
+  userActions,
   onApprove, 
-  onReject, 
+  onReject,
+  onClone,
   showStatus = true,
   onRowClick
 }) => {
@@ -32,6 +36,24 @@ const RequestTable: React.FC<RequestTableProps> = ({
       </span>
     );
   };
+  
+  const getDeliveryStatus = (request: SolicitudCompra) => {
+    if (request.estado !== 'Aprobada' || !request.ordenes || request.ordenes.length === 0) {
+      return <span className="text-gray-400 dark:text-gray-500">N/A</span>;
+    }
+    
+    const order = request.ordenes[0]; // Asumimos la primera orden vinculada
+    
+    if (order.fecha_entrega_real) {
+      return <span className="text-green-600 dark:text-green-400">Entregado el {new Date(order.fecha_entrega_real).toLocaleDateString()}</span>;
+    }
+    
+    if (order.fecha_entrega_estimada) {
+      return <span className="text-blue-600 dark:text-blue-400">Estimado: {new Date(order.fecha_entrega_estimada).toLocaleDateString()}</span>;
+    }
+
+    return <span className="text-gray-500 dark:text-gray-300">Procesando...</span>;
+  }
 
   if (!requests || requests.length === 0) {
     return (
@@ -55,7 +77,8 @@ const RequestTable: React.FC<RequestTableProps> = ({
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Solicitante</th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Productos</th>
             {showStatus && <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado</th>}
-            {withActions && <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>}
+            {userActions && <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Entrega</th>}
+            {(withActions || userActions) && <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>}
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -65,7 +88,7 @@ const RequestTable: React.FC<RequestTableProps> = ({
               className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${onRowClick ? 'cursor-pointer' : ''}`}
               onClick={() => typeof onRowClick === 'function' && onRowClick(request)}
             >
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{request.id}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">#{request.codigo_visible || request.id}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 truncate max-w-xs">{request.descripcion || 'N/D'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{request.departamento?.nombre || 'N/D'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{request.empleado?.nombre} {request.empleado?.apellido}</td>
@@ -86,22 +109,43 @@ const RequestTable: React.FC<RequestTableProps> = ({
                   {getStatusBadge(request.estado)}
                 </td>
               )}
-              {withActions && onApprove && onReject && (
+              {userActions && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <div className="flex items-center space-x-2">
+                    {request.estado === 'Aprobada' && <TruckIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
+                    {getDeliveryStatus(request)}
+                  </div>
+                </td>
+              )}
+              {(withActions || userActions) && (
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => onApprove(request)}
-                    className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 rounded-md hover:bg-green-100 dark:hover:bg-green-700 transition-colors"
-                    title="Aprobar"
-                  >
-                    <CheckCircleIcon className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => onReject(request.id)}
-                    className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 rounded-md hover:bg-red-100 dark:hover:bg-red-700 transition-colors"
-                    title="Rechazar"
-                  >
-                    <XCircleIcon className="w-5 h-5" />
-                  </button>
+                  {withActions && onApprove && onReject && (
+                    <>
+                      <button
+                        onClick={() => onApprove(request)}
+                        className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 rounded-md hover:bg-green-100 dark:hover:bg-green-700 transition-colors"
+                        title="Aprobar"
+                      >
+                        <CheckCircleIcon className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => onReject(request.id)}
+                        className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 rounded-md hover:bg-red-100 dark:hover:bg-red-700 transition-colors"
+                        title="Rechazar"
+                      >
+                        <XCircleIcon className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
+                  {userActions && onClone && (
+                     <button
+                        onClick={() => onClone(request)}
+                        className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 rounded-md hover:bg-blue-100 dark:hover:bg-blue-700 transition-colors"
+                        title="Clonar Solicitud"
+                      >
+                        <DocumentDuplicateIcon className="w-5 h-5" />
+                      </button>
+                  )}
                    {!onRowClick && ( // Mostrar ícono de ver solo si no hay un onRowClick global
                      <button
                         onClick={() => typeof onRowClick === 'function' && onRowClick(request)} // Si hay un onRowClick dedicado para detalles

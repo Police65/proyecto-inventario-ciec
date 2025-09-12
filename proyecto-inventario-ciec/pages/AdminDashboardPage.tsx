@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { SolicitudCompra, OrdenCompra, UserProfile, OrdenConsolidada, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, Proveedor, OrdenCompraDetalle as OrdenCompraDetalleType, CategoriaProducto, NotificacionInsert, Database } from '../types';
 import LoadingSpinner from '../components/core/LoadingSpinner';
@@ -62,6 +62,7 @@ const commonSelectOrden = `
 
 export const AdminDashboardPage = (): React.ReactElement => {
   const { userProfile, activeUITab } = useOutletContext<AdminDashboardContext>();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true); 
   const [error, setError] = useState<string | null>(null); 
@@ -70,6 +71,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
   const [solicitudesHistorial, setSolicitudesHistorial] = useState<SolicitudCompra[]>([]);
   const [ordenesHistorial, setOrdenesHistorial] = useState<OrdenCompra[]>([]);
   const [ordenesConsolidadas, setOrdenesConsolidadas] = useState<OrdenConsolidada[]>([]);
+  const [misSolicitudes, setMisSolicitudes] = useState<SolicitudCompra[]>([]);
 
   const [showOrderForm, setShowOrderForm] = useState(false); 
   const [showDirectOrderForm, setShowDirectOrderForm] = useState(false); 
@@ -207,6 +209,17 @@ export const AdminDashboardPage = (): React.ReactElement => {
         .returns<RawSolicitudFromQuery[]>();
       if (historyError) throw historyError;
       setSolicitudesHistorial((historyRaw || []).map(mapSolicitudData));
+      
+      if (userProfile?.empleado_id) {
+        const { data: myRequestsRaw, error: myRequestsError } = await supabase
+          .from('solicitudcompra')
+          .select(commonSelectSolicitud)
+          .eq('empleado_id', userProfile.empleado_id)
+          .order('fecha_solicitud', { ascending: false })
+          .returns<RawSolicitudFromQuery[]>();
+        if (myRequestsError) throw myRequestsError;
+        setMisSolicitudes((myRequestsRaw || []).map(mapSolicitudData));
+      }
 
       const { data: ordersRaw, error: ordersError } = await supabase
         .from('ordencompra')
@@ -414,6 +427,12 @@ export const AdminDashboardPage = (): React.ReactElement => {
     });
     setShowOrderForm(true);
   };
+  
+  const handleCloneRequest = (request: SolicitudCompra) => {
+    if (window.confirm(`¿Desea clonar la solicitud #${request.codigo_visible || request.id} para crear una nueva?`)) {
+      navigate('/new-request', { state: { requestToClone: request } });
+    }
+  };
 
   const renderActiveTabContent = () => {
     switch (activeUITab) {
@@ -453,6 +472,19 @@ export const AdminDashboardPage = (): React.ReactElement => {
             <RequestTable
               requests={solicitudesHistorial}
               showStatus={true}
+              onRowClick={(req) => { setSelectedRequestDetail(req); setShowRequestDetailsModal(true); }}
+            />
+          </div>
+        );
+      case 'mis-solicitudes':
+        return (
+          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Mis Solicitudes Creadas</h2>
+            <RequestTable
+              requests={misSolicitudes}
+              showStatus={true}
+              userActions={true}
+              onClone={handleCloneRequest}
               onRowClick={(req) => { setSelectedRequestDetail(req); setShowRequestDetailsModal(true); }}
             />
           </div>

@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Requisoftware",
-  "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "version": "1.7.0",
+  "identifier": "com.Requisoftware.dev",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173/",
@@ -14,7 +14,7 @@
       {
         "title": "RequiSoftware",
         "width": 800,
-        "height": 600,
+        "height": 768,
         "resizable": true,
         "fullscreen": false
       }

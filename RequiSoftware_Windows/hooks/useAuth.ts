@@ -22,12 +22,13 @@ const fetchUserProfile = async (userId: string, userEmail?: string | null): Prom
         rol: UserProfileRol | null;
         empleado_id: number | null;
         departamento_id: number | null;
+        has_completed_tour: boolean | null;
         departamento: { id: number; nombre: string; estado: 'activo' | 'inactivo'; } | null;
       };
 
       const { data: basicProfileData, error: rawBasicProfileError } = await supabase
         .from("user_profile")
-        .select(`id, rol, empleado_id, departamento_id, departamento:departamento_id(id, nombre, estado)`)
+        .select(`id, rol, empleado_id, departamento_id, has_completed_tour, departamento:departamento_id(id, nombre, estado)`)
         .eq("id", userId)
         .single<SelectedUserProfileData>();
 
@@ -37,6 +38,7 @@ const fetchUserProfile = async (userId: string, userEmail?: string | null): Prom
       const completeProfile: UserProfile = {
         id: basicProfileData.id, email: userEmail || undefined, rol: basicProfileData.rol,
         empleado_id: basicProfileData.empleado_id, departamento_id: basicProfileData.departamento_id,
+        has_completed_tour: basicProfileData.has_completed_tour,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         departamento: basicProfileData.departamento ? {
           ...basicProfileData.departamento,
@@ -146,7 +148,7 @@ export function useAuth(): AuthHookResult {
 
   const user = session?.user ?? null;
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -162,7 +164,7 @@ export function useAuth(): AuthHookResult {
       setLoading(false); 
       throw new Error(errorMessage);
     }
-  };
+  }, []);
 
   const logout = async () => {
     setLoading(true);

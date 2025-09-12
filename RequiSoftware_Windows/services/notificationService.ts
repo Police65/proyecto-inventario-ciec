@@ -32,16 +32,20 @@ export const fetchAdminUserIds = async (): Promise<string[]> => {
  */
 export const fetchUserAuthIdByEmpleadoId = async (empleadoId: number): Promise<string | null> => {
   try {
+    // FIX: Explicitly type the return to avoid 'never' type inference issues.
     const { data, error } = await supabase
       .from('user_profile')
       .select('id') // This 'id' is the auth.users UUID
       .eq('empleado_id', empleadoId)
+      // FIX: Add explicit return type for single object queries
+      .returns<{id: string}>()
       .single();
 
     if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is a valid case (null)
       console.error(`Error fetching user auth ID for empleado ID ${empleadoId}:`, error.message, error.details, error.code);
       return null;
     }
+    // FIX: Add optional chaining because .single() can return a null data object.
     return data?.id || null;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);

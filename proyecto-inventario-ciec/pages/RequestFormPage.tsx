@@ -5,7 +5,7 @@ import { RequestForm } from '../components/requests/RequestForm'; // Se cambió 
 import { UserProfile, NotificacionInsert, Database } from '../types';
 import { generateDescription as aiGenerateDescription } from '../services/aiService';
 import { createNotifications, fetchAdminUserIds } from '../services/notificationService'; // Importar servicio de notificaciones
-import { ArrowPathIcon } from '@heroicons/react/24/outline'; 
+import FeedbackModal from '../components/core/FeedbackModal'; // Importar el nuevo modal de feedback
 import { supabase } from '../supabaseClient'; // Mantener para operaciones directas de BD si es necesario
 
 interface RequestFormPageContext {
@@ -16,23 +16,33 @@ const RequestFormPage: React.FC = () => {
   const { userProfile } = useOutletContext<RequestFormPageContext>();
   const navigate = useNavigate();
   const [submittingRequest, setSubmittingRequest] = useState(false);
+  
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackType, setFeedbackType] = useState<'success' | 'error'>('success');
 
   const handleSubmitRequest = async (requestData: { products: { id: string; productId: string; quantity: number }[] | null; description: string | null, customRequest: boolean }) => {
     setSubmittingRequest(true);
     if (!userProfile?.empleado_id || !userProfile.departamento_id) {
-      alert("Error: Perfil de usuario incompleto. Contacte al administrador.");
+      setFeedbackMessage("Error: Perfil de usuario incompleto. Contacte al administrador.");
+      setFeedbackType('error');
+      setShowFeedback(true);
       setSubmittingRequest(false);
       return;
     }
 
     // Validaciones
     if (requestData.customRequest && (!requestData.description || requestData.description.trim() === '')) {
-        alert('Para una requisición especial, la descripción es obligatoria.');
+        setFeedbackMessage('Para una requisición especial, la descripción es obligatoria.');
+        setFeedbackType('error');
+        setShowFeedback(true);
         setSubmittingRequest(false);
         return;
     }
     if (!requestData.customRequest && (!requestData.products || requestData.products.length === 0 || requestData.products.some(p => !p.productId || p.quantity < 1))) {
-        alert('Debe seleccionar al menos un producto con cantidad válida (mayor a 0) para una solicitud estándar.');
+        setFeedbackMessage('Debe seleccionar al menos un producto con cantidad válida (mayor a 0) para una solicitud estándar.');
+        setFeedbackType('error');
+        setShowFeedback(true);
         setSubmittingRequest(false);
         return;
     }
@@ -67,7 +77,7 @@ const RequestFormPage: React.FC = () => {
           empleado_id: userProfile.empleado_id,
           departamento_id: userProfile.departamento_id,
         })
-        .select('id')
+        .select('id, codigo_visible')
         .single();
 
       if (solicitudError) throw solicitudError;
@@ -107,7 +117,7 @@ const RequestFormPage: React.FC = () => {
         const notificationsPayload: NotificacionInsert[] = adminUserIds.map(adminUserId => ({
           user_id: adminUserId,
           title: 'Nueva Solicitud de Compra',
-          description: `El empleado ${userProfile.empleado?.nombre || 'Desconocido'} (${userProfile.departamento?.nombre || 'Dpto. Desc.'}) ha creado la solicitud #${solicitudId}: ${finalDescriptionForSolicitud}.`,
+          description: `El empleado ${userProfile.empleado?.nombre || 'Desconocido'} (${userProfile.departamento?.nombre || 'Dpto. Desc.'}) ha creado la solicitud #${solicitudData.codigo_visible || solicitudId}: ${finalDescriptionForSolicitud}.`,
           type: 'nueva_solicitud',
         }));
         const notifResult = await createNotifications(notificationsPayload);
@@ -117,29 +127,49 @@ const RequestFormPage: React.FC = () => {
       } else {
         console.warn("No se encontraron IDs de administradores para notificar sobre nueva solicitud.");
       }
+      
+      setFeedbackMessage('¡Solicitud creada exitosamente!');
+      setFeedbackType('success');
+      setShowFeedback(true);
+      
+      // Navigate after a short delay to allow user to see feedback
+      setTimeout(() => {
+        navigate('/solicitudes');
+      }, 2000);
 
-      alert('¡Solicitud creada exitosamente!');
-      navigate('/solicitudes'); 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Error al enviar solicitud:', errorMessage, error);
-      alert(`Error al crear la solicitud: ${errorMessage}`);
+      setFeedbackMessage(`Error al crear la solicitud: ${errorMessage}`);
+      setFeedbackType('error');
+      setShowFeedback(true);
     } finally {
-      setSubmittingRequest(false);
+      // Don't set submitting to false if we are navigating away on success
+      if (feedbackType === 'error') {
+          setSubmittingRequest(false);
+      }
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
-      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6 md:p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Crear Nueva Solicitud de Compra</h1>
-        <RequestForm
-          onSubmit={handleSubmitRequest}
-          onCancel={() => navigate(-1)} // Volver a la página anterior
-          isSubmitting={submittingRequest}
-        />
+    <>
+      <FeedbackModal
+        show={showFeedback}
+        type={feedbackType}
+        message={feedbackMessage}
+        onClose={() => setShowFeedback(false)}
+      />
+      <div className="max-w-2xl mx-auto py-8 px-4">
+        <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6 md:p-8">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Crear Nueva Solicitud de Compra</h1>
+          <RequestForm
+            onSubmit={handleSubmitRequest}
+            onCancel={() => navigate(-1)} // Volver a la página anterior
+            isSubmitting={submittingRequest}
+          />
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

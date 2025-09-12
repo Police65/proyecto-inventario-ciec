@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Requisoftware isotipo mejorado">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1565D8"/>
+      <stop offset="100%" stop-color="#1BC5BD"/>
+    </linearGradient>
+    <style>
+      .shadow { filter: drop-shadow(0 6px 12px rgba(12,26,60,0.15)); }
+    </style>
+  </defs>
+
+  <!-- Circle gear simplified -->
+  <g class="shadow" transform="translate(200,200) scale(3)">
+    <!-- Gear shape simplified -->
+    <circle r="46" fill="none" stroke="url(#grad)" stroke-width="8" stroke-dasharray="8 10" stroke-linecap="round"/>
+    
+    <!-- Inner circle -->
+    <circle r="28" fill="white" stroke="url(#grad)" stroke-width="6"/>
+    
+    <!-- Checkmark -->
+    <path d="M-12 2l10 10 18-18" fill="none" stroke="url(#grad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Subtle R shape inside -->
+    <path d="M-14 -16h12c5 0 9 4 9 9s-4 9-9 9h-12z M-2 2l8 10" fill="none" stroke="#1565D8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

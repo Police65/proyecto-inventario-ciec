@@ -28,7 +28,8 @@ interface NavItem {
   badgeCount?: number;
   isExternalLink?: boolean;
   subItems?: NavItem[];
-  isActionButton?: boolean; 
+  isActionButton?: boolean;
+  tourId?: string;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingRequestsCount, onNewRequestClick, onSelectTab, onLogout, activeUITab, setHasInteracted }) => {
@@ -67,7 +68,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
       icon: ListBulletIcon, 
       label: 'Solicitudes', 
       tabKey: 'solicitudes', 
-      badgeCount: userProfile?.rol === 'usuario' ? pendingRequestsCount : undefined
+      badgeCount: userProfile?.rol === 'usuario' ? pendingRequestsCount : undefined,
+      tourId: 'sidebar-pending-requests' // ID for user tour
     },
     { 
       onClick: () => handleNavigation(() => {
@@ -76,7 +78,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
       }),
       icon: ClockIcon, 
       label: 'Historial Solicitudes', 
-      tabKey: 'historial-solicitudes'
+      tabKey: 'historial-solicitudes',
+      tourId: 'sidebar-history-requests' // ID for user tour
+    },
+    { 
+      onClick: () => handleNavigation(() => {
+        if (currentPath !== '/solicitudes') navigate('/solicitudes');
+        onSelectTab('mis-solicitudes');
+      }),
+      icon: UserSummaryIcon,
+      label: 'Mis Solicitudes', 
+      adminOnly: true,
+      tabKey: 'mis-solicitudes'
     },
     { 
       onClick: () => handleNavigation(() => {
@@ -106,7 +119,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
       icon: UsersIcon, 
       label: 'Gestión de Usuarios', 
       adminOnly: true,
-      tabKey: 'usuarios'
+      tabKey: 'usuarios',
+      tourId: 'sidebar-user-management' // ID for admin tour
     },
     {
       onClick: () => handleNavigation(() => {
@@ -123,6 +137,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
       icon: BuildingStorefrontIcon, 
       label: 'Gestión de Inventario', 
       adminOnly: true,
+      tourId: 'sidebar-inventory-management' // ID for admin tour
+    },
+    { 
+      to: '/products', 
+      icon: ArchiveBoxIcon, 
+      label: 'Catálogo de Productos', 
+      userOnly: true,
+    },
+    { 
+      to: '/suppliers', 
+      icon: BuildingStorefrontIcon, 
+      label: 'Proveedores', 
+      userOnly: true,
     },
   ];
   
@@ -145,7 +172,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
     if (item.tabKey) {
       // Activo si estamos en /solicitudes Y la pestaña activa coincide
       calculatedIsActive = currentPath.includes('/solicitudes') && activeUITab === item.tabKey;
-    } else if (item.to && (item.to === '/inventory' || item.to === '/external-events')) { 
+    } else if (item.to && (item.to === '/inventory' || item.to === '/external-events' || item.to === '/suppliers' || item.to === '/products')) { 
         // Para rutas con subrutas, verificar si la ruta actual *comienza* con la ruta del item
         calculatedIsActive = currentPath.startsWith(item.to);
     } else if (item.to) {
@@ -158,7 +185,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
         if (item.label === "Mi Resumen" && currentPath === '/user-activity-summary') calculatedIsActive = true;
     }
     
-    const baseClasses = `flex items-center px-3 py-3 text-sm rounded-lg transition-colors duration-150 w-full text-left`;
+    const baseClasses = `flex items-center px-3 py-3 text-sm rounded-lg transition-all duration-150 w-full text-left`;
     const activeClasses = 'bg-primary-500 text-white font-semibold';
     const inactiveClasses = item.isActionButton 
         ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-700 dark:hover:text-red-300' 
@@ -179,8 +206,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
     );
 
     return (
-      <li key={item.label + index} className="my-1">
-        {item.onClick ? (
+      <li key={item.label + index} className="my-1" data-tour-id={item.tourId}>
+        {item.to ? (
+          <Link to={item.to} onClick={() => handleNavigation(() => {})} className={linkClasses}>
+            {content}
+          </Link>
+        ) : item.onClick ? (
            <button onClick={item.onClick} className={linkClasses}>
             {content}
           </button>
@@ -199,7 +230,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
     >
       <div className="py-4 text-gray-500 dark:text-gray-400 flex flex-col h-full">
         <div>
-          <button onClick={() => handleNavigation(() => navigate('/home'))} className="ml-6 text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center hover:text-primary-600 dark:hover:text-primary-400">
+          <button onClick={() => handleNavigation(() => navigate('/home'))} className="ml-6 text-lg font-bold text-gray-800 dark:text-gray-200 flex items-center hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-150">
             <Cog6ToothIcon className="w-7 h-7 mr-2 text-primary-500"/>
             RequiSoftware
           </button>
@@ -211,11 +242,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isVisible, userProfile, pendingReques
         </div>
         
         <div className="mt-auto px-3 pb-4"> 
-           {userProfile?.rol === 'usuario' && (
-            <div className="px-3 my-6">
+           {(userProfile?.rol === 'usuario' || userProfile?.rol === 'admin') && (
+            <div className="px-3 my-6" data-tour-id="sidebar-new-request">
               <button
                 onClick={() => handleNavigation(onNewRequestClick)}
-                className="flex items-center justify-center w-full px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-primary-600 border border-transparent rounded-lg active:bg-primary-600 hover:bg-primary-700 focus:outline-none focus:shadow-outline-primary"
+                className="flex items-center justify-center w-full px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-primary-600 border border-transparent rounded-lg active:bg-primary-600 hover:bg-primary-700 focus:outline-none focus:shadow-outline-primary transition-transform active:scale-95"
               >
                 <PlusCircleIcon className="w-5 h-5 mr-2" />
                 Nueva Solicitud

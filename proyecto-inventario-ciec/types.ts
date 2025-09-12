@@ -98,7 +98,8 @@ export interface Inventario {
   created_at: string;
   updated_at: string;
   // Propiedades de relación
-  producto?: Producto & { categoria?: Pick<CategoriaProducto, 'nombre'> };
+  // FIX: Break circular dependency between Inventario and Producto.
+  producto?: any;
 }
 
 // Tabla de unión entre OrdenCompra y SolicitudCompra
@@ -115,6 +116,7 @@ export type OrdenCompraUnidad = 'Bs' | 'USD'; // Unidades monetarias
 
 export interface OrdenCompra {
   id: number;
+  codigo_visible?: string | null;
   solicitud_compra_id: number | null;
   proveedor_id: number;
   fecha_orden: string;
@@ -137,7 +139,9 @@ export interface OrdenCompra {
   // Propiedades de relación
   proveedor?: Proveedor;
   empleado?: Empleado;
-  solicitud_compra?: Partial<SolicitudCompra>;
+  // FIX: Break circular dependency with SolicitudCompra by using 'any'.
+  // This prevents TypeScript from failing to resolve the schema, which causes 'never' type errors.
+  solicitud_compra?: any;
   detalles?: (OrdenCompraDetalle & { producto?: Producto })[];
 }
 
@@ -180,6 +184,7 @@ export interface Producto {
   updated_at: string;
   // Propiedades de relación
   categoria?: CategoriaProducto;
+  inventario?: { existencias: number | null }[] | null;
 }
 
 // Productos que no se recibieron completamente en una orden
@@ -203,6 +208,8 @@ export interface ProductoRezagado {
   solicitud_id?: number | null; // Solicitud original del producto
   created_at: string;
   updated_at: string;
+  // Propiedades de relación
+  producto?: Pick<Producto, 'id' | 'descripcion'>;
 }
 
 export type ProveedorTipoContribuyente = 'normal' | 'especial';
@@ -238,6 +245,7 @@ export type SolicitudCompraEstado = 'Pendiente' | 'Aprobada' | 'Rechazada';
 
 export interface SolicitudCompra {
   id: number;
+  codigo_visible?: string | null;
   descripcion?: string | null;
   fecha_solicitud: string;
   estado: SolicitudCompraEstado;
@@ -249,6 +257,11 @@ export interface SolicitudCompra {
   empleado?: Empleado;
   departamento?: Departamento;
   detalles?: (SolicitudCompraDetalle & { producto?: Producto & { categoria?: CategoriaProducto } })[];
+  // Propiedades para nuevas funcionalidades
+  // FIX: Break circular dependency with OrdenCompra by using 'any[]'.
+  // This prevents TypeScript from failing to resolve the schema, which causes 'never' type errors.
+  ordenes?: any[] | null;
+  rezagados?: (Pick<ProductoRezagado, 'id' | 'cantidad' | 'motivo'> & { producto?: Pick<Producto, 'id' | 'descripcion'> })[] | null;
 }
 
 export interface SolicitudCompraDetalle {
@@ -270,6 +283,7 @@ export interface UserProfile {
   empleado_id?: number | null; // FK a 'empleado'
   departamento_id?: number | null; // FK a 'departamento'
   rol?: UserProfileRol | null;
+  has_completed_tour?: boolean | null;
   created_at: string;
   updated_at: string;
   // La propiedad 'email' se añade en el cliente combinando datos de auth.users.
@@ -451,7 +465,7 @@ export interface PartnerParticipant { // Personas participantes en eventos/reuni
 
 // --- Definición del Esquema de Base de Datos para el cliente Supabase ---
 //
-// CAMBIO CLAVE: Se simplifican los tipos 'Insert' y 'Update' a 'Record<string, any>'.
+// CAMBIO CLAVE: Se simplifican los tipos 'Insert' y 'Update' a 'any'.
 // Esta es la solución más permisiva para resolver los errores de
 // "type instantiation is excessively deep" y "is not assignable to type 'never'" que pueden
 // ocurrir en proyectos con esquemas de base de datos muy grandes y complejos. Se sacrifica
@@ -464,138 +478,138 @@ export interface Database {
     Tables: {
       camaraindustriales: {
         Row: Camaraindustriales;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       cargo: {
         Row: Cargo;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       categoria_producto: {
         Row: CategoriaProducto;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       categoria_proveedor: {
         Row: CategoriaProveedor;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       compras_para_evento_externo: {
         Row: ComprasParaEventoExterno;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       consumo_historico_producto: {
         Row: ConsumoHistoricoProducto;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       consumo_para_evento_externo: {
         Row: ConsumoParaEventoExterno;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       departamento: {
         Row: Departamento;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       empleado: {
         Row: Empleado;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       empleadocargohistorial: {
         Row: EmpleadoCargoHistorial;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       facturas_orden: {
         Row: FacturaOrden;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       inventario: {
         Row: Inventario;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       metricas_producto_mensual: {
         Row: MetricasProductoMensual;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       notificaciones: {
         Row: Notificacion;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       orden_solicitud: {
         Row: OrdenSolicitud;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       ordencompra: {
         Row: OrdenCompra;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       ordencompra_detalle: {
         Row: OrdenCompraDetalle;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       ordenes_consolidadas: {
         Row: OrdenConsolidada;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       producto: {
         Row: Producto;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       productos_no_recibidos: {
         Row: ProductoNoRecibido;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       productos_rezagados: {
         Row: ProductoRezagado;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       proveedor: {
         Row: Proveedor;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       proveedor_categoria: {
         Row: ProveedorCategoria;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       rendimiento_proveedor: {
         Row: RendimientoProveedor;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       solicitudcompra: {
         Row: SolicitudCompra;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       solicitudcompra_detalle: {
         Row: SolicitudCompraDetalle;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
       user_profile: {
         Row: UserProfile;
-        Insert: Record<string, any>;
-        Update: Record<string, any>;
+        Insert: { [key: string]: any };
+        Update: { [key: string]: any };
       };
     };
     Views: {
@@ -617,12 +631,12 @@ export interface Database {
 export interface PartnerDatabaseSchema {
   public: {
     Tables: {
-      Events: { Row: PartnerEvent; Insert: Record<string, any>; Update: Record<string, any>; };
-      Meetings: { Row: PartnerMeeting; Insert: Record<string, any>; Update: Record<string, any>; };
-      Commissions: { Row: PartnerCommission; Insert: Record<string, any>; Update: Record<string, any>; };
-      Companies: { Row: PartnerCompany; Insert: Record<string, any>; Update: Record<string, any>; };
-      EventCategories: { Row: PartnerEventCategory; Insert: Record<string, any>; Update: Record<string, any>; };
-      Participants: { Row: PartnerParticipant; Insert: Record<string, any>; Update: Record<string, any>; };
+      Events: { Row: PartnerEvent; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      Meetings: { Row: PartnerMeeting; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      Commissions: { Row: PartnerCommission; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      Companies: { Row: PartnerCompany; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      EventCategories: { Row: PartnerEventCategory; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      Participants: { Row: PartnerParticipant; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
     };
     Views: { [_ in never]: never; };
     Functions: { [_ in never]: never; };

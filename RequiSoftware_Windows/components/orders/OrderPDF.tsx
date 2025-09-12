@@ -69,6 +69,7 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
         .from('ordencompra')
         .select(`
           *,
+          codigo_visible,
           proveedor:proveedor_id(*),
           productos:ordencompra_detalle(*, producto:producto_id(*)),
           empleado:empleado_id(*)
@@ -120,7 +121,7 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
       
       pdf.addImage(canvas, 'PNG', 0, 0, pdfWidth, pdfHeight);
       
-      pdf.save(`orden_de_compra_${order.id}.pdf`);
+      pdf.save(`orden_de_compra_${order.codigo_visible || order.id}.pdf`);
 
       setFeedback({ type: 'success', message: '¡PDF generado! La descarga ha comenzado.' });
       setTimeout(() => setFeedback(null), 5000);

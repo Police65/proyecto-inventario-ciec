@@ -25,7 +25,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, ord
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
           <div className="flex justify-between items-center p-4 sm:p-6 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Detalles de la Orden de Compra #{order.id}
+              Detalles de la Orden de Compra #{order.codigo_visible || order.id}
             </h3>
             <button
               onClick={onHide}

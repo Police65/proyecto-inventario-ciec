@@ -56,7 +56,7 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, onOrderClick, onUpdate 
               onClick={() => onOrderClick(order)}
               className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
             >
-              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{order.id}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">#{order.codigo_visible || order.id}</td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{order.proveedor?.nombre || 'N/A'}</td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                 {order.solicitud_compra_id ? `#${order.solicitud_compra_id}` : 'Directa'}
