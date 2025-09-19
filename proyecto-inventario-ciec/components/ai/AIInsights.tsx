@@ -5,7 +5,6 @@ import DepartmentExpensesChart from './DepartmentExpensesChart';
 import AnomalyPieChart from './AnomalyPieChart';
 import ChatInterface from '@/components/ai/ChatInterface'; // Se cambió a importación con alias
 import { GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY } from '../../config';
 import { AISummaryStat, ChartDataItem, OrdenCompra, SolicitudCompra, Departamento, RendimientoProveedor, ConsumoHistoricoProducto, MetricasProductoMensual, UserProfile, PartnerEvent, PartnerMeeting } from '../../types';
 import { LightBulbIcon, BanknotesIcon, TruckIcon, CpuChipIcon, UserGroupIcon, ArrowPathIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
@@ -179,10 +178,7 @@ export const AIInsights: React.FC = () => {
 
   const fetchAIResponse = async (prompt: string, type: InsightType): Promise<string> => {
     try {
-        if (!GEMINI_API_KEY) {
-          throw new Error("La clave API de Gemini no está configurada en config.ts");
-        }
-        const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
           contents: prompt,

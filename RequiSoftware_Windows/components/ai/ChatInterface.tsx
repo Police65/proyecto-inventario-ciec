@@ -79,8 +79,7 @@ const parseChatResponseToHTML = (text: string): string => {
 // This helper function asks the AI to act as a router, choosing which data function to call.
 const getIntentFromQuery = async (query: string): Promise<{function: string; args: any}> => {
     if (!GEMINI_API_KEY) {
-      console.error("La clave API de Gemini no está configurada en config.ts");
-      return { function: 'none', args: {} };
+        throw new Error("La clave de API de Gemini no está configurada.");
     }
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
     const availableFunctions = `
@@ -135,14 +134,15 @@ const getIntentFromQuery = async (query: string): Promise<{function: string; arg
         const responseText = response.text;
         
         let jsonStr = responseText.trim();
-        const fenceRegex = /^```json\s*\n?(.*?)\n?\s*```$/s;
+        const fenceRegex = /^` + "```" + `json\s*\n?(.*?)\n?\s*` + "```" + `$/s;
         const match = jsonStr.match(fenceRegex);
         if (match && match[1]) jsonStr = match[1];
         
         return JSON.parse(jsonStr);
     } catch (e) {
         console.error("Failed to get or parse intent from Gemini:", e);
-        return { function: 'none', args: {} };
+        // Propagate the error to be handled by the caller, which can then display a user-friendly message
+        throw e;
     }
 };
 
@@ -179,114 +179,106 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
-    setIsFetchingContext(true);
-
-    let contextDataString = "";
-    try {
-      const intent = await getIntentFromQuery(trimmedInput);
-      setIsFetchingContext(false);
-
-      const missingArgs = Object.entries(intent.args || {}).filter(([_, value]) => value === null);
-
-      if (intent.function !== 'none' && missingArgs.length > 0) {
-        const missingArgNames = missingArgs.map(([key]) => `'${key}'`).join(', ');
-        let followUpPrompt = `The user wants to use the function '${intent.function}' but is missing the required argument(s): ${missingArgNames}. Ask the user to provide this information.`;
-        
-        if (missingArgNames.includes("'categoryName'")) {
-            followUpPrompt += " You can also suggest listing all available categories to help them choose.";
-        }
-        
-        contextDataString = `[Instrucción del sistema: ${followUpPrompt}]`;
-      
-      } else if (intent && intent.function && intent.function !== 'none') {
-        const { function: funcName, args } = intent;
-        let result: any;
-        
-        const serviceFunctions: { [key: string]: Function } = {
-          getPendingRequestsCount: aiDataService.getPendingRequestsCount,
-          getTotalPurchaseOrdersCount: aiDataService.getTotalPurchaseOrdersCount,
-          getTotalProductsCount: aiDataService.getTotalProductsCount,
-          getProductDetailsByNameOrCode: aiDataService.getProductDetailsByNameOrCode,
-          getTotalSuppliersCount: aiDataService.getTotalSuppliersCount,
-          getSupplierDetailsByNameOrRif: aiDataService.getSupplierDetailsByNameOrRif,
-          getInventoryByProductNameOrCode: aiDataService.getInventoryByProductNameOrCode,
-          getOrderDetailsById: aiDataService.getOrderDetailsById,
-          getTotalDepartmentsCount: aiDataService.getTotalDepartmentsCount,
-          getInventorySummary: aiDataService.getInventorySummary,
-          getAllProducts: aiDataService.getAllProducts,
-          getProductsByCategoryName: aiDataService.getProductsByCategoryName,
-          getAllProductCategories: aiDataService.getAllProductCategories,
-          getDepartmentExpenses: aiDataService.getDepartmentExpenses,
-          getTotalExpenses: aiDataService.getTotalExpenses,
-          getSolicitudDetailsById: aiDataService.getSolicitudDetailsById,
-          getEmpleadoInfo: aiDataService.getEmpleadoInfo,
-          getRecentActivity: aiDataService.getRecentActivity,
-        };
-
-        if (serviceFunctions[funcName]) {
-          const functionArgs = Object.values(args || {});
-          result = await serviceFunctions[funcName](...functionArgs);
-        } else {
-            console.warn(`Intent router returned unknown function: ${funcName}`);
-            result = `Función desconocida '${funcName}' solicitada.`;
-        }
-
-        contextDataString = `[Datos del sistema: ${typeof result === 'object' ? JSON.stringify(result) : result}]`;
-      }
-    } catch (dataFetchError) {
-        console.error("Error fetching context data:", dataFetchError);
-        contextDataString = "[Datos del sistema: Hubo un error al consultar la información de la base de datos para tu pregunta.]";
-    }
     
-    setIsFetchingContext(false);
-    
-    const chatHistoryForAI = messages.slice(-5).map(msg => ({
-      role: msg.sender === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.text }]
-    }));
-
-    const contents = [
-        ...chatHistoryForAI,
-        { role: 'user', parts: [{ text: (contextDataString ? contextDataString + " " : "") + trimmedInput }] }
-    ];
+    let aiResponseText = '';
 
     try {
         if (!GEMINI_API_KEY) {
-          throw new Error("La clave API de Gemini no está configurada en config.ts");
+            throw new Error("La clave de API de Gemini no está configurada. Por favor, verifica tu archivo .env o la configuración del entorno.");
         }
+        setIsFetchingContext(true);
+        const intent = await getIntentFromQuery(trimmedInput);
+        setIsFetchingContext(false);
+
+        let contextDataString = "";
+        const missingArgs = Object.entries(intent.args || {}).filter(([_, value]) => value === null);
+
+        if (intent.function !== 'none' && missingArgs.length > 0) {
+            const missingArgNames = missingArgs.map(([key]) => `'${key}'`).join(', ');
+            let followUpPrompt = `The user wants to use the function '${intent.function}' but is missing the required argument(s): ${missingArgNames}. Ask the user to provide this information.`;
+            if (missingArgNames.includes("'categoryName'")) {
+                followUpPrompt += " You can also suggest listing all available categories to help them choose.";
+            }
+            contextDataString = `[Instrucción del sistema: ${followUpPrompt}]`;
+        
+        } else if (intent && intent.function && intent.function !== 'none') {
+            const { function: funcName, args } = intent;
+            let result: any;
+            
+            const serviceFunctions: { [key: string]: Function } = {
+            getPendingRequestsCount: aiDataService.getPendingRequestsCount,
+            getTotalPurchaseOrdersCount: aiDataService.getTotalPurchaseOrdersCount,
+            getTotalProductsCount: aiDataService.getTotalProductsCount,
+            getProductDetailsByNameOrCode: aiDataService.getProductDetailsByNameOrCode,
+            getTotalSuppliersCount: aiDataService.getTotalSuppliersCount,
+            getSupplierDetailsByNameOrRif: aiDataService.getSupplierDetailsByNameOrRif,
+            getInventoryByProductNameOrCode: aiDataService.getInventoryByProductNameOrCode,
+            getOrderDetailsById: aiDataService.getOrderDetailsById,
+            getTotalDepartmentsCount: aiDataService.getTotalDepartmentsCount,
+            getInventorySummary: aiDataService.getInventorySummary,
+            getAllProducts: aiDataService.getAllProducts,
+            getProductsByCategoryName: aiDataService.getProductsByCategoryName,
+            getAllProductCategories: aiDataService.getAllProductCategories,
+            getDepartmentExpenses: aiDataService.getDepartmentExpenses,
+            getTotalExpenses: aiDataService.getTotalExpenses,
+            getSolicitudDetailsById: aiDataService.getSolicitudDetailsById,
+            getEmpleadoInfo: aiDataService.getEmpleadoInfo,
+            getRecentActivity: aiDataService.getRecentActivity,
+            };
+
+            if (serviceFunctions[funcName]) {
+            const functionArgs = Object.values(args || {});
+            result = await serviceFunctions[funcName](...functionArgs);
+            } else {
+                result = `Función desconocida '${funcName}' solicitada.`;
+            }
+
+            contextDataString = `[Datos del sistema: ${typeof result === 'object' ? JSON.stringify(result) : result}]`;
+        }
+
+        const chatHistoryForAI = messages.slice(-5).map(msg => ({
+            role: msg.sender === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.text }]
+        }));
+
+        const contents = [
+            ...chatHistoryForAI,
+            { role: 'user', parts: [{ text: (contextDataString ? contextDataString + " " : "") + trimmedInput }] }
+        ];
+
         const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: contents,
-            config: {
-                systemInstruction: systemPrompt,
-                maxOutputTokens: 1500,
-            }
+            config: { systemInstruction: systemPrompt, maxOutputTokens: 1500 }
         });
 
         const responseText = response.text;
-        if (responseText) {
-            const aiMessage: ChatMessage = {
-            id: Date.now().toString() + '-ai',
-            text: responseText,
-            sender: 'ai',
-            timestamp: new Date(),
-            };
-            setMessages(prev => [...prev, aiMessage]);
-        } else {
-            throw new Error("Respuesta de IA inválida o inesperada.");
-        }
+        if (!responseText) throw new Error("La respuesta de la IA llegó vacía.");
+        
+        aiResponseText = responseText;
+
     } catch (error) {
-      console.error("Error al obtener respuesta del Asistente Inteligente (Gemini):", error);
-      const errorMessage: ChatMessage = {
-        id: Date.now().toString() + '-error',
-        text: `Lo siento, ocurrió un error al procesar tu solicitud: ${error instanceof Error ? error.message : String(error)}.`,
+      const errorMessageText = error instanceof Error ? error.message : String(error);
+      console.error("Error en el flujo del chat (getIntent o generateContent):", error);
+      
+      if (errorMessageText.includes('"code":429') && errorMessageText.includes('RESOURCE_EXHAUSTED')) {
+            aiResponseText = `**Error de Cuota (429): No puedo procesar tu solicitud.**\n\n`;
+            aiResponseText += `Este error indica un problema de configuración con la clave de API. Es probable que la **Facturación** o la **API "Generative Language"** no estén habilitadas en el proyecto de Google Cloud asociado.\n\n`;
+            aiResponseText += `Por favor, contacta a un administrador para que revise la configuración del proyecto en la Consola de Google Cloud.`;
+      } else {
+            aiResponseText = `Lo siento, ocurrió un error al procesar tu solicitud. Por favor, intenta de nuevo.\n\n*Detalles: ${errorMessageText}*`;
+      }
+    } finally {
+      const finalMessage: ChatMessage = {
+        id: Date.now().toString() + '-ai',
+        text: aiResponseText || "Lo siento, no pude obtener una respuesta. Por favor, intenta de nuevo.",
         sender: 'ai',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
+      setMessages(prev => [...prev, finalMessage]);
       setIsLoading(false);
+      setIsFetchingContext(false);
     }
   };
 

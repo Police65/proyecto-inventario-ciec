@@ -1,6 +1,5 @@
 import { supabase } from '../supabaseClient';
 import { GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY } from '../config';
 
 interface ProductInput {
   productId: number;
@@ -48,10 +47,8 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
 
 async function generateDescription(products: ProductInput[]): Promise<string> {
   try {
-    if (!GEMINI_API_KEY) {
-      throw new Error("La clave API de Gemini no está configurada en config.ts");
-    }
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    // La clave API se obtiene directamente de las variables de entorno según las directrices.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const productIds = products.map(p => p.productId);
     const productNames = await getProductNames(productIds);

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PaperAirplaneIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 import { UserProfile } from '../../types'; // Relative path
 import { GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY } from '../../config';
 import DOMPurify from 'dompurify'; // From esm.sh
 import * as aiDataService from '../../services/aiDataService'; // Changed to relative path
 
@@ -78,11 +77,7 @@ const parseChatResponseToHTML = (text: string): string => {
 
 // This helper function asks the AI to act as a router, choosing which data function to call.
 const getIntentFromQuery = async (query: string): Promise<{function: string; args: any}> => {
-    if (!GEMINI_API_KEY) {
-      console.error("La clave API de Gemini no está configurada en config.ts");
-      return { function: 'none', args: {} };
-    }
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const availableFunctions = `
 - getInventorySummary: Returns a high-level summary of the inventory. Call for general questions about inventory like 'how many products are in inventory?', 'what is the inventory status?'.
 - getInventoryByProductNameOrCode: Takes a required 'identifier' (string: product name or code). Returns the current stock level and location for a single product. Call this for any question about "stock", "cuanto(s) hay", "existencias", "disponibilidad" for a specific item.
@@ -135,7 +130,7 @@ const getIntentFromQuery = async (query: string): Promise<{function: string; arg
         const responseText = response.text;
         
         let jsonStr = responseText.trim();
-        const fenceRegex = /^```json\s*\n?(.*?)\n?\s*```$/s;
+        const fenceRegex = /^` + "```" + `json\s*\n?(.*?)\n?\s*` + "```" + `$/s;
         const match = jsonStr.match(fenceRegex);
         if (match && match[1]) jsonStr = match[1];
         
@@ -251,10 +246,7 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
     ];
 
     try {
-        if (!GEMINI_API_KEY) {
-          throw new Error("La clave API de Gemini no está configurada en config.ts");
-        }
-        const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: contents,

@@ -7,10 +7,9 @@ export const SUPABASE_URL = "https://pckbdperupovxrniubrl.supabase.co";
 export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBja2JkcGVydXBvdnhybml1YnJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAxNDM1MTIsImV4cCI6MjA1NTcxOTUxMn0.p1qIe03QXpwmMKGeiobK-i5Sv_2ANYkSUQ-eUfydOis";
 
 // --- Clave de API de Gemini ---
-// ADVERTENCIA: Exponer claves API en el código del frontend es un riesgo de seguridad.
-// Esta clave se ha añadido aquí por solicitud explícita.
-// En un entorno de producción, use variables de entorno y un proxy backend para protegerla.
-export const GEMINI_API_KEY = "AIzaSyCg577UmE4Rx7MZZtToKIn_ZdUzG0TS2zI";
+// La clave de la API de Gemini ahora se obtiene directamente de la variable de entorno
+// `process.env.API_KEY` en los archivos de servicio donde se utiliza.
+// Este enfoque es más seguro y se alinea con las mejores prácticas para manejar secretos.
 
 // --- Configuración de la Base de Datos del Compañero (Calendario de Eventos) ---
 // ADVERTENCIA: Exponer claves API en el código del frontend es un riesgo de seguridad.

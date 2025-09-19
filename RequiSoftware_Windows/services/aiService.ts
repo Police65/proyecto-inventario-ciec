@@ -49,7 +49,8 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
 async function generateDescription(products: ProductInput[]): Promise<string> {
   try {
     if (!GEMINI_API_KEY) {
-      throw new Error("La clave API de Gemini no está configurada en config.ts");
+        console.warn("La clave de API de Gemini no está configurada. Usando descripción de respaldo.");
+        return "Solicitud de artículos variados";
     }
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
     
@@ -88,7 +89,14 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error en generateDescription con Gemini:", errorMessage, error);
+
+    // Enhanced error logging for 429 quota issues
+    if (errorMessage.includes('"code":429') && errorMessage.includes('RESOURCE_EXHAUSTED')) {
+        console.error(`[aiService] Error de Cuota (429) detectado en generateDescription. Esto usualmente significa que la API de Gemini (Generative Language API) no está habilitada o la facturación no está configurada en el proyecto de Google Cloud. Por favor, verifique la configuración de su proyecto.`);
+    } else {
+        console.error("Error en generateDescription con Gemini:", errorMessage, error);
+    }
+    
     return "Solicitud de compra (error en IA)";
   }
 }
