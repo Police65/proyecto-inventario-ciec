@@ -1,6 +1,5 @@
 import { supabase } from '../supabaseClient';
 import { GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY } from '../config';
 
 interface ProductInput {
   productId: number;
@@ -48,11 +47,8 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
 
 async function generateDescription(products: ProductInput[]): Promise<string> {
   try {
-    if (!GEMINI_API_KEY) {
-        console.warn("La clave de API de Gemini no está configurada. Usando descripción de respaldo.");
-        return "Solicitud de artículos variados";
-    }
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    // La clave API se obtiene directamente de las variables de entorno según las directrices.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const productIds = products.map(p => p.productId);
     const productNames = await getProductNames(productIds);
@@ -89,14 +85,7 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-
-    // Enhanced error logging for 429 quota issues
-    if (errorMessage.includes('"code":429') && errorMessage.includes('RESOURCE_EXHAUSTED')) {
-        console.error(`[aiService] Error de Cuota (429) detectado en generateDescription. Esto usualmente significa que la API de Gemini (Generative Language API) no está habilitada o la facturación no está configurada en el proyecto de Google Cloud. Por favor, verifique la configuración de su proyecto.`);
-    } else {
-        console.error("Error en generateDescription con Gemini:", errorMessage, error);
-    }
-    
+    console.error("Error en generateDescription con Gemini:", errorMessage, error);
     return "Solicitud de compra (error en IA)";
   }
 }

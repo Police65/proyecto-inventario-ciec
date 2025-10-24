@@ -270,6 +270,8 @@ export interface SolicitudCompraDetalle {
   producto_id?: number | null;
   cantidad: number;
   descripcion_producto_personalizado?: string | null;
+  categoria_producto_sugerida_id?: number | null; // Para productos nuevos
+  categoria_sugerida_nombre?: string | null; // Para sugerir una nueva categoría
   created_at: string;
   updated_at: string;
   // Propiedades de relación

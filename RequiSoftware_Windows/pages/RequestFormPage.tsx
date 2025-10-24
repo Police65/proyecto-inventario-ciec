@@ -1,15 +1,25 @@
 import React, { useState } from 'react';
 // @ts-ignore
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { RequestForm } from '../components/requests/RequestForm'; // Se cambió a importación nombrada
-import { UserProfile, NotificacionInsert, Database } from '../types';
+import { RequestForm } from '../components/requests/RequestForm';
+import { UserProfile, NotificacionInsert } from '../types';
 import { generateDescription as aiGenerateDescription } from '../services/aiService';
-import { createNotifications, fetchAdminUserIds } from '../services/notificationService'; // Importar servicio de notificaciones
-import FeedbackModal from '../components/core/FeedbackModal'; // Importar el nuevo modal de feedback
-import { supabase } from '../supabaseClient'; // Mantener para operaciones directas de BD si es necesario
+import { createNotifications, fetchAdminUserIds } from '../services/notificationService';
+import FeedbackModal from '../components/core/FeedbackModal';
+import { supabase } from '../supabaseClient';
 
 interface RequestFormPageContext {
   userProfile: UserProfile;
+}
+
+interface ProductLineForSubmit {
+  id: string;
+  isNew: boolean;
+  productId: string;
+  newProductDescription: string;
+  newProductCategoryId: string;
+  newProductNewCategoryName: string;
+  quantity: number;
 }
 
 const RequestFormPage: React.FC = () => {
@@ -21,7 +31,7 @@ const RequestFormPage: React.FC = () => {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState<'success' | 'error'>('success');
 
-  const handleSubmitRequest = async (requestData: { products: { id: string; productId: string; quantity: number }[] | null; description: string | null, customRequest: boolean }) => {
+  const handleSubmitRequest = async (requestData: { products: ProductLineForSubmit[] }) => {
     setSubmittingRequest(true);
     if (!userProfile?.empleado_id || !userProfile.departamento_id) {
       setFeedbackMessage("Error: Perfil de usuario incompleto. Contacte al administrador.");
@@ -31,16 +41,9 @@ const RequestFormPage: React.FC = () => {
       return;
     }
 
-    // Validaciones
-    if (requestData.customRequest && (!requestData.description || requestData.description.trim() === '')) {
-        setFeedbackMessage('Para una requisición especial, la descripción es obligatoria.');
-        setFeedbackType('error');
-        setShowFeedback(true);
-        setSubmittingRequest(false);
-        return;
-    }
-    if (!requestData.customRequest && (!requestData.products || requestData.products.length === 0 || requestData.products.some(p => !p.productId || p.quantity < 1))) {
-        setFeedbackMessage('Debe seleccionar al menos un producto con cantidad válida (mayor a 0) para una solicitud estándar.');
+    // Validations are now mostly handled inside RequestForm, but a final check is good.
+    if (!requestData.products || requestData.products.length === 0) {
+        setFeedbackMessage('Debe añadir al menos un producto a la solicitud.');
         setFeedbackType('error');
         setShowFeedback(true);
         setSubmittingRequest(false);
@@ -48,31 +51,31 @@ const RequestFormPage: React.FC = () => {
     }
 
     try {
-      let finalDescriptionForSolicitud = "Solicitud de Compra"; // Default para SolicitudCompra.descripcion
+      // Intentar generar descripción con IA para la solicitud
+      const productsForAI = requestData.products.map(p => ({
+        // Para la IA, solo necesitamos un nombre y cantidad.
+        // Si es un producto nuevo, usamos su descripción. Si es existente, necesitaremos buscarlo.
+        // Por simplicidad aquí para la descripción de la IA, solo pasaremos los nombres que ya tenemos.
+        productName: p.isNew ? p.newProductDescription : `Producto ID ${p.productId}`, 
+        quantity: p.quantity
+      }));
+      
+      const productNamesForAI = (await Promise.all(requestData.products.map(async p => {
+        if(p.isNew) return p.newProductDescription;
+        const {data} = await supabase.from('producto').select('descripcion').eq('id', p.productId).single();
+        return data?.descripcion || `Producto ID ${p.productId}`;
+      }))).filter(Boolean);
 
-      if (requestData.customRequest && requestData.description) {
-        finalDescriptionForSolicitud = requestData.description; // Para personalizadas, usar la descripción provista como principal.
-      } else if (!requestData.customRequest && requestData.products && requestData.products.length > 0) {
-        // Intentar generar descripción con IA para solicitudes estándar
-        const productsForAI = requestData.products.map(p => ({
-          productId: parseInt(p.productId, 10), 
-          quantity: p.quantity
-        })).filter(p => !isNaN(p.productId)); // Filtrar productos con ID inválido
 
-        if (productsForAI.length > 0) {
-            finalDescriptionForSolicitud = await aiGenerateDescription(productsForAI);
-        } else if (requestData.products.length > 0) {
-            // Si todos los IDs fallaron, usar un placeholder
-            console.warn("Todos los IDs de producto fallaron al analizarse para la descripción de IA. Usando descripción predeterminada.");
-            finalDescriptionForSolicitud = "Solicitud de artículos (IDs no procesados)";
-        }
-      }
+      const finalDescriptionForSolicitud = productNamesForAI.length > 0
+        ? `Solicitud de: ${productNamesForAI.join(', ')}`
+        : "Solicitud de Compra";
       
       // Crear la cabecera de la solicitud
       const { data: solicitudData, error: solicitudError } = await supabase
         .from('solicitudcompra')
         .insert({
-          descripcion: finalDescriptionForSolicitud,
+          descripcion: finalDescriptionForSolicitud.substring(0, 255), // Truncate to fit if needed
           estado: 'Pendiente',
           empleado_id: userProfile.empleado_id,
           departamento_id: userProfile.departamento_id,
@@ -82,36 +85,38 @@ const RequestFormPage: React.FC = () => {
 
       if (solicitudError) throw solicitudError;
       if (!solicitudData) throw new Error("No se pudo crear la cabecera de la solicitud.");
-
       const solicitudId = solicitudData.id;
 
-      // Insertar detalles de la solicitud
-      if (requestData.customRequest && requestData.description) {
-        // Insertar una sola línea de detalle para solicitud personalizada
-        const { error: detalleError } = await supabase.from('solicitudcompra_detalle').insert({
-          solicitud_compra_id: solicitudId,
-          producto_id: null, // Sin producto_id específico para personalizadas
-          cantidad: 1, // Asumir cantidad 1 para item personalizado, o añadir campo en formulario
-          descripcion_producto_personalizado: requestData.description,
-        });
-        if (detalleError) throw detalleError;
-
-      } else if (!requestData.customRequest && requestData.products && requestData.products.length > 0) {
-        // Insertar múltiples detalles para solicitud estándar
-        const detalles = requestData.products.map(p => ({
-          solicitud_compra_id: solicitudId,
-          producto_id: parseInt(p.productId),
-          cantidad: p.quantity,
-          descripcion_producto_personalizado: null,
-        })).filter(d => !isNaN(d.producto_id)); // Doble verificación, aunque ya debería estar filtrado
-        
-        if (detalles.length > 0) {
-            const { error: detalleError } = await supabase.from('solicitudcompra_detalle').insert(detalles);
-            if (detalleError) throw detalleError;
+      // Mapear y filtrar detalles para la inserción
+      const detalles = requestData.products.map(p => {
+        if (p.isNew) {
+          const isCreatingNewCategory = p.newProductCategoryId === 'new';
+          return {
+            solicitud_compra_id: solicitudId,
+            producto_id: null,
+            cantidad: p.quantity,
+            descripcion_producto_personalizado: p.newProductDescription,
+            categoria_producto_sugerida_id: isCreatingNewCategory ? null : parseInt(p.newProductCategoryId, 10),
+            categoria_sugerida_nombre: isCreatingNewCategory ? p.newProductNewCategoryName : null,
+          };
+        } else {
+          return {
+            solicitud_compra_id: solicitudId,
+            producto_id: parseInt(p.productId, 10),
+            cantidad: p.quantity,
+            descripcion_producto_personalizado: null,
+            categoria_producto_sugerida_id: null,
+            categoria_sugerida_nombre: null,
+          };
         }
+      }).filter(d => d.cantidad > 0);
+      
+      if (detalles.length > 0) {
+        const { error: detalleError } = await supabase.from('solicitudcompra_detalle').insert(detalles);
+        if (detalleError) throw detalleError;
       }
       
-      // Notificar a los administradores usando el servicio
+      // Notificar a los administradores
       const adminUserIds = await fetchAdminUserIds();
       if (adminUserIds.length > 0) {
         const notificationsPayload: NotificacionInsert[] = adminUserIds.map(adminUserId => ({
@@ -120,19 +125,13 @@ const RequestFormPage: React.FC = () => {
           description: `El empleado ${userProfile.empleado?.nombre || 'Desconocido'} (${userProfile.departamento?.nombre || 'Dpto. Desc.'}) ha creado la solicitud #${solicitudData.codigo_visible || solicitudId}: ${finalDescriptionForSolicitud}.`,
           type: 'nueva_solicitud',
         }));
-        const notifResult = await createNotifications(notificationsPayload);
-        if (!notifResult.success) {
-            console.warn("No se pudieron crear algunas notificaciones para administradores:", notifResult.error);
-        }
-      } else {
-        console.warn("No se encontraron IDs de administradores para notificar sobre nueva solicitud.");
+        await createNotifications(notificationsPayload);
       }
       
       setFeedbackMessage('¡Solicitud creada exitosamente!');
       setFeedbackType('success');
       setShowFeedback(true);
       
-      // Navigate after a short delay to allow user to see feedback
       setTimeout(() => {
         navigate('/solicitudes');
       }, 2000);
@@ -143,11 +142,7 @@ const RequestFormPage: React.FC = () => {
       setFeedbackMessage(`Error al crear la solicitud: ${errorMessage}`);
       setFeedbackType('error');
       setShowFeedback(true);
-    } finally {
-      // Don't set submitting to false if we are navigating away on success
-      if (feedbackType === 'error') {
-          setSubmittingRequest(false);
-      }
+      setSubmittingRequest(false); // Only stop submitting on error
     }
   };
 
@@ -159,12 +154,12 @@ const RequestFormPage: React.FC = () => {
         message={feedbackMessage}
         onClose={() => setShowFeedback(false)}
       />
-      <div className="max-w-2xl mx-auto py-8 px-4">
+      <div className="max-w-4xl mx-auto py-8 px-4">
         <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6 md:p-8">
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Crear Nueva Solicitud de Compra</h1>
           <RequestForm
             onSubmit={handleSubmitRequest}
-            onCancel={() => navigate(-1)} // Volver a la página anterior
+            onCancel={() => navigate(-1)}
             isSubmitting={submittingRequest}
           />
         </div>

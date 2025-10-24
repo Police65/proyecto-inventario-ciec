@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Dispatch, SetStateAction } from 'react';
 
 const INACTIVITY_WARNING_TIME = 10 * 60 * 1000; // 10 minutos para mostrar advertencia de inactividad
 const INACTIVITY_LOGOUT_TIME = 15 * 60 * 1000; // 15 minutos totales desde la última actividad para cerrar sesión
@@ -13,7 +13,8 @@ interface UseInactivityTimerProps {
 interface InactivityTimerResult {
   showWarningModal: boolean; // Estado para mostrar el modal de advertencia
   timeLeft: number; // Tiempo restante en segundos para la cuenta regresiva
-  setShowWarningModal: React.Dispatch<React.SetStateAction<boolean>>; // Control manual del modal
+  // FIX: Import Dispatch and SetStateAction directly to avoid using the React namespace.
+  setShowWarningModal: Dispatch<SetStateAction<boolean>>; // Control manual del modal
   resetTimers: () => void; // Función para reiniciar los temporizadores (ej. al continuar sesión)
 }
 

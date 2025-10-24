@@ -5,7 +5,6 @@ import DepartmentExpensesChart from './DepartmentExpensesChart';
 import AnomalyPieChart from './AnomalyPieChart';
 import ChatInterface from '@/components/ai/ChatInterface'; // Se cambió a importación con alias
 import { GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY } from '../../config';
 import { AISummaryStat, ChartDataItem, OrdenCompra, SolicitudCompra, Departamento, RendimientoProveedor, ConsumoHistoricoProducto, MetricasProductoMensual, UserProfile, PartnerEvent, PartnerMeeting } from '../../types';
 import { LightBulbIcon, BanknotesIcon, TruckIcon, CpuChipIcon, UserGroupIcon, ArrowPathIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
@@ -179,10 +178,7 @@ export const AIInsights: React.FC = () => {
 
   const fetchAIResponse = async (prompt: string, type: InsightType): Promise<string> => {
     try {
-        if (!GEMINI_API_KEY) {
-            throw new Error("La clave de API de Gemini no está configurada. Por favor, verifica tu archivo .env o la configuración del entorno.");
-        }
-        const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
           contents: prompt,
@@ -201,24 +197,9 @@ export const AIInsights: React.FC = () => {
             throw new Error("La respuesta de la IA llegó vacía.");
         }
 
-    } catch (fetchError: any) {
+    } catch (fetchError) {
         const errorMessageText = fetchError instanceof Error ? fetchError.message : String(fetchError);
         console.error(`Error al contactar la API de Gemini para ${type}: ${errorMessageText}`, fetchError);
-
-        // Improved error handling for 429 Quota Exceeded
-        if (errorMessageText.includes('"code":429') && errorMessageText.includes('RESOURCE_EXHAUSTED')) {
-            let userFriendlyMessage = `**Error de Cuota (429): No se pudo generar el análisis.**\n\n`;
-            userFriendlyMessage += `Este error significa que el proyecto de Google Cloud asociado a la clave de API no tiene permiso para realizar llamadas. Esto usualmente ocurre por una de estas razones:\n\n`;
-            userFriendlyMessage += `*   **Facturación no habilitada:** La API de Gemini requiere que la facturación esté activa en el proyecto de Google Cloud, incluso si estás dentro del nivel gratuito.\n`;
-            userFriendlyMessage += `*   **API no habilitada:** La API "Generative Language" (o "Vertex AI") puede no estar habilitada para tu proyecto.\n\n`;
-            userFriendlyMessage += `**Acciones recomendadas:**\n`;
-            userFriendlyMessage += `1.  Ve a la **Consola de Google Cloud** y selecciona el proyecto correcto.\n`;
-            userFriendlyMessage += `2.  Asegúrate de que la **Facturación** esté habilitada para el proyecto.\n`;
-            userFriendlyMessage += `3.  En "API y servicios", busca y **habilita la "Generative Language API"**.\n\n`;
-            userFriendlyMessage += `Una vez corregida la configuración, intenta generar el análisis de nuevo.`;
-            throw new Error(userFriendlyMessage);
-        }
-
         throw new Error(`Error al contactar la API de IA: ${errorMessageText}`);
     }
   };
@@ -374,7 +355,7 @@ export const AIInsights: React.FC = () => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       console.error(`Error en handleGenerateInsight para ${type}:`, errorMessage, err);
-      setInsights(prev => ({ ...prev, [type]: `${errorMessage}` }));
+      setInsights(prev => ({ ...prev, [type]: `**Error al generar la perspectiva:**\n- ${errorMessage}` }));
     } finally {
       setLoading(prev => ({ ...prev, [type]: false }));
     }

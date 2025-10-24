@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
@@ -60,6 +60,7 @@ const commonSelectOrden = `
     solicitud_compra:solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, descripcion, empleado_id, departamento_id)
   `;
 
+// FIX: Import React to resolve React.ReactElement namespace error.
 export const AdminDashboardPage = (): React.ReactElement => {
   const { userProfile, activeUITab } = useOutletContext<AdminDashboardContext>();
   const navigate = useNavigate();

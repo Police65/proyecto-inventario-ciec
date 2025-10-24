@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { Link } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
@@ -16,6 +16,7 @@ interface CustomNavbarProps {
   setHasInteracted: (interacted: boolean) => void; // Para registrar la primera interacción del usuario
 }
 
+// FIX: Import React to resolve React.ReactElement namespace error.
 const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted }: CustomNavbarProps): React.ReactElement => {
   const [showNotifications, setShowNotifications] = useState(false); 
   const [notifications, setNotifications] = useState<Notificacion[]>([]); 
@@ -23,6 +24,7 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
   
   const notificationRef = useRef<HTMLButtonElement>(null);
   const profileRef = useRef<HTMLButtonElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   
   // Obtener notificaciones iniciales
   useEffect(() => {
@@ -110,7 +112,10 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
         setShowNotifications(false); 
       }
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+      if (
+        profileRef.current && !profileRef.current.contains(event.target as Node) &&
+        profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)
+      ) {
         setShowProfileMenu(false); 
       }
     };
@@ -122,13 +127,6 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
     setHasInteracted(true); 
     onToggleSidebar(); 
   };
-
-  const handleLogoutAndCloseMenu = () => {
-    onLogout();
-    setShowProfileMenu(false);
-    setHasInteracted(true); // Logging out is an interaction
-  };
-
 
   return (
     <nav className="bg-white dark:bg-gray-800 shadow-md fixed w-full z-50 top-0"> 
@@ -235,23 +233,25 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
               )}
             </button>
             {showProfileMenu && ( 
-              <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none z-50" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button">
-                <div className="px-4 py-3 border-b dark:border-gray-600">
-                  <p className="text-sm text-gray-700 dark:text-gray-200">
-                    Hola, {userProfile?.empleado?.nombre || 'Usuario'} 
+              <div ref={profileMenuRef} className="origin-top-right absolute right-0 mt-2 w-56 rounded-lg shadow-lg bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none z-50" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button">
+                <div className="px-4 py-3">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                    Hola, {userProfile?.empleado?.nombre || 'Usuario'}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={`Rol: ${userProfile?.rol || 'N/D'}`}>
-                    Rol: {userProfile?.rol || 'N/D'} 
+                    Rol: {userProfile?.rol || 'N/D'}
                   </p>
                 </div>
-                <button
-                  onClick={handleLogoutAndCloseMenu}
-                  className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-700 dark:hover:text-red-300 transition-colors duration-150"
-                  role="menuitem"
-                >
-                  <ArrowRightOnRectangleIcon className="w-4 h-4 inline-block mr-2" aria-hidden="true" />
-                  Cerrar sesión
-                </button>
+                <div className="py-1 border-t border-gray-200 dark:border-gray-600">
+                  <button
+                    onClick={onLogout}
+                    className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/50 dark:hover:text-red-300 transition-colors duration-150"
+                    role="menuitem"
+                  >
+                    <ArrowRightOnRectangleIcon className="w-5 h-5 mr-3" aria-hidden="true" />
+                    Cerrar sesión
+                  </button>
+                </div>
               </div>
             )}
           </div>

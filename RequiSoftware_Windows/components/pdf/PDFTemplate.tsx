@@ -8,6 +8,9 @@ interface PDFOrdenCompra extends OrdenCompra {
   proveedor: Proveedor | undefined;
   productos: (OrdenCompraDetalle & { producto: ProductoType | undefined })[]; // De la consulta select
   empleado: Empleado | undefined;
+  solicitud_compra?: {
+    empleado?: Empleado;
+  } | null;
 }
 
 interface PDFTemplateProps {
@@ -254,13 +257,15 @@ const PDFTemplate: React.FC<PDFTemplateProps> = ({ orden, camara }) => {
       <div style={baseStyles.signatures}>
         <div style={baseStyles.signatureBlock}>
           <div style={baseStyles.signatureLine}></div>
-          <p style={{ fontWeight: 'bold' }}>{orden.empleado?.nombre} {orden.empleado?.apellido}</p>
-          <p>Departamento de Compras</p>
+          <p>Solicitado por</p>
+          {/* FIX: Added parentheses to resolve mixed '??' and '||' operator error. */}
+          <p style={{ fontWeight: 'bold' }}>{(orden.solicitud_compra?.empleado?.nombre ?? orden.empleado?.nombre)} {(orden.solicitud_compra?.empleado?.apellido ?? orden.empleado?.apellido) || ''}</p>
         </div>
         <div style={baseStyles.signatureBlock}>
           <div style={baseStyles.signatureLine}></div>
-          <p style={{ fontWeight: 'bold' }}>Coordinación Financiera</p>
           <p>Aprobado por</p>
+          {/* FIX: Corrected logic to show approver's name (orden.empleado) instead of requester's again. Also fixed mixed operator error. */}
+          <p style={{ fontWeight: 'bold' }}>{orden.empleado?.nombre} {orden.empleado?.apellido || ''}</p>
         </div>
       </div>
     </div>

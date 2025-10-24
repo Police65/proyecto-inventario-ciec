@@ -1,6 +1,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, PARTNER_SUPABASE_URL, PARTNER_SUPABASE_ANON_KEY } from './config';
+import { SUPABASE_SERVICE_ROLE_KEY } from './serviceRoleSecret'; // Importar la clave de servicio
 import { Database, SolicitudCompra, Producto, PartnerDatabaseSchema, PartnerEvent, PartnerMeeting } from './types'; // SolicitudCompraDetalle ya no se usa aquí
 
 // AuthStorage is not exported in Supabase v2. This is a local definition for type safety.
@@ -18,6 +19,7 @@ if (!SUPABASE_ANON_KEY) {
   throw new Error("La Clave Anónima de Supabase no está definida. Por favor, revisa tu archivo de configuración (config.ts).");
 }
 
+// Cliente Supabase principal para operaciones de usuario (usa clave anónima)
 export const supabase: SupabaseClient<Database> = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage: sessionStorage, // Usar sessionStorage para que la sesión dure solo mientras la pestaña del navegador esté abierta.
@@ -26,6 +28,19 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(SUPABAS
     detectSessionInUrl: false,
   },
 });
+
+// --- NUEVO: Cliente Supabase de Administrador (usa clave de servicio) ---
+// Este cliente solo debe usarse para operaciones que requieran privilegios de administrador.
+if (!SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn("La clave de servicio de Supabase (SERVICE_ROLE_KEY) no está definida en serviceRoleSecret.ts. Las operaciones de administrador fallarán.");
+}
+export const supabaseAdmin = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false
+    }
+});
+
 
 // --- Cliente para la instancia Supabase del Compañero (Eventos Externos) ---
 let partnerSupabaseInstance: SupabaseClient<PartnerDatabaseSchema> | null = null;
