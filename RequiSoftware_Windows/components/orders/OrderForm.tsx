@@ -67,19 +67,19 @@ export const OrderForm: React.FC<OrderFormProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const formatInitialProductsToLineItems = useCallback(() => {
-    return initialProducts.map((p) => ({
-      id: p.id?.toString() || uuidv4(), // Usar producto_id si está disponible, sino generar uuid
+    return initialProducts.map((p: any) => ({
+      id: p.id?.toString() || uuidv4(),
       original_producto_id: p.id || null,
-      isNewProductMode: false, // Inicialmente, los ítems de la solicitud no están en "modo nuevo producto"
-      selected_producto_id: p.id || null,
-      newProduct_descripcion: '',
-      newProduct_categoria_id: p.categoria_id || null, 
+      isNewProductMode: p.isNewProduct || false,
+      selected_producto_id: p.isNewProduct ? null : (p.id || null),
+      newProduct_descripcion: p.isNewProduct ? p.descripcion : '',
+      newProduct_categoria_id: p.isNewProduct ? p.categoria_id : null,
       newProduct_codigo_interno: p.codigo_interno || '',
       newProduct_unidad_medida: p.unidad_medida || '',
       display_descripcion: p.descripcion,
       quantity: Number(p.quantity) || 1,
       precio_unitario: Number(p.precio_unitario) || 0,
-      seleccionado: p.selected !== undefined ? p.selected : true, // Por defecto seleccionado si no se especifica
+      seleccionado: p.selected !== undefined ? p.selected : true,
       motivoRechazo: p.motivo || '',
     }));
   }, [initialProducts]);
@@ -264,7 +264,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({
     }
 
     try {
-      const ordenPayload: Omit<OrdenCompra, 'id'|'fecha_modificacion'|'detalles'|'empleado'|'proveedor'|'solicitud_compra' | 'factura' | 'created_at' | 'updated_at' | 'fecha_orden'> = {
+      const ordenPayload: Omit<OrdenCompra, 'id'|'fecha_modificacion'|'detalles'|'empleado'|'proveedor'|'solicitud_compra' | 'factura' | 'created_at' | 'updated_at' | 'fecha_orden' | 'codigo_visible'> = {
         solicitud_compra_id: (solicitudesIds && solicitudesIds.length > 0) ? solicitudesIds[0] : null, // Usar el primero si hay múltiples, o nulo
         proveedor_id: Number(formData.proveedor_id), estado: formData.estado || 'Pendiente',
         sub_total: formData.sub_total || 0, iva: formData.iva || 0, ret_iva: formData.ret_iva || 0, neto_a_pagar: formData.neto_a_pagar || 0,
@@ -280,22 +280,37 @@ export const OrderForm: React.FC<OrderFormProps> = ({
 
       const detallesOrden = await Promise.all(productosFinales.map(async p => {
         let productoRealId = p.selected_producto_id;
+        let descripcionPersonalizada = null;
 
         if (p.isNewProductMode) {
           const newProdData: Partial<Producto> = {
             descripcion: p.newProduct_descripcion, categoria_id: p.newProduct_categoria_id,
             codigo_interno: p.newProduct_codigo_interno || null, unidad_medida: p.newProduct_unidad_medida || null,
           };
-          const { data: newProd, error: newProdError } = await supabase.from('producto').insert(newProdData).select('id, descripcion').single();
+          const { data: newProd, error: newProdError } = await supabase.from('producto').insert(newProdData).select('id').single();
           if (newProdError) throw new Error(`Error creando producto '${p.newProduct_descripcion}': ${newProdError.message}`);
           if (!newProd) throw new Error(`No se pudo crear el producto '${p.newProduct_descripcion}'.`);
           productoRealId = newProd.id;
+          descripcionPersonalizada = p.newProduct_descripcion;
+        } else if (!p.original_producto_id && p.selected_producto_id) {
+           // Es un producto existente añadido manualmente que no venía de la solicitud
+           descripcionPersonalizada = p.display_descripcion;
         }
-        if (!productoRealId) throw new Error(`Producto ID es nulo para '${p.display_descripcion || 'un item'}'.`);
+        
+        if (!productoRealId && !p.isNewProductMode) {
+          // Si no es un producto nuevo y no hay ID, es un ítem de solicitud sin producto_id.
+          // Debemos guardar solo la descripción personalizada en el detalle de la orden.
+          return {
+            orden_compra_id: ordenId, producto_id: null,
+            cantidad: Number(p.quantity), precio_unitario: Number(p.precio_unitario),
+            descripcion_producto_personalizado: p.display_descripcion
+          };
+        }
         
         return {
           orden_compra_id: ordenId, producto_id: productoRealId,
           cantidad: Number(p.quantity), precio_unitario: Number(p.precio_unitario),
+          descripcion_producto_personalizado: descripcionPersonalizada,
         };
       }));
       const { error: detallesError } = await supabase.from('ordencompra_detalle').insert(detallesOrden);

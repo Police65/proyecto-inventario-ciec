@@ -1,3 +1,4 @@
+
 // hooks/useRealtimeSubscription.ts
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
@@ -102,8 +103,8 @@ No se realizarán más intentos automáticos de re-suscripción para este canal.
       const newChannel = client.channel(channelName);
       channelRef.current = newChannel;
   
-      const callback = (payload: RealtimePostgresChangesPayload<T>) => {
-        onNewPayloadRef.current(payload);
+      const callback = (payload: any) => {
+        onNewPayloadRef.current(payload as RealtimePostgresChangesPayload<T>);
       };
   
       const filterOptions = {

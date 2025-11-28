@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
@@ -54,9 +53,6 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
 
   const isOnMainPage = location.pathname === '/home' || location.pathname === '/';
 
-  // FIX: The Navbar should always be visible for consistency and to ensure guided tour elements are present.
-  // The previous logic hid the navbar on the main page until user interaction,
-  // which caused the tour to fail as it couldn't find the navbar elements.
   const actualNavbarVisible = true;
   const actualSidebarVisible = isSidebarOpen; // La sidebar se muestra si su estado es abierto.
 

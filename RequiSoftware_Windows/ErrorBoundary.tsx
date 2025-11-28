@@ -1,7 +1,7 @@
 import React, { ErrorInfo, ReactNode } from 'react';
 
 interface Props {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 interface State {
@@ -11,9 +11,6 @@ interface State {
 }
 
 class ErrorBoundary extends React.Component<Props, State> {
-  // FIX: Reverted to constructor-based state initialization to resolve 'this' context issues.
-  public state: State;
-
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -25,7 +22,7 @@ class ErrorBoundary extends React.Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     // Actualizar estado para que el próximo renderizado muestre la UI de respaldo.
-    return { hasError: true, error };
+    return { hasError: true, error, errorInfo: undefined };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {

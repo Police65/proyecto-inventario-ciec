@@ -1,3 +1,4 @@
+
 // types.ts
 // Este archivo contiene las definiciones de TypeScript para las estructuras de datos (tablas)
 // y otros tipos personalizados utilizados en la aplicación.
@@ -98,7 +99,6 @@ export interface Inventario {
   created_at: string;
   updated_at: string;
   // Propiedades de relación
-  // FIX: Break circular dependency between Inventario and Producto.
   producto?: any;
 }
 
@@ -139,8 +139,6 @@ export interface OrdenCompra {
   // Propiedades de relación
   proveedor?: Proveedor;
   empleado?: Empleado;
-  // FIX: Break circular dependency with SolicitudCompra by using 'any'.
-  // This prevents TypeScript from failing to resolve the schema, which causes 'never' type errors.
   solicitud_compra?: any;
   detalles?: (OrdenCompraDetalle & { producto?: Producto })[];
 }
@@ -258,8 +256,6 @@ export interface SolicitudCompra {
   departamento?: Departamento;
   detalles?: (SolicitudCompraDetalle & { producto?: Producto & { categoria?: CategoriaProducto } })[];
   // Propiedades para nuevas funcionalidades
-  // FIX: Break circular dependency with OrdenCompra by using 'any[]'.
-  // This prevents TypeScript from failing to resolve the schema, which causes 'never' type errors.
   ordenes?: any[] | null;
   rezagados?: (Pick<ProductoRezagado, 'id' | 'cantidad' | 'motivo'> & { producto?: Pick<Producto, 'id' | 'descripcion'> })[] | null;
 }
@@ -466,152 +462,171 @@ export interface PartnerParticipant { // Personas participantes en eventos/reuni
 
 
 // --- Definición del Esquema de Base de Datos para el cliente Supabase ---
-//
-// CAMBIO CLAVE: Se simplifican los tipos 'Insert' y 'Update' a 'any'.
-// Esta es la solución más permisiva para resolver los errores de
-// "type instantiation is excessively deep" y "is not assignable to type 'never'" que pueden
-// ocurrir en proyectos con esquemas de base de datos muy grandes y complejos. Se sacrifica
-// la seguridad de tipos en las cargas útiles de inserción/actualización para garantizar
-// que el compilador de TypeScript pueda manejar el esquema sin fallar. La validación de datos
-// se delega a la base de datos (constraints, RLS) y a la lógica de los formularios.
 
 export interface Database {
   public: {
     Tables: {
       camaraindustriales: {
         Row: Camaraindustriales;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<Camaraindustriales>;
+        Update: Partial<Camaraindustriales>;
+        Relationships: any[];
       };
       cargo: {
         Row: Cargo;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<Cargo>;
+        Update: Partial<Cargo>;
+        Relationships: any[];
       };
       categoria_producto: {
         Row: CategoriaProducto;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<CategoriaProducto>;
+        Update: Partial<CategoriaProducto>;
+        Relationships: any[];
       };
       categoria_proveedor: {
         Row: CategoriaProveedor;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<CategoriaProveedor>;
+        Update: Partial<CategoriaProveedor>;
+        Relationships: any[];
       };
       compras_para_evento_externo: {
         Row: ComprasParaEventoExterno;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<ComprasParaEventoExterno>;
+        Update: Partial<ComprasParaEventoExterno>;
+        Relationships: any[];
       };
       consumo_historico_producto: {
         Row: ConsumoHistoricoProducto;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<ConsumoHistoricoProducto>;
+        Update: Partial<ConsumoHistoricoProducto>;
+        Relationships: any[];
       };
       consumo_para_evento_externo: {
         Row: ConsumoParaEventoExterno;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<ConsumoParaEventoExterno>;
+        Update: Partial<ConsumoParaEventoExterno>;
+        Relationships: any[];
       };
       departamento: {
         Row: Departamento;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<Departamento>;
+        Update: Partial<Departamento>;
+        Relationships: any[];
       };
       empleado: {
         Row: Empleado;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<Empleado>;
+        Update: Partial<Empleado>;
+        Relationships: any[];
       };
       empleadocargohistorial: {
         Row: EmpleadoCargoHistorial;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<EmpleadoCargoHistorial>;
+        Update: Partial<EmpleadoCargoHistorial>;
+        Relationships: any[];
       };
       facturas_orden: {
         Row: FacturaOrden;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<FacturaOrden>;
+        Update: Partial<FacturaOrden>;
+        Relationships: any[];
       };
       inventario: {
         Row: Inventario;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<Inventario>;
+        Update: Partial<Inventario>;
+        Relationships: any[];
       };
       metricas_producto_mensual: {
         Row: MetricasProductoMensual;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<MetricasProductoMensual>;
+        Update: Partial<MetricasProductoMensual>;
+        Relationships: any[];
       };
       notificaciones: {
         Row: Notificacion;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<Notificacion>;
+        Update: Partial<Notificacion>;
+        Relationships: any[];
       };
       orden_solicitud: {
         Row: OrdenSolicitud;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<OrdenSolicitud>;
+        Update: Partial<OrdenSolicitud>;
+        Relationships: any[];
       };
       ordencompra: {
         Row: OrdenCompra;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<OrdenCompra>;
+        Update: Partial<OrdenCompra>;
+        Relationships: any[];
       };
       ordencompra_detalle: {
         Row: OrdenCompraDetalle;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<OrdenCompraDetalle>;
+        Update: Partial<OrdenCompraDetalle>;
+        Relationships: any[];
       };
       ordenes_consolidadas: {
         Row: OrdenConsolidada;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<OrdenConsolidada>;
+        Update: Partial<OrdenConsolidada>;
+        Relationships: any[];
       };
       producto: {
         Row: Producto;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<Producto>;
+        Update: Partial<Producto>;
+        Relationships: any[];
       };
       productos_no_recibidos: {
         Row: ProductoNoRecibido;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<ProductoNoRecibido>;
+        Update: Partial<ProductoNoRecibido>;
+        Relationships: any[];
       };
       productos_rezagados: {
         Row: ProductoRezagado;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<ProductoRezagado>;
+        Update: Partial<ProductoRezagado>;
+        Relationships: any[];
       };
       proveedor: {
         Row: Proveedor;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<Proveedor>;
+        Update: Partial<Proveedor>;
+        Relationships: any[];
       };
       proveedor_categoria: {
         Row: ProveedorCategoria;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<ProveedorCategoria>;
+        Update: Partial<ProveedorCategoria>;
+        Relationships: any[];
       };
       rendimiento_proveedor: {
         Row: RendimientoProveedor;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<RendimientoProveedor>;
+        Update: Partial<RendimientoProveedor>;
+        Relationships: any[];
       };
       solicitudcompra: {
         Row: SolicitudCompra;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<SolicitudCompra>;
+        Update: Partial<SolicitudCompra>;
+        Relationships: any[];
       };
       solicitudcompra_detalle: {
         Row: SolicitudCompraDetalle;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<SolicitudCompraDetalle>;
+        Update: Partial<SolicitudCompraDetalle>;
+        Relationships: any[];
       };
       user_profile: {
         Row: UserProfile;
-        Insert: { [key: string]: any };
-        Update: { [key: string]: any };
+        Insert: Partial<UserProfile>;
+        Update: Partial<UserProfile>;
+        Relationships: any[];
       };
     };
     Views: {
@@ -633,12 +648,12 @@ export interface Database {
 export interface PartnerDatabaseSchema {
   public: {
     Tables: {
-      Events: { Row: PartnerEvent; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
-      Meetings: { Row: PartnerMeeting; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
-      Commissions: { Row: PartnerCommission; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
-      Companies: { Row: PartnerCompany; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
-      EventCategories: { Row: PartnerEventCategory; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
-      Participants: { Row: PartnerParticipant; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      events: { Row: PartnerEvent; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      meetings: { Row: PartnerMeeting; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      commissions: { Row: PartnerCommission; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      companies: { Row: PartnerCompany; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      event_categories: { Row: PartnerEventCategory; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      participants: { Row: PartnerParticipant; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
     };
     Views: { [_ in never]: never; };
     Functions: { [_ in never]: never; };

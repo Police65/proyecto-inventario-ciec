@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth'; 
-// @ts-ignore: useNavigate is no longer used for redirection, but keeping import just in case, or remove if linting complains.
+// @ts-ignore
 import { useNavigate } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { LIGHT_MODE_LOGO_URL, DARK_MODE_LOGO_URL } from '../../assets/paths';
@@ -14,8 +13,6 @@ const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
-  // The main App component now handles all redirection logic based on session state.
-  // This simplifies the Login component and prevents race conditions.
   const { login: authLogin } = useAuth(); 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -24,8 +21,6 @@ const Login: React.FC = () => {
     setError(null);
     try {
       await authLogin(email, password);
-      // Navigation is now handled declaratively in App.tsx based on session state change.
-      // This prevents race conditions where navigation occurred before the auth state was fully propagated.
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message || "Error de inicio de sesión. Verifica tus credenciales.");

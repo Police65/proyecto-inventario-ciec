@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Producto, CategoriaProducto } from '../../types';
+import { Producto, CategoriaProducto, SolicitudCompra } from '../../types';
 import { PlusCircleIcon, TrashIcon, ArrowPathIcon, TagIcon } from '@heroicons/react/24/outline';
 import { v4 as uuidv4 } from 'uuid';
-// FIX: Import LoadingSpinner component.
 import LoadingSpinner from '../core/LoadingSpinner';
 
 interface ProductLine {
@@ -23,16 +22,19 @@ interface ProductLine {
 }
 
 interface RequestFormProps {
-  onSubmit: (data: { products: ProductLine[] }) => void;
+  onSubmit: (data: { products: ProductLine[]; description?: string }) => void;
   onCancel: () => void;
   isSubmitting: boolean;
+  initialData?: SolicitudCompra; // Prop opcional para editar
 }
 
-export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, isSubmitting }) => {
+export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, isSubmitting, initialData }) => {
   const [products, setProducts] = useState<ProductLine[]>([{ id: uuidv4(), productId: '', quantity: 1, isNew: false, newProductDescription: '', newProductCategoryId: '', newProductNewCategoryName: '' }]);
   const [fetchedProducts, setFetchedProducts] = useState<Pick<Producto, 'id' | 'descripcion'>[]>([]);
   const [categories, setCategories] = useState<CategoriaProducto[]>([]);
   const [loadingDependencies, setLoadingDependencies] = useState(true);
+  // Estado para descripción manual (útil si el usuario quiere sobrescribir la generada)
+  const [manualDescription, setManualDescription] = useState('');
 
   useEffect(() => {
     const fetchDependencies = async () => {
@@ -45,6 +47,26 @@ export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, is
         const { data: categoryData, error: categoryError } = await supabase.from('categoria_producto').select('*');
         if (categoryError) throw categoryError;
         setCategories(categoryData || []);
+        
+        // Si hay initialData, cargar los productos en el estado
+        if (initialData && initialData.detalles) {
+            const mappedProducts: ProductLine[] = initialData.detalles.map(d => ({
+                id: uuidv4(),
+                quantity: d.cantidad,
+                isNew: !d.producto_id,
+                productId: d.producto_id ? String(d.producto_id) : '',
+                newProductDescription: d.descripcion_producto_personalizado || '',
+                newProductCategoryId: d.categoria_producto_sugerida_id ? String(d.categoria_producto_sugerida_id) : '',
+                newProductNewCategoryName: d.categoria_sugerida_nombre || ''
+            }));
+            if (mappedProducts.length > 0) {
+                setProducts(mappedProducts);
+            }
+            // Limpiar la descripción del archivo adjunto si existe para mostrar solo texto
+            const cleanDesc = initialData.descripcion?.replace(/\[Adjunto: (.*?)\]\((.*?)\)/, '').trim() || '';
+            setManualDescription(cleanDesc);
+        }
+
       } catch (error) {
         console.error('Error al obtener dependencias del formulario:', error);
       }
@@ -52,7 +74,7 @@ export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, is
     };
 
     fetchDependencies();
-  }, []);
+  }, [initialData]);
 
   const handleAddProduct = () => {
     setProducts([...products, { id: uuidv4(), productId: '', quantity: 1, isNew: false, newProductDescription: '', newProductCategoryId: '', newProductNewCategoryName: '' }]);
@@ -81,9 +103,15 @@ export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, is
       return;
     }
     
-    // El 'customRequest' flag es ahora implícito y no necesita ser pasado.
-    // El backend determinará si es personalizado si producto_id es null.
-    onSubmit({ products: products.map(p => ({...p, quantity: Number(p.quantity)})) });
+    // Sanitizar datos antes de enviar
+    const cleanProducts = products.map(p => ({
+        ...p,
+        quantity: Number(p.quantity),
+        newProductDescription: p.newProductDescription.trim(),
+        newProductNewCategoryName: p.newProductNewCategoryName.trim()
+    }));
+
+    onSubmit({ products: cleanProducts, description: manualDescription });
   };
 
   const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
@@ -113,7 +141,7 @@ export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, is
                     <>
                         <div className="sm:col-span-3">
                             <label htmlFor={`newDesc-${product.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">Desc. Nuevo Producto <span className="text-red-500">*</span></label>
-                            <input type="text" id={`newDesc-${product.id}`} value={product.newProductDescription} onChange={e => handleProductChange(product.id, 'newProductDescription', e.target.value)} required={product.isNew} className={`mt-1 ${inputFieldClasses}`} />
+                            <input type="text" id={`newDesc-${product.id}`} value={product.newProductDescription} onChange={e => handleProductChange(product.id, 'newProductDescription', e.target.value)} required={product.isNew} className={`mt-1 ${inputFieldClasses}`} placeholder="Ej: Papel Bond Carta (Nuevo)" />
                         </div>
                         <div className="sm:col-span-2">
                             <label htmlFor={`newCat-${product.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">Categoría Sugerida <span className="text-red-500">*</span></label>
@@ -157,7 +185,7 @@ export const RequestForm: React.FC<RequestFormProps> = ({ onSubmit, onCancel, is
       <div className="flex justify-end space-x-3 pt-5 border-t dark:border-gray-700">
         <button type="button" onClick={onCancel} className={btnSecondaryClasses} disabled={isSubmitting}>Cancelar</button>
         <button type="submit" className={btnPrimaryClasses} disabled={isSubmitting || loadingDependencies}>
-          {isSubmitting ? <><ArrowPathIcon className="animate-spin h-5 w-5 mr-2" /> Enviando...</> : 'Enviar Solicitud'}
+          {isSubmitting ? <><ArrowPathIcon className="animate-spin h-5 w-5 mr-2" /> {initialData ? 'Actualizando...' : 'Enviando...'}</> : (initialData ? 'Actualizar Solicitud' : 'Enviar Solicitud')}
         </button>
       </div>
     </form>

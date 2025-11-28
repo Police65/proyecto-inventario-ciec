@@ -1,5 +1,5 @@
 {
-  "name": "copy-of-copy-of-sistema-de-gestión-de-órdenes-de-compra",
+  "name": "proyecto-inventario-ciec",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,20 +9,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.8",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "@google/genai": "^1.8.0",
     "@heroicons/react": "^2.2.0",
-    "react-router-dom": "^7.6.1",
-    "uuid": "^11.1.0",
-    "recharts": "^2.15.3",
+    "@supabase/supabase-js": "^2.49.8",
+    "date-fns": "^4.1.0",
     "dompurify": "^3.2.6",
     "html2canvas": "^1.4.1",
-    "jspdf": "^2.5.1",
-    "date-fns": "^4.1.0",
-    "@google/genai": "^1.8.0"
+    "jspdf": "^3.0.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.1",
+    "recharts": "^2.15.3",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.9.4",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",

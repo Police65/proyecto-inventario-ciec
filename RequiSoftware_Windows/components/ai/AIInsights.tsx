@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient';
 import DOMPurify from 'dompurify';
 import DepartmentExpensesChart from './DepartmentExpensesChart';
 import AnomalyPieChart from './AnomalyPieChart';
-import ChatInterface from '@/components/ai/ChatInterface'; // Se cambió a importación con alias
+import ChatInterface from '@/components/ai/ChatInterface'; 
 import { GoogleGenAI } from "@google/genai";
 import { AISummaryStat, ChartDataItem, OrdenCompra, SolicitudCompra, Departamento, RendimientoProveedor, ConsumoHistoricoProducto, MetricasProductoMensual, UserProfile, PartnerEvent, PartnerMeeting } from '../../types';
 import { LightBulbIcon, BanknotesIcon, TruckIcon, CpuChipIcon, UserGroupIcon, ArrowPathIcon, GlobeAltIcon } from '@heroicons/react/24/outline';

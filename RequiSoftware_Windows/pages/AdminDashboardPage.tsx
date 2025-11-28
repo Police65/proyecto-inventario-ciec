@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
-// @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
+// @ts-ignore
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { SolicitudCompra, OrdenCompra, UserProfile, OrdenConsolidada, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, Proveedor, OrdenCompraDetalle as OrdenCompraDetalleType, CategoriaProducto, NotificacionInsert, Database } from '../types';
 import LoadingSpinner from '../components/core/LoadingSpinner';
-import { THRESHOLD_ORDEN_GRANDE } from '../config'; // Importar umbral de valor
-import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } from '../services/notificationService'; // Importar servicio de notificaciones
+import { THRESHOLD_ORDEN_GRANDE } from '../config'; 
+import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } from '../services/notificationService'; 
 
-// Importar componentes individuales que conforman el dashboard
 import RequestTable from '../components/requests/RequestTable';
 import OrderTable from '../components/orders/OrderTable';
 import { UserManagement } from '../components/admin/UserManagement';
-import { DepartmentManagement } from '../components/admin/DepartmentManagement'; // IMPORT NEW COMPONENT
+import { DepartmentManagement } from '../components/admin/DepartmentManagement'; 
 import ConsolidatedOrderTable from '../components/orders/ConsolidatedOrderTable';
 
-// Modales
 import { OrderForm } from '@/components/orders/OrderForm'; 
 import { DirectOrderForm } from '@/components/orders/DirectOrderForm'; 
 import ConsolidationModal from '../components/orders/ConsolidationModal';
@@ -23,17 +21,16 @@ import RequestDetailsModal from '../components/requests/RequestDetailsModal';
 import ConsolidatedOrderDetailsModal from '../components/orders/ConsolidatedOrderDetailsModal';
 
 interface AdminDashboardContext {
-  userProfile: UserProfile; // Perfil del administrador logueado
-  activeUITab: string; // Pestaña activa actualmente en la UI (ej. 'solicitudes', 'ordenes')
-  setActiveUITab: (tab: string) => void; // Función para cambiar la pestaña activa
+  userProfile: UserProfile; 
+  activeUITab: string; 
+  setActiveUITab: (tab: string) => void; 
 }
 
-// Definiciones de tipo para datos crudos de consultas Supabase
 type RawSolicitudFromQuery = Omit<SolicitudCompra, 'empleado' | 'departamento' | 'detalles'> & {
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
   departamento: Pick<Departamento, 'id' | 'nombre' | 'estado'> | null;
   detalles: Array<
-    Pick<SolicitudCompraDetalleType, 'id' | 'solicitud_compra_id' | 'producto_id' | 'cantidad'> & {
+    Pick<SolicitudCompraDetalleType, 'id' | 'solicitud_compra_id' | 'producto_id' | 'cantidad' | 'descripcion_producto_personalizado' | 'categoria_producto_sugerida_id' | 'categoria_sugerida_nombre'> & {
       producto: (Pick<Producto, 'id' | 'descripcion' | 'categoria_id'> & {
           categoria: Pick<CategoriaProducto, 'id' | 'nombre'> | null; 
       }) | null; 
@@ -44,7 +41,7 @@ type RawSolicitudFromQuery = Omit<SolicitudCompra, 'empleado' | 'departamento' |
 type RawOrdenFromQuery = Omit<OrdenCompra, 'proveedor' | 'detalles' | 'empleado' | 'solicitud_compra'> & {
   proveedor: Pick<Proveedor, 'id' | 'nombre' | 'rif' | 'direccion' | 'tipo_contribuyente' | 'porcentaje_retencion_iva' | 'estado'> | null;
   detalles: Array<
-    Pick<OrdenCompraDetalleType, 'id' | 'producto_id' | 'cantidad' | 'precio_unitario'> & {
+    Pick<OrdenCompraDetalleType, 'id' | 'producto_id' | 'cantidad' | 'precio_unitario' | 'descripcion_producto_personalizado'> & {
       producto: Pick<Producto, 'id' | 'descripcion'> | null;
     }
   > | null;
@@ -53,14 +50,13 @@ type RawOrdenFromQuery = Omit<OrdenCompra, 'proveedor' | 'detalles' | 'empleado'
 };
 
 const commonSelectOrden = `
-    id, solicitud_compra_id, proveedor_id, fecha_orden, estado, precio_unitario, sub_total, iva, ret_iva, neto_a_pagar, unidad, observaciones, empleado_id, changed_by, fecha_modificacion, retencion_porcentaje, fecha_entrega_estimada, fecha_entrega_real, created_at, updated_at,
+    id, codigo_visible, solicitud_compra_id, proveedor_id, fecha_orden, estado, precio_unitario, sub_total, iva, ret_iva, neto_a_pagar, unidad, observaciones, empleado_id, changed_by, fecha_modificacion, retencion_porcentaje, fecha_entrega_estimada, fecha_entrega_real, created_at, updated_at,
     proveedor:proveedor_id(id, nombre, rif, direccion, estado, tipo_contribuyente, porcentaje_retencion_iva),
-    detalles:ordencompra_detalle(id, producto_id, cantidad, precio_unitario, producto:producto_id(id, descripcion)),
+    detalles:ordencompra_detalle(id, producto_id, cantidad, precio_unitario, descripcion_producto_personalizado, producto:producto_id(id, descripcion)),
     empleado:empleado_id(id, nombre, apellido),
     solicitud_compra:solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, descripcion, empleado_id, departamento_id)
   `;
 
-// FIX: Import React to resolve React.ReactElement namespace error.
 export const AdminDashboardPage = (): React.ReactElement => {
   const { userProfile, activeUITab } = useOutletContext<AdminDashboardContext>();
   const navigate = useNavigate();
@@ -122,6 +118,9 @@ export const AdminDashboardPage = (): React.ReactElement => {
       solicitud_compra_id: d.solicitud_compra_id,
       producto_id: d.producto_id,
       cantidad: d.cantidad,
+      descripcion_producto_personalizado: d.descripcion_producto_personalizado,
+      categoria_producto_sugerida_id: d.categoria_producto_sugerida_id,
+      categoria_sugerida_nombre: d.categoria_sugerida_nombre,
       created_at: '', updated_at: '',
       producto: d.producto ? { 
         id: d.producto.id,
@@ -138,6 +137,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
 
   const mapOrdenData = (order: RawOrdenFromQuery): OrdenCompra => ({
     id: order.id,
+    codigo_visible: order.codigo_visible,
     solicitud_compra_id: order.solicitud_compra_id,
     proveedor_id: order.proveedor_id,
     fecha_orden: order.fecha_orden,
@@ -163,7 +163,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
     empleado: order.empleado ? { 
       id: order.empleado.id, nombre: order.empleado.nombre, apellido: order.empleado.apellido,
       cedula: '', cargo_actual_id: null, 
-      departamento_id: order.solicitud_compra?.departamento_id || 0, // Best effort
+      departamento_id: order.solicitud_compra?.departamento_id || 0, 
       estado: 'activo',
       created_at: '', updated_at: '',
     } as Empleado : undefined,
@@ -173,6 +173,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
       producto_id: d.producto_id,
       cantidad: d.cantidad,
       precio_unitario: d.precio_unitario,
+      descripcion_producto_personalizado: d.descripcion_producto_personalizado,
       orden_compra_id: order.id,
       created_at: '', updated_at: '',
       producto: d.producto ? { 
@@ -187,8 +188,8 @@ export const AdminDashboardPage = (): React.ReactElement => {
     setError(null);
     try {
       const commonSelectSolicitud = `
-        id, descripcion, fecha_solicitud, estado, empleado_id, departamento_id, created_at, updated_at,
-        detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
+        id, codigo_visible, descripcion, fecha_solicitud, estado, empleado_id, departamento_id, created_at, updated_at,
+        detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, descripcion_producto_personalizado, categoria_producto_sugerida_id, categoria_sugerida_nombre, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
         empleado:empleado_id(id, nombre, apellido),
         departamento:departamento_id(id, nombre, estado)
       `;
@@ -197,6 +198,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
         .from('solicitudcompra')
         .select(commonSelectSolicitud)
         .eq('estado', 'Pendiente')
+        .not('descripcion', 'ilike', 'Orden Directa%') 
         .order('fecha_solicitud', { ascending: false }) 
         .returns<RawSolicitudFromQuery[]>(); 
       if (pendingError) throw pendingError;
@@ -206,6 +208,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
         .from('solicitudcompra')
         .select(commonSelectSolicitud)
         .in('estado', ['Aprobada', 'Rechazada'])
+        .not('descripcion', 'ilike', 'Orden Directa%') 
         .order('fecha_solicitud', { ascending: false })
         .returns<RawSolicitudFromQuery[]>();
       if (historyError) throw historyError;
@@ -216,6 +219,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
           .from('solicitudcompra')
           .select(commonSelectSolicitud)
           .eq('empleado_id', userProfile.empleado_id)
+          .not('descripcion', 'ilike', 'Orden Directa%') 
           .order('fecha_solicitud', { ascending: false })
           .returns<RawSolicitudFromQuery[]>();
         if (myRequestsError) throw myRequestsError;
@@ -247,6 +251,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
             nombre: oc.proveedor.nombre,
         } : undefined,
       })));
+      
     } catch (err) {
       const typedError = err as { message: string, details?: string, code?: string };
       const errorMessage = `Error: ${typedError.message}${typedError.details ? ` Detalles: ${typedError.details}` : ''}${typedError.code ? ` Código: ${typedError.code}` : ''}`;
@@ -266,15 +271,20 @@ export const AdminDashboardPage = (): React.ReactElement => {
   };
 
   const handleApproveRequest = (request: SolicitudCompra) => {
+    // Validación: No aprobar solicitudes propias
+    if (request.empleado_id === userProfile.empleado_id) {
+        alert("Política de Seguridad: No puedes aprobar tu propia solicitud de compra. Debe ser aprobada por otro administrador.");
+        return;
+    }
+
     const initialProducts = request.detalles?.map(d => ({
       id: d.producto_id, 
-      producto_id: d.producto_id,
-      descripcion: d.producto?.descripcion || 'Producto sin nombre',
+      descripcion: d.producto?.descripcion || d.descripcion_producto_personalizado || 'Producto sin nombre',
       quantity: d.cantidad,
       precio_unitario: 0,
       selected: true, 
-      isNewProduct: false, 
-      categoria_id: d.producto?.categoria_id,
+      isNewProduct: !d.producto_id,
+      categoria_id: d.producto?.categoria_id || d.categoria_producto_sugerida_id,
       codigo_interno: d.producto?.codigo_interno,
       unidad_medida: d.producto?.unidad_medida,
     })) || [];
@@ -305,7 +315,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
             const notifPayload: NotificacionInsert = {
                 user_id: userAuthId,
                 title: 'Solicitud Rechazada',
-                description: `Tu solicitud #${requestId} ("${requestToNotify.descripcion || 'Sin descripción adicional'}") ha sido rechazada.`,
+                description: `Tu solicitud #${requestToNotify.codigo_visible || requestId} ("${requestToNotify.descripcion || 'Sin descripción adicional'}") ha sido rechazada.`,
                 type: 'solicitud_rechazada',
             };
             await createNotifications([notifPayload]);
@@ -337,14 +347,14 @@ export const AdminDashboardPage = (): React.ReactElement => {
     try {
       const { data: rawFullOrder, error: fetchError } = await supabase
           .from('ordencompra')
-          .select(commonSelectOrden) // Uses the detailed select string
+          .select(commonSelectOrden) 
           .eq('id', createdOrderInfo.id)
           .single<RawOrdenFromQuery>();
 
       if (fetchError || !rawFullOrder) {
           console.error("Error fetching full order details after creation in AdminDashboardPage:", fetchError);
           setError(fetchError?.message || "No se pudo obtener los detalles completos de la orden creada.");
-          fullOrderData = { id: createdOrderInfo.id } as OrdenCompra; // Fallback for PDF modal
+          fullOrderData = { id: createdOrderInfo.id } as OrdenCompra; 
       } else {
           fullOrderData = mapOrdenData(rawFullOrder);
       }
@@ -358,7 +368,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
         notificationsToCreate.push(...adminUserIds.map(adminId => ({
           user_id: adminId,
           title: 'Nueva Orden de Compra Creada',
-          description: `Se ha creado la orden de compra #${fullOrderData!.id}. Proveedor: ${fullOrderData!.proveedor?.nombre || 'N/D'}.`,
+          description: `Se ha creado la orden de compra #${fullOrderData!.codigo_visible || fullOrderData!.id}. Proveedor: ${fullOrderData!.proveedor?.nombre || 'N/D'}.`,
           type: 'orden_creada',
         })));
 
@@ -367,7 +377,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
           notificationsToCreate.push(...adminUserIds.map(adminId => ({
             user_id: adminId,
             title: 'Alerta de Gasto Elevado en Orden',
-            description: `La orden de compra #${fullOrderData!.id} supera el umbral de gasto (${THRESHOLD_ORDEN_GRANDE.toLocaleString('es-VE')} Bs) con un total de ${fullOrderData!.neto_a_pagar.toLocaleString('es-VE')} Bs.`,
+            description: `La orden de compra #${fullOrderData!.codigo_visible || fullOrderData!.id} supera el umbral de gasto (${THRESHOLD_ORDEN_GRANDE.toLocaleString('es-VE')} Bs) con un total de ${fullOrderData!.neto_a_pagar.toLocaleString('es-VE')} Bs.`,
             type: 'alerta_gasto_orden',
           })));
         }
@@ -380,14 +390,12 @@ export const AdminDashboardPage = (): React.ReactElement => {
             notificationsToCreate.push({
               user_id: requesterAuthId,
               title: 'Solicitud Aprobada y Orden Creada',
-              description: `Tu solicitud #${fullOrderData.solicitud_compra_id} ha sido aprobada y se generó la orden de compra #${fullOrderData.id}.`,
+              description: `Tu solicitud #${fullOrderData.solicitud_compra_id} ha sido aprobada y se generó la orden de compra #${fullOrderData.codigo_visible || fullOrderData.id}.`,
               type: 'solicitud_aprobada',
             });
           }
       }
-      // Nota: esta parte necesita ajustarse si handleOrderCreated se llama también desde un flujo de consolidación que pasa múltiples solicitud_ids.
-      // Por ahora, asume una única solicitud_compra_id vinculada a la orden, o una orden directa.
-
+      
       if(notificationsToCreate.length > 0) {
         await createNotifications(notificationsToCreate);
       }
@@ -396,7 +404,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
         const catchedError = e as Error;
         console.error("Exception fetching full order details or sending notifications:", catchedError);
         setError(catchedError.message || "Excepción al obtener detalles de la orden o enviar notificaciones.");
-        if (!newlyCreatedOrder) setNewlyCreatedOrder({ id: createdOrderInfo.id } as OrdenCompra); // Fallback para PDF
+        if (!newlyCreatedOrder) setNewlyCreatedOrder({ id: createdOrderInfo.id } as OrdenCompra); 
     } finally {
         setLoading(false);
         setShowPDFConfirmationModal(true);
@@ -412,14 +420,14 @@ export const AdminDashboardPage = (): React.ReactElement => {
   };
 
   const handleConvertToRegularOrder = (consolidatedOrder: OrdenConsolidada) => {
-     const initialProducts = (consolidatedOrder.productos as Array<{producto_id: number, descripcion: string, cantidad: number}>).map(p => ({
+     const initialProducts = (consolidatedOrder.productos as Array<{producto_id: number | null, descripcion: string, cantidad: number}>).map(p => ({
       id: p.producto_id, 
-      producto_id: p.producto_id,
       descripcion: p.descripcion,
       quantity: p.cantidad,
       precio_unitario: 0,
       selected: true,
-      isNewProduct: false,
+      // Si no tiene ID de producto, se trata como un nuevo producto
+      isNewProduct: !p.producto_id,
     }));
     setSelectedRequestForOrder({
       initialProducts: initialProducts,
@@ -433,6 +441,10 @@ export const AdminDashboardPage = (): React.ReactElement => {
     if (window.confirm(`¿Desea clonar la solicitud #${request.codigo_visible || request.id} para crear una nueva?`)) {
       navigate('/new-request', { state: { requestToClone: request } });
     }
+  };
+
+  const handleEditRequest = (request: SolicitudCompra) => {
+    navigate('/new-request', { state: { requestToEdit: request } });
   };
 
   const renderActiveTabContent = () => {
@@ -463,6 +475,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
               onApprove={handleApproveRequest}
               onReject={handleRejectRequest}
               onRowClick={(req) => { setSelectedRequestDetail(req); setShowRequestDetailsModal(true); }}
+              currentEmpleadoId={userProfile.empleado_id || undefined} 
             />
           </div>
         );
@@ -486,6 +499,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
               showStatus={true}
               userActions={true}
               onClone={handleCloneRequest}
+              onEdit={handleEditRequest} 
               onRowClick={(req) => { setSelectedRequestDetail(req); setShowRequestDetailsModal(true); }}
             />
           </div>
@@ -596,7 +610,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Orden Creada Exitosamente</h3>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-              La orden de compra #{newlyCreatedOrder.id} ha sido creada correctamente.
+              La orden de compra #{newlyCreatedOrder.codigo_visible || newlyCreatedOrder.id} ha sido creada correctamente.
             </p>
             {error && <p className="mt-2 text-sm text-red-500 dark:text-red-300">Advertencia: {error}</p>}
             <div className="mt-6 flex justify-end space-x-3">

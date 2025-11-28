@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { SolicitudCompra, SolicitudCompraEstado } from '../../types';
-import { CheckCircleIcon, XCircleIcon, EyeIcon, DocumentMagnifyingGlassIcon, DocumentDuplicateIcon, TruckIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, XCircleIcon, EyeIcon, DocumentMagnifyingGlassIcon, DocumentDuplicateIcon, TruckIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 
 interface RequestTableProps {
   requests: SolicitudCompra[];
@@ -9,8 +10,10 @@ interface RequestTableProps {
   onApprove?: (request: SolicitudCompra) => void;
   onReject?: (requestId: number) => void;
   onClone?: (request: SolicitudCompra) => void; // Nueva prop para clonar
+  onEdit?: (request: SolicitudCompra) => void; // Nueva prop para editar
   showStatus?: boolean;
   onRowClick?: (request: SolicitudCompra) => void;
+  currentEmpleadoId?: number; // ID del empleado actual para validaciones de permisos
 }
 
 const RequestTable: React.FC<RequestTableProps> = ({ 
@@ -20,8 +23,10 @@ const RequestTable: React.FC<RequestTableProps> = ({
   onApprove, 
   onReject,
   onClone,
+  onEdit,
   showStatus = true,
-  onRowClick
+  onRowClick,
+  currentEmpleadoId
 }) => {
   
   const getStatusBadge = (estado: SolicitudCompraEstado) => {
@@ -55,6 +60,29 @@ const RequestTable: React.FC<RequestTableProps> = ({
     return <span className="text-gray-500 dark:text-gray-300">Procesando...</span>;
   }
 
+  const getDisplayDescription = (request: SolicitudCompra) => {
+    // Si la descripción es válida y no es un error de IA, la mostramos tal cual
+    if (request.descripcion && !request.descripcion.includes("(error en IA)") && !request.descripcion.includes("Error en IA")) {
+        return request.descripcion;
+    }
+
+    // Si es un error antiguo o está vacía, generamos una descripción basada en los productos
+    if (request.detalles && request.detalles.length > 0) {
+       const products = request.detalles;
+       const firstProd = products[0].producto?.descripcion || products[0].descripcion_producto_personalizado || 'Producto';
+       const count = products.length;
+       
+       if (count === 1) return `Solicitud de ${firstProd}`;
+       if (count === 2) {
+          const secondProd = products[1].producto?.descripcion || products[1].descripcion_producto_personalizado || 'Producto';
+          return `Solicitud de ${firstProd} y ${secondProd}`;
+       }
+       return `Solicitud de ${firstProd} y ${count - 1} más`;
+    }
+    
+    return "Solicitud de Compra";
+  };
+
   if (!requests || requests.length === 0) {
     return (
       <div className="text-center py-10">
@@ -82,22 +110,28 @@ const RequestTable: React.FC<RequestTableProps> = ({
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-          {requests.map(request => (
+          {requests.map(request => {
+            const isOwnRequest = currentEmpleadoId === request.empleado_id;
+            
+            return (
             <tr 
               key={request.id} 
               className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${onRowClick ? 'cursor-pointer' : ''}`}
               onClick={() => typeof onRowClick === 'function' && onRowClick(request)}
             >
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">#{request.codigo_visible || request.id}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 truncate max-w-xs">{request.descripcion || 'N/D'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 truncate max-w-xs">{getDisplayDescription(request)}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{request.departamento?.nombre || 'N/D'}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{request.empleado?.nombre} {request.empleado?.apellido}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                {request.empleado?.nombre} {request.empleado?.apellido}
+                {isOwnRequest && withActions && <span className="ml-2 text-xs text-blue-500 bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">(Tú)</span>}
+              </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                 {request.detalles && request.detalles.length > 0 ? (
                   <ul className="list-disc list-inside space-y-1">
                     {request.detalles.slice(0,2).map((detalle, i) => ( // Mostrar los primeros 2, añadir indicador de "más"
                       <li key={i} className="truncate">
-                        {detalle.producto?.descripcion || 'Producto no especificado'} (x{detalle.cantidad})
+                        {detalle.producto?.descripcion || detalle.descripcion_producto_personalizado || 'Producto no especificado'} (x{detalle.cantidad})
                       </li>
                     ))}
                     {request.detalles.length > 2 && <li className="text-xs text-gray-400">...y {request.detalles.length - 2} más</li>}
@@ -122,9 +156,20 @@ const RequestTable: React.FC<RequestTableProps> = ({
                   {withActions && onApprove && onReject && (
                     <>
                       <button
-                        onClick={() => onApprove(request)}
-                        className="p-1.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 rounded-md hover:bg-green-100 dark:hover:bg-green-700 transition-colors"
-                        title="Aprobar"
+                        onClick={() => {
+                            if (isOwnRequest) {
+                                alert("Política de Seguridad: No puedes aprobar tu propia solicitud de compra. Debe ser aprobada por otro administrador.");
+                            } else {
+                                onApprove(request);
+                            }
+                        }}
+                        className={`p-1.5 rounded-md transition-colors ${
+                            isOwnRequest 
+                            ? 'text-gray-400 cursor-not-allowed opacity-50' 
+                            : 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700'
+                        }`}
+                        title={isOwnRequest ? "No puedes aprobar tu propia solicitud" : "Aprobar"}
+                        disabled={isOwnRequest}
                       >
                         <CheckCircleIcon className="w-5 h-5" />
                       </button>
@@ -136,6 +181,15 @@ const RequestTable: React.FC<RequestTableProps> = ({
                         <XCircleIcon className="w-5 h-5" />
                       </button>
                     </>
+                  )}
+                  {userActions && request.estado === 'Pendiente' && onEdit && (
+                    <button
+                      onClick={() => onEdit(request)}
+                      className="p-1.5 text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 rounded-md hover:bg-orange-100 dark:hover:bg-orange-700 transition-colors"
+                      title="Editar Solicitud"
+                    >
+                      <PencilSquareIcon className="w-5 h-5" />
+                    </button>
                   )}
                   {userActions && onClone && (
                      <button
@@ -158,7 +212,7 @@ const RequestTable: React.FC<RequestTableProps> = ({
                 </td>
               )}
             </tr>
-          ))}
+          )})}
         </tbody>
       </table>
     </div>

@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/vite.svg" /> <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RequiSoftware CIEC - Gestión de Compras</title>
+  <title>RequiSoftware CIEC - Gestión de Adquisiciones</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class', // or 'media'
+      darkMode: 'class', 
       theme: {
         extend: {
           colors: {
@@ -31,9 +31,7 @@
     }
   </script>
   <script>
-    // Se añade este script en el <head> para evitar el FOUC (Flash Of Unstyled Content) del tema.
-    // Da prioridad a la selección del usuario en localStorage, y si no existe,
-    // usa la preferencia del sistema operativo.
+    // Script para evitar el parpadeo del tema claro/oscuro al cargar
     if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       document.documentElement.classList.add('dark');
     } else {
@@ -41,7 +39,6 @@
     }
   </script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
-  <!-- Shepherd.js Tour Library -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/css/shepherd.css"/>
 
   <!-- Mapa de importación para módulos ES -->
@@ -84,74 +81,74 @@
       animation: popIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
     }
 
-    /* Shepherd.js Dark Theme Overrides */
+    /* Estilos personalizados para Shepherd.js en modo oscuro */
     .dark .shepherd-element {
-      background-color: #1f2937; /* gray-800 */
-      border-radius: 0.75rem; /* rounded-lg */
+      background-color: #1f2937; 
+      border-radius: 0.75rem; 
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.08);
-      border: 1px solid #374151; /* gray-700 */
+      border: 1px solid #374151; 
     }
     .dark .shepherd-header {
-      background-color: #374151; /* gray-700 */
-      border-bottom: 1px solid #4b5563; /* gray-600 */
+      background-color: #374151; 
+      border-bottom: 1px solid #4b5563; 
       padding: 0.75rem 1rem;
       border-top-left-radius: 0.75rem;
       border-top-right-radius: 0.75rem;
     }
     .dark .shepherd-title {
-      color: #1f2937; /* gray-800 */
+      color: #1f2937; 
       font-weight: 600;
     }
     .dark .shepherd-text {
-      color: #d1d5db; /* gray-300 */
+      color: #d1d5db; 
       padding: 1rem;
     }
     .dark .shepherd-cancel-icon {
-      color: #9ca3af; /* gray-400 */
+      color: #9ca3af; 
     }
     .dark .shepherd-cancel-icon:hover {
-      color: #f9fafb; /* gray-50 */
+      color: #f9fafb; 
     }
     .dark .shepherd-footer {
       padding: 0.75rem 1rem;
-      border-top: 1px solid #374151; /* gray-700 */
+      border-top: 1px solid #374151; 
       background-color: transparent;
     }
-    /* Button Styles */
+    
     .dark .shepherd-button {
       transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
-      border-radius: 0.375rem; /* rounded-md */
+      border-radius: 0.375rem; 
       padding: 0.5rem 1rem;
       font-weight: 500;
     }
-    /* Primary Button (Next/Siguiente/Finalizar) */
+    
     .dark .shepherd-button.shepherd-button-primary {
-      background-color: #2563eb; /* primary-600 */
+      background-color: #2563eb; 
       color: #ffffff;
     }
     .dark .shepherd-button.shepherd-button-primary:hover {
-      background-color: #1d4ed8; /* primary-700 */
+      background-color: #1d4ed8; 
     }
-    /* Secondary Button (Back/Anterior) */
+    
     .dark .shepherd-button.shepherd-button-secondary {
-       background-color: #4b5563; /* gray-600 */
-       color: #d1d5db; /* gray-300 */
+       background-color: #4b5563; 
+       color: #d1d5db; 
     }
     .dark .shepherd-button.shepherd-button-secondary:hover {
-       background-color: #374151; /* gray-700 */
+       background-color: #374151; 
     }
-    /* Arrow color for dark mode */
+    
     .dark .shepherd-element[data-popper-placement^="top"] > .shepherd-arrow::before {
-        border-top-color: #1f2937; /* Match body bg */
+        border-top-color: #1f2937; 
     }
     .dark .shepherd-element[data-popper-placement^="bottom"] > .shepherd-arrow::before {
-        border-bottom-color: #374151; /* Match header bg */
+        border-bottom-color: #374151; 
     }
     .dark .shepherd-element[data-popper-placement^="left"] > .shepherd-arrow::before {
-        border-left-color: #1f2937; /* Match body bg */
+        border-left-color: #1f2937; 
     }
     .dark .shepherd-element[data-popper-placement^="right"] > .shepherd-arrow::before {
-        border-right-color: #1f2937; /* Match body bg */
+        border-right-color: #1f2937; 
     }
 </style>
 <link rel="stylesheet" href="/index.css">

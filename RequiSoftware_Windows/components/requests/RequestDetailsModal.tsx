@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { SolicitudCompra, OrdenCompra } from '../../types';
-import { XMarkIcon, DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, DocumentMagnifyingGlassIcon, PaperClipIcon } from '@heroicons/react/24/outline';
 
 interface RequestDetailsModalProps {
   show: boolean;
@@ -17,6 +18,33 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ show, onHide,
       onViewOrder(request.ordenes[0]);
     }
   };
+  
+  const attachmentRegex = /\[Adjunto: (.*?)\]\((.*?)\)/;
+  const match = request.descripcion?.match(attachmentRegex);
+  const attachmentName = match ? match[1] : null;
+  const attachmentUrl = match ? match[2] : null;
+  
+  // Lógica para limpiar la descripción y arreglar errores antiguos de IA
+  let cleanDescription = request.descripcion?.replace(attachmentRegex, '').trim();
+  
+  if (!cleanDescription || cleanDescription.includes("(error en IA)") || cleanDescription.includes("Error en IA")) {
+      if (request.detalles && request.detalles.length > 0) {
+          const products = request.detalles;
+          const firstProd = products[0].producto?.descripcion || products[0].descripcion_producto_personalizado || 'Producto';
+          const count = products.length;
+          
+          if (count === 1) cleanDescription = `Solicitud de ${firstProd}`;
+          else if (count === 2) {
+             const secondProd = products[1].producto?.descripcion || products[1].descripcion_producto_personalizado || 'Producto';
+             cleanDescription = `Solicitud de ${firstProd} y ${secondProd}`;
+          } else {
+             cleanDescription = `Solicitud de ${firstProd} y ${count - 1} más`;
+          }
+      } else {
+          cleanDescription = "Solicitud de Compra";
+      }
+  }
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4">
@@ -37,7 +65,7 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ show, onHide,
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
               <p className="font-medium text-gray-500 dark:text-gray-400">Descripción General:</p>
-              <p className="text-gray-800 dark:text-gray-200">{request.descripcion || 'N/A'}</p>
+              <p className="text-gray-800 dark:text-gray-200">{cleanDescription}</p>
             </div>
             <div>
               <p className="font-medium text-gray-500 dark:text-gray-400">Estado:</p>
@@ -55,6 +83,15 @@ const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({ show, onHide,
               <p className="font-medium text-gray-500 dark:text-gray-400">Departamento:</p>
               <p className="text-gray-800 dark:text-gray-200">{request.departamento?.nombre}</p>
             </div>
+            {attachmentUrl && (
+                <div className="sm:col-span-2">
+                    <p className="font-medium text-gray-500 dark:text-gray-400">Archivo Adjunto:</p>
+                    <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center text-primary-600 dark:text-primary-400 hover:underline">
+                        <PaperClipIcon className="w-4 h-4 mr-1.5" />
+                        {attachmentName || 'Ver Archivo'}
+                    </a>
+                </div>
+            )}
           </div>
           
           <div>

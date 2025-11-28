@@ -1,3 +1,4 @@
+
 import { supabase } from '../supabaseClient';
 import { Producto, Proveedor, OrdenCompra, Inventario, CategoriaProducto, SolicitudCompra, Departamento, Empleado } from '../types';
 import { startOfMonth } from 'date-fns/startOfMonth';

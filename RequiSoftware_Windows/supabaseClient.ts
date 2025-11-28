@@ -1,10 +1,9 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, PARTNER_SUPABASE_URL, PARTNER_SUPABASE_ANON_KEY } from './config';
-import { SUPABASE_SERVICE_ROLE_KEY } from './serviceRoleSecret'; // Importar la clave de servicio
-import { Database, SolicitudCompra, Producto, PartnerDatabaseSchema, PartnerEvent, PartnerMeeting } from './types'; // SolicitudCompraDetalle ya no se usa aquí
+import { SUPABASE_SERVICE_ROLE_KEY } from './serviceRoleSecret'; 
+import { Database, SolicitudCompra, Producto, PartnerDatabaseSchema, PartnerEvent, PartnerMeeting } from './types'; 
 
-// AuthStorage is not exported in Supabase v2. This is a local definition for type safety.
 interface AuthStorage {
   getItem: (key: string) => string | null;
   setItem: (key: string, value: string) => void;
@@ -20,7 +19,8 @@ if (!SUPABASE_ANON_KEY) {
 }
 
 // Cliente Supabase principal para operaciones de usuario (usa clave anónima)
-export const supabase: SupabaseClient<Database> = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+// NOTE: Removed <Database> generic to prevent 'type never' errors due to strict schema validation issues.
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage: sessionStorage, // Usar sessionStorage para que la sesión dure solo mientras la pestaña del navegador esté abierta.
     autoRefreshToken: true,
@@ -34,7 +34,8 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(SUPABAS
 if (!SUPABASE_SERVICE_ROLE_KEY) {
   console.warn("La clave de servicio de Supabase (SERVICE_ROLE_KEY) no está definida en serviceRoleSecret.ts. Las operaciones de administrador fallarán.");
 }
-export const supabaseAdmin = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+// NOTE: Removed <Database> generic
+export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: {
         autoRefreshToken: false,
         persistSession: false
@@ -43,7 +44,8 @@ export const supabaseAdmin = createClient<Database>(SUPABASE_URL, SUPABASE_SERVI
 
 
 // --- Cliente para la instancia Supabase del Compañero (Eventos Externos) ---
-let partnerSupabaseInstance: SupabaseClient<PartnerDatabaseSchema> | null = null;
+// NOTE: Typed as generic SupabaseClient or any to avoid schema issues
+let partnerSupabaseInstance: SupabaseClient | null = null;
 
 // Almacenamiento ficticio en memoria para evitar conflictos de GoTrueClient
 const inMemoryStorage: AuthStorage = {
@@ -54,12 +56,9 @@ const inMemoryStorage: AuthStorage = {
 
 if (PARTNER_SUPABASE_URL && PARTNER_SUPABASE_ANON_KEY) {
   try {
-    partnerSupabaseInstance = createClient<PartnerDatabaseSchema>(PARTNER_SUPABASE_URL, PARTNER_SUPABASE_ANON_KEY, {
+    // NOTE: Removed <PartnerDatabaseSchema> generic
+    partnerSupabaseInstance = createClient(PARTNER_SUPABASE_URL, PARTNER_SUPABASE_ANON_KEY, {
       auth: {
-        // SOLUCIÓN DEFINITIVA:
-        // Se proporciona un almacenamiento ficticio para que este cliente de Supabase
-        // no intente usar el mismo localStorage que el cliente principal.
-        // Esto elimina por completo la advertencia "Multiple GoTrueClient instances".
         storage: inMemoryStorage,
         persistSession: false,
         autoRefreshToken: false,
@@ -68,7 +67,7 @@ if (PARTNER_SUPABASE_URL && PARTNER_SUPABASE_ANON_KEY) {
     });
   } catch (e) {
     console.error("Error al inicializar el cliente Supabase del compañero (eventos externos):", e);
-    partnerSupabaseInstance = null; // Asegurar que sea null si falla la inicialización
+    partnerSupabaseInstance = null; 
   }
 } else {
   console.warn("Configuración para la base de datos del compañero (eventos externos) no está completa. Funcionalidades relacionadas estarán limitadas.");
@@ -84,16 +83,15 @@ export const fetchExternalEvents = async (limit = 20): Promise<PartnerEvent[]> =
   }
   try {
     const { data, error } = await partnerSupabase
-      .from('Events') // Los nombres de tabla distinguen mayúsculas y minúsculas según el esquema del compañero
+      .from('events') 
       .select('*')
-      .order('date', { ascending: false }) // Eventos más recientes primero
+      .order('date', { ascending: false }) 
       .limit(limit);
 
     if (error) {
       console.error("Error al obtener eventos externos desde BD compañera:", error.message, error.details, error.code);
       return [];
     }
-    // Aquí se podría mapear/transformar 'data' si la estructura de PartnerEvent necesita ajustarse.
     return (data || []) as PartnerEvent[];
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -110,9 +108,9 @@ export const fetchExternalMeetings = async (limit = 20): Promise<PartnerMeeting[
   }
   try {
     const { data, error } = await partnerSupabase
-      .from('Meetings') // Nombre de la tabla de reuniones
+      .from('meetings') 
       .select('*')
-      .order('date', { ascending: false }) // Reuniones más recientes primero
+      .order('date', { ascending: false }) 
       .limit(limit);
 
     if (error) {
@@ -164,7 +162,7 @@ export const agruparSolicitudes = async (solicitudId: number) => {
 
   if (currentSolicitudError || !currentSolicitudData) {
     console.error("Error al obtener la solicitud actual para agrupar:", currentSolicitudError);
-    return { porProducto: [], porCategoria: [] }; // Retornar estructura vacía si falla
+    return { porProducto: [], porCategoria: [] }; 
   }
 
   if (!currentSolicitudData.detalles || currentSolicitudData.detalles.length === 0) {
@@ -192,7 +190,7 @@ export const agruparSolicitudes = async (solicitudId: number) => {
     .select(`
       id,
       estado,
-      detalles:solicitudcompra_detalle!inner( /* !inner asegura que solo vengan solicitudes con detalles que coincidan */
+      detalles:solicitudcompra_detalle!inner( 
         producto_id,
         cantidad,
         producto:producto_id(id, descripcion, categoria_id)
@@ -204,10 +202,8 @@ export const agruparSolicitudes = async (solicitudId: number) => {
 
   // Filtrar por los IDs de producto de la solicitud actual, si los hay
   if (productosIds.length > 0) {
-    // Usar 'in' para buscar coincidencias en los productos_id de los detalles
     query = query.filter('detalles.producto_id', 'in', `(${productosIds.join(',')})`);
   }
-  // Nota: El filtrado por categoría se hace en la función `agruparPorCategoria` después de obtener los datos.
 
   const { data: agrupables, error: agrupablesError } = await query.returns<AgrupableSolicitud[]>();
 
@@ -225,32 +221,30 @@ export const agruparSolicitudes = async (solicitudId: number) => {
 
 // Función auxiliar para agrupar por producto
 const agruparPorProducto = (solicitudes: AgrupableSolicitud[]) => {
-  // Objeto para mantener los grupos, la clave es el ID del producto
   const grupos: { [key: number]: { producto_id: number; descripcion?: string; cantidadTotal: number; solicitudes: Set<number>; detalles: any[] } } = {};
   
   solicitudes?.forEach(solicitud => {
     solicitud.detalles?.forEach((detalle) => {
-      if (!detalle.producto_id || !detalle.producto) return; // Saltar si no hay producto o ID de producto
+      if (!detalle.producto_id || !detalle.producto) return; 
 
       const productoId = detalle.producto_id;
       const descripcionProducto = detalle.producto.descripcion || 'N/D';
 
-      if (!grupos[productoId]) { // Si es la primera vez que vemos este producto, inicializar el grupo
+      if (!grupos[productoId]) { 
         grupos[productoId] = {
           producto_id: productoId,
           descripcion: descripcionProducto,
           cantidadTotal: 0,
-          solicitudes: new Set(), // Usar Set para evitar IDs de solicitud duplicados
-          detalles: [] // Guardar los detalles individuales que contribuyen a este grupo
+          solicitudes: new Set(), 
+          detalles: [] 
         };
       }
-      // Acumular cantidad y añadir ID de solicitud e info del detalle
       grupos[productoId].cantidadTotal += detalle.cantidad;
       grupos[productoId].solicitudes.add(solicitud.id);
-      grupos[productoId].detalles.push({ ...detalle, solicitudEmpleado: solicitud.empleado }); // Añadir info del empleado solicitante al detalle
+      grupos[productoId].detalles.push({ ...detalle, solicitudEmpleado: solicitud.empleado }); 
     });
   });
-  return Object.values(grupos); // Convertir el objeto de grupos a un array
+  return Object.values(grupos); 
 };
 
 // Función auxiliar para agrupar por categoría
@@ -260,21 +254,19 @@ const agruparPorCategoria = (solicitudes: AgrupableSolicitud[], categoriasPermit
   solicitudes?.forEach(solicitud => {
     solicitud.detalles?.forEach((detalle) => {
       const categoriaId = detalle.producto?.categoria_id; 
-      if (!categoriaId) return; // Saltar si no hay ID de categoría
+      if (!categoriaId) return; 
 
-      // Si se especificaron categorías permitidas (de la solicitud original) y esta no es una de ellas, saltar
       if (categoriasPermitidas.length > 0 && !categoriasPermitidas.includes(categoriaId)) return;
 
-      if (!grupos[categoriaId]) { // Inicializar grupo si es la primera vez para esta categoría
+      if (!grupos[categoriaId]) { 
         grupos[categoriaId] = {
           categoria_id: categoriaId,
           cantidadTotal: 0,
           solicitudes: new Set(),
-          productos: new Set(), // Para rastrear qué productos únicos hay en esta categoría agrupada
+          productos: new Set(), 
           detalles: []
         };
       }
-      // Acumular y añadir información
       grupos[categoriaId].cantidadTotal += detalle.cantidad;
       grupos[categoriaId].solicitudes.add(solicitud.id);
       if (detalle.producto_id) grupos[categoriaId].productos.add(detalle.producto_id);

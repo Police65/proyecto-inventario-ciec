@@ -67,7 +67,7 @@ const MainDashboardPage: React.FC = () => {
 
   const adminMenuItems: MenuCardProps[] = [
     {
-      title: 'Crear Nueva Solicitud',
+      title: 'Crear Solicitud',
       description: 'Genera una nueva solicitud de compra para tu departamento.',
       icon: PlusCircleIcon,
       onClick: () => handleNavigation('/new-request'),
@@ -112,7 +112,7 @@ const MainDashboardPage: React.FC = () => {
 
   const userMenuItems: MenuCardProps[] = [
     {
-      title: 'Crear Nueva Solicitud',
+      title: 'Crear Solicitud de Readquisición',
       description: 'Genera una nueva solicitud de compra de productos o servicios.',
       icon: PlusCircleIcon,
       onClick: () => handleNavigation('/new-request'),
@@ -150,7 +150,7 @@ const MainDashboardPage: React.FC = () => {
           ¡Bienvenido, {userProfile?.empleado?.nombre || 'Usuario'}!
         </h1>
         <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
-          {userProfile?.rol === 'admin' ? 'Panel de Administración RequiSoftware' : 'Sistema de Gestión de Compras RequiSoftware'}
+          {userProfile?.rol === 'admin' ? 'Sistema de Readquisición: Órdenes de Compra, Gestión de Inventario y Proveedores' : 'Sistema de Gestión de Compras RequiSoftware'}
         </p>
       </div>
 

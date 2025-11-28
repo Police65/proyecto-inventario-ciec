@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { GoogleGenAI } from "@google/genai";
+import { GEMINI_API_KEY } from '../config';
 
 interface ProductInput {
   productId: number;
@@ -11,7 +12,6 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
     return [];
   }
   try {
-    // FIX: Explicitly type the return to avoid 'never' type inference issues.
     const { data, error } = await supabase
       .from('producto')
       .select('id, descripcion')
@@ -20,13 +20,14 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
 
     if (error) {
       console.error('Error de Supabase al obtener nombres de productos:', error.message, error.details, error.code);
-      return productIds.map(id => `Error al obtener Producto ID ${id}`);
+      // En caso de error de BD, devolvemos identificadores genéricos para no romper el flujo
+      return productIds.map(id => `Producto #${id}`);
     }
 
     const nameMap = new Map(
       (data || []).map(p => [
         p.id,
-        p.descripcion || `Descripción no disponible (ID: ${p.id})` 
+        p.descripcion || `Producto #${p.id}` 
       ])
     );
 
@@ -35,30 +36,47 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
       if (typeof valueFromMap === 'string') {
         return valueFromMap;
       }
-      return `Producto ID ${id} (nombre no encontrado)`;
+      return `Producto #${id}`;
     });
 
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : String(e);
     console.error('Fallo en getProductNames:', errorMessage, e);
-    return productIds.map(id => `Error para Producto ID ${id}`);
+    return productIds.map(id => `Producto #${id}`);
   }
 }
 
 async function generateDescription(products: ProductInput[]): Promise<string> {
+  const productIds = products.map(p => p.productId);
+  
+  // 1. Obtener nombres de productos (necesario tanto para IA como para el fallback manual)
+  const productNames = await getProductNames(productIds);
+  
+  if (productNames.length === 0) return "Solicitud de compra (sin detalles)";
+
+  const productList = productNames.join(", ");
+  
+  // Función auxiliar para generar descripción manual si la IA falla
+  const generateManualDescription = () => {
+      const count = productNames.length;
+      if (count === 1) return `Solicitud de ${productNames[0]}`;
+      if (count === 2) return `Solicitud de ${productNames[0]} y ${productNames[1]}`;
+      if (count === 3) return `Solicitud de ${productNames[0]}, ${productNames[1]} y ${productNames[2]}`;
+      return `Solicitud de ${productNames[0]}, ${productNames[1]} y ${count - 2} más`;
+  };
+
   try {
-    // La clave API se obtiene directamente de las variables de entorno según las directrices.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Verificar si existe la clave antes de intentar usar la IA
+    if (!GEMINI_API_KEY || (GEMINI_API_KEY as string) === "TU_CLAVE_API_GEMINI_AQUI") {
+        console.warn("API_KEY no definida o es el placeholder en config.ts. Usando descripción manual.");
+        return generateManualDescription();
+    }
+
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
     
-    const productIds = products.map(p => p.productId);
-    const productNames = await getProductNames(productIds);
+    const prompt = `Como asistente de compras, genera una descripción muy breve (máximo 5 palabras) para una solicitud que contiene: ${productList}. Ejemplo: "Suministros de Oficina". NO uses comillas.`;
 
-    if (productNames.length === 0) return "Solicitud de compra (sin detalles)";
-
-    const productList = productNames.join(", ");
-    const prompt = `Como asistente de RequiSoftware para la Cámara de Industriales, genera una descripción corta y concisa en español (máximo 5 palabras, idealmente 2-3 palabras) para una solicitud de compra que incluye los siguientes artículos: ${productList}. La descripción debe ser un resumen general del tipo de artículos. Por ejemplo, si los artículos son "Resma de papel, Bolígrafos, Grapadora", una buena descripción podría ser "Suministros de Oficina". Si son "Laptop, Monitor, Teclado", podría ser "Equipamiento Informático".`;
-
-    console.log("Prompt enviado a Gemini:", prompt);
+    // console.log("Prompt enviado a Gemini:", prompt);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -69,24 +87,30 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
     });
 
     const responseText = response.text;
-    console.log("Respuesta de Gemini API (raw):", responseText);
 
     if (!responseText) {
-      console.warn("La respuesta de la API de IA fue una cadena vacía. Usando descripción de respaldo.");
-      return "Solicitud de artículos variados";
+      throw new Error("La respuesta de la IA fue vacía.");
     }
 
     let generatedDesc = responseText.trim().replace(/["*]/g, '');
-    const words = generatedDesc.split(/\s+/);
-    if (words.length > 7) { 
-        generatedDesc = words.slice(0, 7).join(" ") + "...";
+    
+    // Limpieza básica
+    if (!generatedDesc.toLowerCase().startsWith("solicitud")) {
+        generatedDesc = generatedDesc.charAt(0).toUpperCase() + generatedDesc.slice(1);
     }
-    return generatedDesc || "Solicitud Múltiple";
+    
+    const words = generatedDesc.split(/\s+/);
+    if (words.length > 10) { 
+        generatedDesc = words.slice(0, 10).join(" ") + "...";
+    }
+    return generatedDesc;
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error en generateDescription con Gemini:", errorMessage, error);
-    return "Solicitud de compra (error en IA)";
+    console.error("Fallo en IA (usando fallback manual). Error:", errorMessage);
+    
+    // FALLBACK ROBUSTO: Usar la descripción manual basada en los nombres de productos
+    return generateManualDescription().substring(0, 255);
   }
 }
 

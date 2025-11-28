@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import { SolicitudCompra, Proveedor, OrdenConsolidada, CategoriaProducto, Producto, Empleado } from '../../types';
-import { XMarkIcon, CheckCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckCircleIcon, ArrowPathIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 
 interface ConsolidationModalProps {
@@ -16,6 +16,7 @@ type SolicitudConDetallesParaConsolidar = Pick<SolicitudCompra, 'id' | 'descripc
     detalles: Array<{
         producto_id: number | null;
         cantidad: number;
+        descripcion_producto_personalizado?: string | null;
         producto: (Pick<Producto, 'id' | 'descripcion' | 'categoria_id'> & {
             categoria: Pick<CategoriaProducto, 'id' | 'nombre'> | null;
         }) | null;
@@ -23,8 +24,9 @@ type SolicitudConDetallesParaConsolidar = Pick<SolicitudCompra, 'id' | 'descripc
 };
 
 type ProductoConsolidadoItem = {
-    producto_id: number;
-    descripcion: string;
+    uniqueKey: string; // Clave única para renderizado (id o descripción normalizada)
+    producto_id: number | null;
+    descripcion: string; // Descripción para mostrar (visual)
     cantidadTotal: number;
     solicitudesOriginales: Set<number>; // IDs of SolicitudCompra
     categoria_id?: number | null;
@@ -55,7 +57,7 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
             .from('solicitudcompra')
             .select(`
               id, descripcion, empleado:empleado_id(nombre, apellido),
-              detalles:solicitudcompra_detalle(producto_id, cantidad, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre)))
+              detalles:solicitudcompra_detalle(producto_id, cantidad, descripcion_producto_personalizado, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre)))
             `)
             .eq('estado', 'Pendiente')
             .returns<SolicitudConDetallesParaConsolidar[]>();
@@ -100,23 +102,37 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
   };
 
   const productosConsolidados = useMemo(() => {
-    const items: { [key: number]: ProductoConsolidadoItem } = {};
+    const items: { [key: string]: ProductoConsolidadoItem } = {};
     solicitudesPendientes.forEach(sol => {
       if (selectedSolicitudIds.has(sol.id)) {
         sol.detalles?.forEach(det => {
-          if (det.producto_id && det.producto) {
-            if (!items[det.producto_id]) {
-              items[det.producto_id] = {
-                producto_id: det.producto_id,
-                descripcion: det.producto.descripcion,
+          const hasProduct = det.producto_id && det.producto;
+          const hasCustom = !!det.descripcion_producto_personalizado;
+
+          if (hasProduct || hasCustom) {
+            const prodId = det.producto_id || null;
+            const descOriginal = det.producto?.descripcion || det.descripcion_producto_personalizado || 'Sin descripción';
+            
+            // Lógica de agrupación inteligente:
+            // Si es un producto de catálogo (tiene ID), agrupa por ID.
+            // Si es personalizado, normaliza el texto (trim y minúsculas) para agrupar "Papel" y "papel " juntos.
+            const uniqueKey = prodId 
+                ? `prod-${prodId}` 
+                : `custom-${descOriginal.trim().toLowerCase()}`;
+
+            if (!items[uniqueKey]) {
+              items[uniqueKey] = {
+                uniqueKey: uniqueKey,
+                producto_id: prodId,
+                descripcion: descOriginal.trim(), // Usamos la primera descripción encontrada como display
                 cantidadTotal: 0,
                 solicitudesOriginales: new Set(),
-                categoria_id: det.producto.categoria_id,
-                categoria_nombre: det.producto.categoria?.nombre
+                categoria_id: det.producto?.categoria_id,
+                categoria_nombre: det.producto?.categoria?.nombre
               };
             }
-            items[det.producto_id].cantidadTotal += det.cantidad;
-            items[det.producto_id].solicitudesOriginales.add(sol.id);
+            items[uniqueKey].cantidadTotal += det.cantidad;
+            items[uniqueKey].solicitudesOriginales.add(sol.id);
           }
         });
       }
@@ -127,6 +143,7 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
   const filteredSolicitudes = useMemo(() => {
     if (!selectedCategoriaFiltro) return solicitudesPendientes;
     const catId = parseInt(selectedCategoriaFiltro);
+    // Muestra la solicitud si tiene ALGÚN producto de la categoría seleccionada.
     return solicitudesPendientes.filter(sol => 
         sol.detalles?.some(det => det.producto?.categoria_id === catId)
     );
@@ -142,11 +159,16 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
     try {
       const payload = {
         proveedor_id: parseInt(selectedProveedorId),
-        productos: productosConsolidados.map(p => ({ producto_id: p.producto_id, descripcion: p.descripcion, cantidad: p.cantidadTotal })),
+        productos: productosConsolidados.map(p => ({ 
+            producto_id: p.producto_id, 
+            descripcion: p.descripcion, // Se guarda la descripción "bonita" (trim)
+            cantidad: p.cantidadTotal 
+        })),
         solicitudes: Array.from(selectedSolicitudIds),
         estado: 'Pendiente', 
         fecha_creacion: new Date().toISOString()
       };
+      // @ts-ignore: Ignorar chequeo estricto de tipos para la inserción JSONB
       const { data: newOrder, error } = await supabase
         .from('ordenes_consolidadas')
         .insert(payload)
@@ -208,8 +230,8 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
                         {selectedSolicitudIds.has(sol.id) && <CheckCircleIcon className="w-5 h-5 text-green-500"/>}
                     </div>
                     <p className="text-xs text-gray-600 dark:text-gray-300 truncate" title={sol.descripcion || ''}>{sol.descripcion || 'Sin descripción'}</p>
-                    <div className="mt-1 text-xs">
-                        {sol.detalles?.slice(0,2).map(d => d.producto?.descripcion).join(', ')}
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {sol.detalles?.slice(0,2).map(d => d.producto?.descripcion || d.descripcion_producto_personalizado).join(', ')}
                         {sol.detalles && sol.detalles.length > 2 ? '...' : ''}
                     </div>
                   </div>
@@ -221,12 +243,26 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
               <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100">2. Productos Consolidados</h4>
               <div className="max-h-60 overflow-y-auto border dark:border-gray-600 rounded-md p-2 text-sm space-y-1">
                 {productosConsolidados.length > 0 ? productosConsolidados.map(p => (
-                  <div key={p.producto_id} className="flex justify-between p-1 bg-gray-50 dark:bg-gray-700/50 rounded">
-                    <span className="text-gray-700 dark:text-gray-200 truncate" title={p.descripcion}>{p.descripcion}</span>
-                    <span className="font-semibold text-gray-800 dark:text-gray-100">x {p.cantidadTotal}</span>
+                  <div key={p.uniqueKey} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded items-center">
+                    <div className="truncate pr-2">
+                        <span className="text-gray-800 dark:text-gray-200 block truncate" title={p.descripcion}>
+                            {p.descripcion}
+                        </span>
+                        {!p.producto_id && <span className="text-xs text-orange-600 dark:text-orange-400 italic">(Nuevo/Personalizado)</span>}
+                    </div>
+                    <span className="font-bold text-primary-600 dark:text-primary-400 whitespace-nowrap bg-white dark:bg-gray-800 px-2 py-0.5 rounded border dark:border-gray-600">
+                        x {p.cantidadTotal}
+                    </span>
                   </div>
-                )) : <p className="text-gray-500 dark:text-gray-400 text-center py-3">Seleccione solicitudes para ver productos.</p>}
+                )) : <p className="text-gray-500 dark:text-gray-400 text-center py-3">Seleccione solicitudes para ver el resumen.</p>}
               </div>
+              
+              {productosConsolidados.length > 0 && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 italic flex items-center bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-100 dark:border-blue-800">
+                  <InformationCircleIcon className="w-4 h-4 mr-1.5 flex-shrink-0" />
+                  Nota: Podrá editar cantidades y precios al crear la Orden de Compra final.
+                </p>
+              )}
 
               <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100 mt-3">3. Seleccionar Proveedor <span className="text-red-500">*</span></h4>
               <div>

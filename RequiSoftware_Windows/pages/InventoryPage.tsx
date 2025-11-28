@@ -1,3 +1,4 @@
+
 import React from 'react';
 // @ts-ignore
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
@@ -6,8 +7,9 @@ import ProductManagement from '../components/inventory/ProductManagement';
 import ProviderManagement from '../components/inventory/ProviderManagement';
 import InventoryStats from '../components/inventory/InventoryStats'; // Estadísticas generales para el panel
 import DetailedStats from '../components/inventory/DetailedStats';
+import ConsumptionRegistry from '../components/inventory/ConsumptionRegistry'; // Nueva importación
 import { AIInsights } from '../components/ai/AIInsights';
-import { HomeIcon, CircleStackIcon, SquaresPlusIcon, BuildingLibraryIcon, ChartBarIcon, SparklesIcon, ArrowRightIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
+import { HomeIcon, CircleStackIcon, SquaresPlusIcon, BuildingLibraryIcon, ChartBarIcon, SparklesIcon, ArrowRightIcon, GlobeAltIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 // ExternalEventsPage ya no se enruta dentro de InventoryPage, sino que se enlaza a una ruta raíz
 
 interface DashboardCardProps {
@@ -55,6 +57,13 @@ const InventoryDashboardContent: React.FC = () => {
       icon: CircleStackIcon,
       path: "/inventory/view",
       color: "bg-blue-500",
+    },
+    {
+      title: "Registrar Consumo",
+      description: "Registra salidas de productos para uso interno o eventos externos.",
+      icon: ArrowDownTrayIcon,
+      path: "/inventory/consumption",
+      color: "bg-orange-500",
     },
     {
       title: "Gestionar Productos",
@@ -117,6 +126,7 @@ const InventoryPage: React.FC = () => {
 
   const navLinks = [
     { key: "dashboard", path: "/inventory", label: "Panel Principal", icon: HomeIcon },
+    { key: "consumption", path: "/inventory/consumption", label: "Registrar Consumo", icon: ArrowDownTrayIcon }, // Nuevo enlace
     { key: "view", path: "/inventory/view", label: "Ver Inventario", icon: CircleStackIcon },
     { key: "add-product", path: "/inventory/add-product", label: "Productos", icon: SquaresPlusIcon },
     { key: "add-provider", path: "/inventory/add-provider", label: "Proveedores", icon: BuildingLibraryIcon },
@@ -165,6 +175,7 @@ const InventoryPage: React.FC = () => {
         <Routes>
           <Route index element={<InventoryDashboardContent />} />
           <Route path="view" element={<ViewInventory />} />
+          <Route path="consumption" element={<ConsumptionRegistry />} /> {/* Nueva Ruta */}
           <Route path="add-product" element={<ProductManagement />} />
           <Route path="add-provider" element={<ProviderManagement />} />
           <Route path="stats" element={<DetailedStats />} />

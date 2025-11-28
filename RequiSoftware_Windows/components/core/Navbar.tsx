@@ -16,7 +16,6 @@ interface CustomNavbarProps {
   setHasInteracted: (interacted: boolean) => void; // Para registrar la primera interacción del usuario
 }
 
-// FIX: Import React to resolve React.ReactElement namespace error.
 const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted }: CustomNavbarProps): React.ReactElement => {
   const [showNotifications, setShowNotifications] = useState(false); 
   const [notifications, setNotifications] = useState<Notificacion[]>([]); 
