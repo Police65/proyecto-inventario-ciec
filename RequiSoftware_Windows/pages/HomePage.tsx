@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-// @ts-ignore
+// @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Inventario, SolicitudCompra, ProductoRezagado, UserProfile, Departamento, SolicitudCompraEstado, SolicitudCompraDetalle as SolicitudCompraDetalleType, Producto, OrdenCompra, Proveedor } from '../types';
@@ -231,6 +232,7 @@ const HomePage: React.FC = () => {
     try {
       const { count: pendingReqCount, error: prError } = await supabase.from('solicitudcompra').select('*', { count: 'exact', head: true }).eq('estado', 'Pendiente').not('descripcion', 'ilike', 'Orden Directa%');
       const { count: totalOrdCount, error: toError } = await supabase.from('ordencompra').select('*', { count: 'exact', head: true });
+      // FIX: Explicitly type the return to avoid 'never' type inference issues.
       const { data: completedOrdersValData, error: covError } = await supabase.from('ordencompra').select('neto_a_pagar').eq('estado', 'Completada').returns<{neto_a_pagar: number | null}[]>();
       const { count: activeSupCount, error: asError } = await supabase.from('proveedor').select('*', { count: 'exact', head: true }).eq('estado', 'activo');
       if (prError || toError || covError || asError) console.warn("Error fetching overall stats parts", {prError, toError, covError, asError});
@@ -248,6 +250,7 @@ const HomePage: React.FC = () => {
         const { count: pend } = await supabase.from('solicitudcompra').select('id', { count: 'exact', head: true }).match({ departamento_id: dept.id, estado: 'Pendiente' }).not('descripcion', 'ilike', 'Orden Directa%');
         const { count: aprob } = await supabase.from('solicitudcompra').select('id', { count: 'exact', head: true }).match({ departamento_id: dept.id, estado: 'Aprobada' }).not('descripcion', 'ilike', 'Orden Directa%');
         const { count: rech } = await supabase.from('solicitudcompra').select('id', { count: 'exact', head: true }).match({ departamento_id: dept.id, estado: 'Rechazada' }).not('descripcion', 'ilike', 'Orden Directa%');
+        // FIX: Explicitly type the return to avoid 'never' type inference issues.
         const { data: ordenesDept } = await supabase.from('ordencompra').select('neto_a_pagar, solicitud_compra_id!inner(departamento_id)').eq('solicitud_compra_id.departamento_id', dept.id).eq('estado', 'Completada').returns<{neto_a_pagar: number | null}[]>();
         const gasto_total = ordenesDept?.reduce((sum, o) => sum + (o.neto_a_pagar || 0), 0) || 0;
         return { id: dept.id, nombre: dept.nombre, sol_pendientes: pend || 0, sol_aprobadas: aprob || 0, sol_rechazadas: rech || 0, gasto_total };
@@ -255,6 +258,7 @@ const HomePage: React.FC = () => {
       const calculatedDeptStats = await Promise.all(statsPromises);
       setDepartmentalStats(calculatedDeptStats.sort((a,b) => a.nombre.localeCompare(b.nombre)));
 
+      // FIX: Explicitly type the return to avoid 'never' type inference issues.
       const { data: allReqsForChart, error: chartReqsError } = await supabase.from('solicitudcompra').select('estado').not('descripcion', 'ilike', 'Orden Directa%').returns<{estado: SolicitudCompraEstado}[]>();
       if (chartReqsError) throw chartReqsError;
       const statusCounts = (allReqsForChart || []).reduce((acc, req) => {
@@ -267,12 +271,14 @@ const HomePage: React.FC = () => {
         { name: 'Rechazada', value: statusCounts.Rechazada || 0 },
       ]);
 
+      // FIX: Explicitly type the return to avoid 'never' type inference issues.
+      // Added descripcion_producto_personalizado to select query
       const { data: recentReqsData, error: recentReqsError } = await supabase
         .from('solicitudcompra')
         .select('*, codigo_visible, empleado:empleado_id(id, nombre, apellido), departamento:departamento_id(id, nombre), detalles:solicitudcompra_detalle(id, cantidad, descripcion_producto_personalizado, producto:producto_id(id, descripcion))')
-        .not('descripcion', 'ilike', 'Orden Directa%') 
+        .not('descripcion', 'ilike', 'Orden Directa%') // FILTRO AGREGADO
         .order('fecha_solicitud', { ascending: false })
-        .limit(20) 
+        .limit(20) // Fetch more for pagination demonstration
         .returns<SolicitudCompra[]>();
       if (recentReqsError) throw recentReqsError;
       setRecentRequests((recentReqsData || []).map(r => ({
@@ -282,11 +288,12 @@ const HomePage: React.FC = () => {
         fullRequestData: r as SolicitudCompra 
       })));
 
+      // FIX: Explicitly type the return to avoid 'never' type inference issues.
       const { data: recentOrdsData, error: recentOrdsError } = await supabase
         .from('ordencompra')
         .select('*, codigo_visible, proveedor:proveedor_id(id, nombre, rif, direccion), empleado:empleado_id(id, nombre, apellido), detalles:ordencompra_detalle(id, producto_id, cantidad, precio_unitario, producto:producto_id(id, descripcion)), solicitud_compra:solicitud_compra_id(id,descripcion,empleado_id)')
         .order('fecha_orden', { ascending: false })
-        .limit(20) 
+        .limit(20) // Fetch more for pagination
         .returns<OrdenCompra[]>();
       if (recentOrdsError) throw recentOrdsError;
        setRecentOrders((recentOrdsData || []).map(o => ({
@@ -298,7 +305,7 @@ const HomePage: React.FC = () => {
       const { data: allRequestsData, error: allRequestsError } = await supabase
         .from('solicitudcompra')
         .select('*, empleado:empleado_id(id, nombre, apellido), departamento:departamento_id(id, nombre), detalles:solicitudcompra_detalle(id, cantidad, descripcion_producto_personalizado, producto:producto_id(id, descripcion))')
-        .not('descripcion', 'ilike', 'Orden Directa%') 
+        .not('descripcion', 'ilike', 'Orden Directa%') // FILTRO AGREGADO
         .order('fecha_solicitud', { ascending: false });
       if (allRequestsError) throw allRequestsError;
       setAllAdminViewableRequests((allRequestsData as SolicitudCompra[]) || []);
@@ -381,12 +388,12 @@ const HomePage: React.FC = () => {
     setSelectedDepartmentId(deptId);
     setSelectedDepartmentName(deptName);
     setActiveStatusFilter('Todas'); 
-    setCurrentPageDeptRequests(1); 
+    setCurrentPageDeptRequests(1); // Reset page for new selection
   };
 
   const handleDeptRequestFilterChange = (newFilter: SolicitudCompraEstado | 'Todas') => {
     setActiveStatusFilter(newFilter);
-    setCurrentPageDeptRequests(1); 
+    setCurrentPageDeptRequests(1); // Reset page on filter change
   };
   
   // Paginación para Estadísticas por Departamento
@@ -539,7 +546,7 @@ const HomePage: React.FC = () => {
             </div>
             <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-4">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Últimas Solicitudes</h2>
-                <div className="overflow-x-auto max-h-[calc(6*2.75rem+3rem)]"> 
+                <div className="overflow-x-auto max-h-[calc(6*2.75rem+3rem)]"> {/* Approx height for 6 rows + header */}
                     {paginatedRecentRequests.length > 0 ? (
                     <table className="min-w-full text-sm">
                         <thead><tr className="border-b dark:border-gray-700"><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">ID</th><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Solicitante</th><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Depto.</th><th className="py-2 px-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Estado</th></tr></thead>

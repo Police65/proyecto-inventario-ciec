@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import DOMPurify from 'dompurify';
 import DepartmentExpensesChart from './DepartmentExpensesChart';
 import AnomalyPieChart from './AnomalyPieChart';
-import ChatInterface from '@/components/ai/ChatInterface'; 
+import ChatInterface from '@/components/ai/ChatInterface'; // Se cambió a importación con alias
 import { GoogleGenAI } from "@google/genai";
 import { AISummaryStat, ChartDataItem, OrdenCompra, SolicitudCompra, Departamento, RendimientoProveedor, ConsumoHistoricoProducto, MetricasProductoMensual, UserProfile, PartnerEvent, PartnerMeeting } from '../../types';
 import { LightBulbIcon, BanknotesIcon, TruckIcon, CpuChipIcon, UserGroupIcon, ArrowPathIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
@@ -68,7 +69,7 @@ export const AIInsights: React.FC = () => {
         setLoading(prev => ({ ...prev, [tab]: true }));
         try {
             if (tab === 'proveedores' && providerPerformanceData.length === 0) {
-                const { data, error } = await supabase.from('rendimiento_proveedor').select('*, proveedor:proveedor_id(nombre), orden_compra:orden_compra_id(id, fecha_orden)');
+                const { data, error } = await supabase.from('rendimiento_proveedor').select('*, proveedor:proveedor_id(nombre), orden_compra:orden_comp_id(id, fecha_orden)');
                 if (error) console.error("Error fetching provider performance:", error);
                 else setProviderPerformanceData(data || []);
             } else if (tab === 'predictor') {
@@ -178,6 +179,7 @@ export const AIInsights: React.FC = () => {
 
   const fetchAIResponse = async (prompt: string, type: InsightType): Promise<string> => {
     try {
+        // FIX: Always use process.env.API_KEY for GoogleGenAI initialization as per guidelines.
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -320,7 +322,8 @@ export const AIInsights: React.FC = () => {
           break;
 
         case "eventos_externos":
-            const eventsSummary = externalEventsData.map(e => ({ tipo: 'Evento', nombre: e.subject, fecha: e.date, organizador: e.organizer_type + (e.organizer_name ? `: ${e.organizer_name}` : ''), lugar: e.location })).slice(0, 5);
+            // FIX: PartnerEvent does not contain organizer_type or organizer_name. Removing invalid property access.
+            const eventsSummary = externalEventsData.map(e => ({ tipo: 'Evento', nombre: e.subject, fecha: e.date, lugar: e.location })).slice(0, 5);
             const meetingsSummary = externalMeetingsData.map(m => ({ tipo: 'Reunión', nombre: m.subject, fecha: m.date, comision_id: m.commission_id, lugar: m.location })).slice(0, 5);
             const externalActivitiesSummary = [...eventsSummary, ...meetingsSummary];
 

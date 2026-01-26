@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -55,6 +54,7 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
     setPdfData(null);
 
     try {
+      // FIX: Use .limit(1).single() to safely fetch one record or null.
       const { data: camara, error: camaraError } = await supabase
         .from('camaraindustriales')
         .select('*')

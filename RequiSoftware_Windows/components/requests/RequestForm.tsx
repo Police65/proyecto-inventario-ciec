@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Producto, CategoriaProducto, SolicitudCompra } from '../../types';
 import { PlusCircleIcon, TrashIcon, ArrowPathIcon, TagIcon } from '@heroicons/react/24/outline';
 import { v4 as uuidv4 } from 'uuid';
+// FIX: Import LoadingSpinner component.
 import LoadingSpinner from '../core/LoadingSpinner';
 
 interface ProductLine {

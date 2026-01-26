@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { PaperAirplaneIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
-import { UserProfile } from '../../types'; 
+import { UserProfile } from '../../types'; // Relative path
 import { GoogleGenAI } from "@google/genai";
-import DOMPurify from 'dompurify'; 
-import * as aiDataService from '../../services/aiDataService'; 
-import { GEMINI_API_KEY } from '../../config';
+import DOMPurify from 'dompurify'; // From esm.sh
+import * as aiDataService from '../../services/aiDataService'; // Changed to relative path
 
 interface ChatMessage {
   id: string;
@@ -17,6 +17,7 @@ interface ChatInterfaceProps {
   userProfile: UserProfile;
 }
 
+// Moved parseChatResponseToHTML outside the component
 const parseChatResponseToHTML = (text: string): string => {
   const lines = text.split('\n');
   let html = '';
@@ -75,12 +76,13 @@ const parseChatResponseToHTML = (text: string): string => {
   return html;
 };
 
-// Esta función auxiliar pide a la IA que actúe como un enrutador, eligiendo qué función de datos llamar.
+// This helper function asks the AI to act as a router, choosing which data function to call.
 const getIntentFromQuery = async (query: string): Promise<{function: string; args: any}> => {
-    if (!GEMINI_API_KEY || (GEMINI_API_KEY as string) === "TU_CLAVE_API_GEMINI_AQUI") {
-        throw new Error("Clave de API de Gemini no configurada en config.ts");
+    // FIX: Always use process.env.API_KEY for GoogleGenAI initialization as per guidelines.
+    if (!process.env.API_KEY) {
+        throw new Error("Clave de API de Gemini no configurada en process.env");
     }
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const availableFunctions = `
 - getInventorySummary: Returns a high-level summary of the inventory. Call for general questions about inventory like 'how many products are in inventory?', 'what is the inventory status?'.
 - getInventoryByProductNameOrCode: Takes a required 'identifier' (string: product name or code). Returns the current stock level and location for a single product. Call this for any question about "stock", "cuanto(s) hay", "existencias", "disponibilidad" for a specific item.
@@ -133,14 +135,13 @@ const getIntentFromQuery = async (query: string): Promise<{function: string; arg
         const responseText = response.text;
         
         let jsonStr = responseText.trim();
-        // Regex seguro para capturar bloque de código JSON, evitando errores de sintaxis con backticks literales
-        const fenceRegex = new RegExp("^```json\\s*([\\s\\S]*?)\\s*```$");
+        const fenceRegex = /^```json\s*\n?(.*?)\n?\s*```$/s;
         const match = jsonStr.match(fenceRegex);
         if (match && match[1]) jsonStr = match[1];
         
         return JSON.parse(jsonStr);
     } catch (e) {
-        console.error("Fallo al obtener o analizar la intención de Gemini:", e);
+        console.error("Failed to get or parse intent from Gemini:", e);
         return { function: 'none', args: {} };
     }
 };
@@ -226,14 +227,14 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
           const functionArgs = Object.values(args || {});
           result = await serviceFunctions[funcName](...functionArgs);
         } else {
-            console.warn(`Enrutador de intención devolvió función desconocida: ${funcName}`);
+            console.warn(`Intent router returned unknown function: ${funcName}`);
             result = `Función desconocida '${funcName}' solicitada.`;
         }
 
         contextDataString = `[Datos del sistema: ${typeof result === 'object' ? JSON.stringify(result) : result}]`;
       }
     } catch (dataFetchError) {
-        console.error("Error obteniendo datos de contexto:", dataFetchError);
+        console.error("Error fetching context data:", dataFetchError);
         contextDataString = "[Datos del sistema: Hubo un error al consultar la información de la base de datos para tu pregunta o la clave API no está configurada.]";
     }
     
@@ -250,11 +251,12 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
     ];
 
     try {
-        if (!GEMINI_API_KEY || (GEMINI_API_KEY as string) === "TU_CLAVE_API_GEMINI_AQUI") {
-             throw new Error("La clave API de Gemini no está configurada en config.ts. Por favor, añádela.");
+        // FIX: Always use process.env.API_KEY for GoogleGenAI initialization as per guidelines.
+        if (!process.env.API_KEY) {
+             throw new Error("La clave API de Gemini no está configurada en process.env. Por favor, añádela.");
         }
 
-        const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: contents,

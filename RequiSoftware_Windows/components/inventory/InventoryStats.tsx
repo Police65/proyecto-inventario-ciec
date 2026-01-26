@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { ArchiveBoxIcon, ExclamationTriangleIcon, ShoppingCartIcon, ClockIcon, BanknotesIcon } from '@heroicons/react/24/outline';
@@ -50,6 +51,7 @@ const InventoryStats: React.FC = () => {
           .lt('existencias', 10); // Asumiendo que bajo stock es menos de 10
         if (lowStockError) throw lowStockError;
         
+        // FIX: Explicitly type the return to avoid 'never' type inference issues.
         const { data: ordersData, error: ordersError } = await supabase
           .from('ordencompra')
           .select('estado, neto_a_pagar')

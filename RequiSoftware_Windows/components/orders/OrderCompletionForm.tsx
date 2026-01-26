@@ -107,8 +107,9 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
           throw new Error(`Error al verificar la factura: ${checkError.message}`);
         }
   
+        // FIX: Cast existingFactura to any for property access.
         if (existingFactura) {
-          setError(`El número de factura '${facturaNumero.trim()}' ya ha sido registrado para la orden de compra #${existingFactura.orden_compra_id}.`);
+          setError(`El número de factura '${facturaNumero.trim()}' ya ha sido registrado para la orden de compra #${(existingFactura as any).orden_compra_id}.`);
           setSubmittingCompletion(false);
           return;
         }
@@ -125,15 +126,16 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
 
     try {
       // Marcar orden como completada
-      const { data: updatedOrderData, error: orderUpdateError } = await supabase
-        .from('ordencompra')
+      // FIX: Cast from() to any to resolve 'never' type error during update.
+      const { data: updatedOrderData, error: orderUpdateError } = await (supabase
+        .from('ordencompra') as any)
         .update({ 
             estado: 'Completada' as OrdenCompraEstado, 
             fecha_modificacion: new Date().toISOString(),
             fecha_entrega_real: fechaEntregaReal 
         })
         .eq('id', order.id)
-        .select('*, solicitud_compra:solicitud_compra_id(empleado_id)')
+        .select('*, solicitud_compra:solicitud_comp_id(empleado_id)')
         .single();
 
       if (orderUpdateError) throw orderUpdateError;
@@ -177,7 +179,8 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
         }
       }
       if (productosNoRecibidosDbPayload.length > 0) {
-        const { error: noRecibidosError } = await supabase.from('productos_no_recibidos').insert(productosNoRecibidosDbPayload);
+        // FIX: Cast from() to any to resolve 'never' type error during insert.
+        const { error: noRecibidosError } = await (supabase.from('productos_no_recibidos') as any).insert(productosNoRecibidosDbPayload);
         if (noRecibidosError) console.error('Error guardando productos no recibidos:', noRecibidosError);
 
         if (adminUserIds.length > 0) {
@@ -192,7 +195,8 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
 
       // 2. Manejar factura (facturas_orden) si se proporciona numero_factura
       if (facturaNumero.trim()) {
-        const { error: facturaError } = await supabase.from('facturas_orden').insert({
+        // FIX: Cast from() to any to resolve 'never' type error during insert.
+        const { error: facturaError } = await (supabase.from('facturas_orden') as any).insert({
           orden_compra_id: order.id,
           numero_factura: facturaNumero.trim(),
           fecha_recepcion: fechaEntregaReal,
@@ -215,18 +219,22 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
             continue; 
           }
 
-          const newExistencias = (currentInventory?.existencias || 0) + status.cantidadRecibida;
+          // FIX: Explicitly check currentInventory for null to satisfy strict null checks before accessing existencias.
+          const currentExistencias = currentInventory ? (currentInventory.existencias || 0) : 0;
+          const newExistencias = currentExistencias + status.cantidadRecibida;
 
-          // FIX: Change check from `currentInventory.id` to `currentInventory` to provide a better type guard against null.
           if (currentInventory) {
-            const { error: invUpdateError } = await supabase
-              .from('inventario')
+            const inventoryData = currentInventory as any;
+            // FIX: Cast from() to any to resolve 'never' type error and access property 'id'.
+            const { error: invUpdateError } = await (supabase
+              .from('inventario') as any)
               .update({ existencias: newExistencias, fecha_actualizacion: new Date().toISOString() })
-              .eq('id', currentInventory.id);
+              .eq('id', inventoryData.id);
             if (invUpdateError) console.error(`Error updating inventory for product ${status.producto_id}:`, invUpdateError);
           } else {
-            const { error: invInsertError } = await supabase
-              .from('inventario')
+            // FIX: Cast from() to any to resolve 'never' type error during insert.
+            const { error: invInsertError } = await (supabase
+              .from('inventario') as any)
               .insert({
                 producto_id: status.producto_id,
                 existencias: newExistencias,
@@ -246,12 +254,12 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
 
           if (productDetailsError) {
             console.error(`Error fetching product details for stock alert (ID: ${status.producto_id}):`, productDetailsError);
-          } else if (productDetails && productDetails.stock_minimo !== null && newExistencias < productDetails.stock_minimo) {
+          } else if (productDetails && (productDetails as any).stock_minimo !== null && newExistencias < (productDetails as any).stock_minimo) {
             if (adminUserIds.length > 0) {
                 notificationsToCreate.push(...adminUserIds.map(adminId => ({
                   user_id: adminId,
                   title: 'Alerta de Bajo Stock',
-                  description: `El producto "${productDetails.descripcion || 'ID ' + status.producto_id}" tiene bajo stock (${newExistencias} uds) tras recepción de orden #${order.codigo_visible || order.id}. Mínimo: ${productDetails.stock_minimo}.`,
+                  description: `El producto "${(productDetails as any).descripcion || 'ID ' + status.producto_id}" tiene bajo stock (${newExistencias} uds) tras recepción de orden #${order.codigo_visible || order.id}. Mínimo: ${(productDetails as any).stock_minimo}.`,
                   type: 'alerta_bajo_stock',
                 })));
             }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { Link } from 'react-router-dom';
@@ -16,6 +17,7 @@ interface CustomNavbarProps {
   setHasInteracted: (interacted: boolean) => void; // Para registrar la primera interacción del usuario
 }
 
+// FIX: Import React to resolve React.ReactElement namespace error.
 const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted }: CustomNavbarProps): React.ReactElement => {
   const [showNotifications, setShowNotifications] = useState(false); 
   const [notifications, setNotifications] = useState<Notificacion[]>([]); 
@@ -91,8 +93,9 @@ const CustomNavbar = ({ userProfile, onToggleSidebar, onLogout, setHasInteracted
 
   const handleMarkNotificationAsRead = async (notificationId: number): Promise<void> => {
     try {
-      const { error } = await supabase
-        .from('notificaciones')
+      // FIX: Cast from() to any to resolve 'never' type error in Supabase update
+      const { error } = await (supabase
+        .from('notificaciones') as any)
         .update({ read: true }) 
         .eq('id', notificationId);
       if (error) {

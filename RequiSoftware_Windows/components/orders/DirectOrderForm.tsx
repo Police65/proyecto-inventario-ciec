@@ -220,8 +220,9 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     setSubmittingCategory(true);
     setCategoryError(null);
     try {
-      const { data: newCategory, error: insertError } = await supabase
-        .from('categoria_producto')
+      // FIX: Cast from() to any to resolve 'never' type error during insert.
+      const { data: newCategory, error: insertError } = await (supabase
+        .from('categoria_producto') as any)
         .insert({ nombre: newCategoryNameInput.trim() })
         .select()
         .single();
@@ -229,10 +230,11 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       
       await fetchProductCategories(); // Refrescar lista de categorías
 
+      // FIX: Cast newCategory to any for property access since it was inserted via any-casted from().
       if (newCategory && currentLineItemIdForNewCategory) {
         setProductos(prevItems => prevItems.map(item =>
           item.id === currentLineItemIdForNewCategory
-            ? { ...item, newProduct_categoria_id: newCategory.id }
+            ? { ...item, newProduct_categoria_id: (newCategory as any).id }
             : item
         ));
       }
@@ -277,15 +279,17 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     }
 
     try {
-      const { data: solicitudData, error: solError } = await supabase
-        .from('solicitudcompra')
+      // FIX: Cast from() to any to resolve 'never' type error during insert.
+      const { data: solicitudData, error: solError } = await (supabase
+        .from('solicitudcompra') as any)
         .insert({
           descripcion: `Orden Directa - ${formData.observaciones || new Date().toLocaleDateString()}`,
           estado: 'Aprobada', empleado_id: userProfile.empleado_id, departamento_id: userProfile.departamento_id,
         }).select('id').single();
       if (solError) throw solError;
+      // FIX: Cast solicitudData to any for property access.
       if (!solicitudData) throw new Error("No se pudo crear la solicitud base para la orden directa.");
-      const solicitudBaseId = solicitudData.id;
+      const solicitudBaseId = (solicitudData as any).id;
 
       const ordenPayload: Omit<OrdenCompra, 'id'|'fecha_modificacion'|'detalles'|'empleado'|'proveedor'|'solicitud_compra' | 'factura' | 'created_at' | 'updated_at' | 'fecha_orden'> = {
         solicitud_compra_id: solicitudBaseId, proveedor_id: Number(formData.proveedor_id),
@@ -297,10 +301,12 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
         precio_unitario: 0, changed_by: userProfile.empleado_id,
         fecha_entrega_estimada: formData.fecha_entrega_estimada || null, fecha_entrega_real: null
       };
-      const { data: ordenData, error: ordenError } = await supabase.from('ordencompra').insert(ordenPayload).select('id, neto_a_pagar').single(); // También seleccionar neto_a_pagar para alerta
+      // FIX: Cast from() to any to resolve 'never' type error during insert.
+      const { data: ordenData, error: ordenError } = await (supabase.from('ordencompra') as any).insert(ordenPayload).select('id, neto_a_pagar').single();
       if (ordenError) throw ordenError;
+      // FIX: Cast ordenData to any for property access.
       if (!ordenData) throw new Error("No se pudo crear la orden de compra.");
-      const ordenId = ordenData.id;
+      const ordenId = (ordenData as any).id;
 
       const detallesOrdenPayload = await Promise.all(productos.map(async p => {
         let productoRealId = p.selected_producto_id;
@@ -313,11 +319,13 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
             codigo_interno: p.newProduct_codigo_interno || null,
             unidad_medida: p.newProduct_unidad_medida || null,
           };
-          const { data: newProd, error: newProdError } = await supabase.from('producto').insert(newProdData).select('id, descripcion').single();
+          // FIX: Cast from() to any to resolve 'never' type error during insert.
+          const { data: newProd, error: newProdError } = await (supabase.from('producto') as any).insert(newProdData).select('id, descripcion').single();
           if (newProdError) throw new Error(`Error creando producto '${p.newProduct_descripcion}': ${newProdError.message}`);
+          // FIX: Cast newProd to any for property access.
           if (!newProd) throw new Error(`No se pudo crear el producto '${p.newProduct_descripcion}'.`);
-          productoRealId = newProd.id;
-          // productoDescripcionFinal = newProd.descripcion; // No usado para el payload
+          productoRealId = (newProd as any).id;
+          // productoDescripcionFinal = (newProd as any).descripcion; // No usado para el payload
         }
         if (!productoRealId) throw new Error("Producto inválido en la línea de orden.");
 
@@ -328,10 +336,12 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
         };
       }));
 
-      const { error: detallesError } = await supabase.from('ordencompra_detalle').insert(detallesOrdenPayload);
+      // FIX: Cast from() to any to resolve 'never' type error during insert.
+      const { error: detallesError } = await (supabase.from('ordencompra_detalle') as any).insert(detallesOrdenPayload);
       if (detallesError) throw detallesError;
 
-      await supabase.from('orden_solicitud').insert({ ordencompra_id: ordenId, solicitud_id: solicitudBaseId });
+      // FIX: Cast from() to any to resolve 'never' type error during insert.
+      await (supabase.from('orden_solicitud') as any).insert({ ordencompra_id: ordenId, solicitud_id: solicitudBaseId });
 
       // --- Notificaciones ---
       const notificationsToCreate: NotificacionInsert[] = [];
@@ -343,16 +353,16 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
         notificationsToCreate.push(...adminUserIds.map(adminId => ({
           user_id: adminId,
           title: 'Nueva Orden de Compra Directa Creada',
-          description: `Se ha creado la orden directa #${ordenId}. Proveedor: ${selectedProvider?.nombre || 'N/D'}. Total: ${ordenData.neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
+          description: `Se ha creado la orden directa #${ordenId}. Proveedor: ${selectedProvider?.nombre || 'N/D'}. Total: ${(ordenData as any).neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
           type: 'orden_creada', // Usando 'orden_creada' genérico
           // related_id: ordenId, // Eliminado
         })));
 
-        if (ordenData.neto_a_pagar > THRESHOLD_ORDEN_GRANDE) {
+        if ((ordenData as any).neto_a_pagar > THRESHOLD_ORDEN_GRANDE) {
           notificationsToCreate.push(...adminUserIds.map(adminId => ({
             user_id: adminId,
             title: 'Alerta de Gasto Elevado en Orden Directa',
-            description: `La orden directa #${ordenId} supera el umbral (${THRESHOLD_ORDEN_GRANDE.toLocaleString('es-VE')} Bs) con un total de ${ordenData.neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
+            description: `La orden directa #${ordenId} supera el umbral (${THRESHOLD_ORDEN_GRANDE.toLocaleString('es-VE')} Bs) con un total de ${(ordenData as any).neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
             type: 'alerta_gasto_orden',
             // related_id: ordenId, // Eliminado
           })));

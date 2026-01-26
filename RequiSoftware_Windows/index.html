@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class', 
+      darkMode: 'class', // or 'media'
       theme: {
         extend: {
           colors: {
@@ -31,7 +31,9 @@
     }
   </script>
   <script>
-    // Script para evitar el parpadeo del tema claro/oscuro al cargar
+    // Se añade este script en el <head> para evitar el FOUC (Flash Of Unstyled Content) del tema.
+    // Da prioridad a la selección del usuario en localStorage, y si no existe,
+    // usa la preferencia del sistema operativo.
     if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       document.documentElement.classList.add('dark');
     } else {
@@ -39,6 +41,7 @@
     }
   </script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+  <!-- Shepherd.js Tour Library -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/css/shepherd.css"/>
 
   <!-- Mapa de importación para módulos ES -->
@@ -81,74 +84,74 @@
       animation: popIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
     }
 
-    /* Estilos personalizados para Shepherd.js en modo oscuro */
+    /* Shepherd.js Dark Theme Overrides */
     .dark .shepherd-element {
-      background-color: #1f2937; 
-      border-radius: 0.75rem; 
+      background-color: #1f2937; /* gray-800 */
+      border-radius: 0.75rem; /* rounded-lg */
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.08);
-      border: 1px solid #374151; 
+      border: 1px solid #374151; /* gray-700 */
     }
     .dark .shepherd-header {
-      background-color: #374151; 
-      border-bottom: 1px solid #4b5563; 
+      background-color: #374151; /* gray-700 */
+      border-bottom: 1px solid #4b5563; /* gray-600 */
       padding: 0.75rem 1rem;
       border-top-left-radius: 0.75rem;
       border-top-right-radius: 0.75rem;
     }
     .dark .shepherd-title {
-      color: #1f2937; 
+      color: #1f2937; /* gray-800 */
       font-weight: 600;
     }
     .dark .shepherd-text {
-      color: #d1d5db; 
+      color: #d1d5db; /* gray-300 */
       padding: 1rem;
     }
     .dark .shepherd-cancel-icon {
-      color: #9ca3af; 
+      color: #9ca3af; /* gray-400 */
     }
     .dark .shepherd-cancel-icon:hover {
-      color: #f9fafb; 
+      color: #f9fafb; /* gray-50 */
     }
     .dark .shepherd-footer {
       padding: 0.75rem 1rem;
-      border-top: 1px solid #374151; 
+      border-top: 1px solid #374151; /* gray-700 */
       background-color: transparent;
     }
-    
+    /* Button Styles */
     .dark .shepherd-button {
       transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
-      border-radius: 0.375rem; 
+      border-radius: 0.375rem; /* rounded-md */
       padding: 0.5rem 1rem;
       font-weight: 500;
     }
-    
+    /* Primary Button (Next/Siguiente/Finalizar) */
     .dark .shepherd-button.shepherd-button-primary {
-      background-color: #2563eb; 
+      background-color: #2563eb; /* primary-600 */
       color: #ffffff;
     }
     .dark .shepherd-button.shepherd-button-primary:hover {
-      background-color: #1d4ed8; 
+      background-color: #1d4ed8; /* primary-700 */
     }
-    
+    /* Secondary Button (Back/Anterior) */
     .dark .shepherd-button.shepherd-button-secondary {
-       background-color: #4b5563; 
-       color: #d1d5db; 
+       background-color: #4b5563; /* gray-600 */
+       color: #d1d5db; /* gray-300 */
     }
     .dark .shepherd-button.shepherd-button-secondary:hover {
-       background-color: #374151; 
+       background-color: #374151; /* gray-700 */
     }
-    
+    /* Arrow color for dark mode */
     .dark .shepherd-element[data-popper-placement^="top"] > .shepherd-arrow::before {
-        border-top-color: #1f2937; 
+        border-top-color: #1f2937; /* Match body bg */
     }
     .dark .shepherd-element[data-popper-placement^="bottom"] > .shepherd-arrow::before {
-        border-bottom-color: #374151; 
+        border-bottom-color: #374151; /* Match header bg */
     }
     .dark .shepherd-element[data-popper-placement^="left"] > .shepherd-arrow::before {
-        border-left-color: #1f2937; 
+        border-left-color: #1f2937; /* Match body bg */
     }
     .dark .shepherd-element[data-popper-placement^="right"] > .shepherd-arrow::before {
-        border-right-color: #1f2937; 
+        border-right-color: #1f2937; /* Match body bg */
     }
 </style>
 <link rel="stylesheet" href="/index.css">

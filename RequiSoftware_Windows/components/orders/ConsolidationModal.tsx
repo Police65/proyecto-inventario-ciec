@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import { SolicitudCompra, Proveedor, OrdenConsolidada, CategoriaProducto, Producto, Empleado } from '../../types';
-import { XMarkIcon, CheckCircleIcon, ArrowPathIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CheckCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 
 interface ConsolidationModalProps {
@@ -24,15 +24,12 @@ type SolicitudConDetallesParaConsolidar = Pick<SolicitudCompra, 'id' | 'descripc
 };
 
 type ProductoConsolidadoItem = {
-    uniqueKey: string; // Clave única para renderizado (id o descripción normalizada)
+    uniqueKey: string;
     producto_id: number | null;
-    descripcion: string; // Descripción para mostrar (visual)
+    descripcion: string; 
     cantidadTotal: number;
-    solicitudesOriginales: Set<number>; // IDs of SolicitudCompra
-    categoria_id?: number | null;
-    categoria_nombre?: string | null;
+    solicitudesOriginales: Set<number>;
 };
-
 
 const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, onConsolidate }) => {
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<SolicitudConDetallesParaConsolidar[]>([]);
@@ -66,15 +63,12 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
 
           const { data: provData, error: provError } = await supabase
             .from('proveedor')
-            .select('*, categorias:proveedor_categoria(categoria_id, categoria:categoria_id(id, nombre))')
+            .select('*')
             .order('nombre');
           if (provError) throw provError;
           setProveedores(provData || []);
           
-          const { data: catProdData, error: catProdError } = await supabase
-            .from('categoria_producto')
-            .select('id, nombre').order('nombre');
-          if (catProdError) throw catProdError;
+          const { data: catProdData } = await supabase.from('categoria_producto').select('id, nombre');
           setCategoriasProducto(catProdData || []);
 
         } catch (err) {
@@ -88,209 +82,107 @@ const ConsolidationModal: React.FC<ConsolidationModalProps> = ({ show, onHide, o
     } else {
         setSelectedSolicitudIds(new Set());
         setSelectedProveedorId('');
-        setSelectedCategoriaFiltro('');
     }
   }, [show]);
-
-  const handleSolicitudSelect = (id: number) => {
-    setSelectedSolicitudIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) newSet.delete(id);
-      else newSet.add(id);
-      return newSet;
-    });
-  };
 
   const productosConsolidados = useMemo(() => {
     const items: { [key: string]: ProductoConsolidadoItem } = {};
     solicitudesPendientes.forEach(sol => {
       if (selectedSolicitudIds.has(sol.id)) {
         sol.detalles?.forEach(det => {
-          const hasProduct = det.producto_id && det.producto;
-          const hasCustom = !!det.descripcion_producto_personalizado;
+          const prodId = det.producto_id || null;
+          const descOriginal = det.producto?.descripcion || det.descripcion_producto_personalizado || 'Sin descripción';
+          const uniqueKey = prodId ? `prod-${prodId}` : `custom-${descOriginal.trim().toLowerCase()}`;
 
-          if (hasProduct || hasCustom) {
-            const prodId = det.producto_id || null;
-            const descOriginal = det.producto?.descripcion || det.descripcion_producto_personalizado || 'Sin descripción';
-            
-            // Lógica de agrupación inteligente:
-            // Si es un producto de catálogo (tiene ID), agrupa por ID.
-            // Si es personalizado, normaliza el texto (trim y minúsculas) para agrupar "Papel" y "papel " juntos.
-            const uniqueKey = prodId 
-                ? `prod-${prodId}` 
-                : `custom-${descOriginal.trim().toLowerCase()}`;
-
-            if (!items[uniqueKey]) {
-              items[uniqueKey] = {
-                uniqueKey: uniqueKey,
-                producto_id: prodId,
-                descripcion: descOriginal.trim(), // Usamos la primera descripción encontrada como display
-                cantidadTotal: 0,
-                solicitudesOriginales: new Set(),
-                categoria_id: det.producto?.categoria_id,
-                categoria_nombre: det.producto?.categoria?.nombre
-              };
-            }
-            items[uniqueKey].cantidadTotal += det.cantidad;
-            items[uniqueKey].solicitudesOriginales.add(sol.id);
+          if (!items[uniqueKey]) {
+            items[uniqueKey] = {
+              uniqueKey,
+              producto_id: prodId,
+              descripcion: descOriginal.trim(),
+              cantidadTotal: 0,
+              solicitudesOriginales: new Set(),
+            };
           }
+          items[uniqueKey].cantidadTotal += det.cantidad;
+          items[uniqueKey].solicitudesOriginales.add(sol.id);
         });
       }
     });
     return Object.values(items);
   }, [solicitudesPendientes, selectedSolicitudIds]);
 
-  const filteredSolicitudes = useMemo(() => {
-    if (!selectedCategoriaFiltro) return solicitudesPendientes;
-    const catId = parseInt(selectedCategoriaFiltro);
-    // Muestra la solicitud si tiene ALGÚN producto de la categoría seleccionada.
-    return solicitudesPendientes.filter(sol => 
-        sol.detalles?.some(det => det.producto?.categoria_id === catId)
-    );
-  }, [solicitudesPendientes, selectedCategoriaFiltro]);
-
   const handleSubmitConsolidacion = async () => {
-    if (!selectedProveedorId || productosConsolidados.length === 0) {
-      alert("Debe seleccionar un proveedor y al menos una solicitud con productos.");
-      return;
-    }
+    if (!selectedProveedorId || productosConsolidados.length === 0) return;
     setSubmittingConsolidation(true);
-    setError(null);
     try {
       const payload = {
         proveedor_id: parseInt(selectedProveedorId),
-        productos: productosConsolidados.map(p => ({ 
-            producto_id: p.producto_id, 
-            descripcion: p.descripcion, // Se guarda la descripción "bonita" (trim)
-            cantidad: p.cantidadTotal 
-        })),
+        productos: productosConsolidados.map(p => ({ producto_id: p.producto_id, descripcion: p.descripcion, cantidad: p.cantidadTotal })),
         solicitudes: Array.from(selectedSolicitudIds),
         estado: 'Pendiente', 
         fecha_creacion: new Date().toISOString()
       };
-      // @ts-ignore: Ignorar chequeo estricto de tipos para la inserción JSONB
-      const { data: newOrder, error } = await supabase
-        .from('ordenes_consolidadas')
-        .insert(payload)
-        .select('*, proveedor:proveedor_id(id, nombre)') 
-        .single();
+      const { data: newOrder, error } = await (supabase.from('ordenes_consolidadas') as any).insert(payload).select('*, proveedor:proveedor_id(id, nombre)').single();
       if (error) throw error;
-      if (newOrder) {
-        onConsolidate(newOrder as OrdenConsolidada);
-        onHide();
-      }
+      onConsolidate(newOrder as OrdenConsolidada);
+      onHide();
     } catch (err) {
-        const supabaseError = err as { code?: string; message: string };
-        if (supabaseError.code === '23505') {
-             alert(`Error al consolidar: Ya existe un registro con un valor único similar. (${supabaseError.message})`);
-        } else {
-            alert(`Error al consolidar: ${supabaseError.message}`);
-        }
-      console.error("Error creating consolidated order:", err);
-      setError(`Error al consolidar: ${supabaseError.message}`);
+      console.error(err);
+      alert("Error al consolidar solicitudes.");
     } finally {
       setSubmittingConsolidation(false);
     }
   };
 
-
   if (!show) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center p-4 sm:p-5 border-b dark:border-gray-700">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Consolidar Solicitudes de Compra</h3>
-          <button onClick={onHide} disabled={submittingConsolidation} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md">
-            <XMarkIcon className="w-6 h-6" />
-          </button>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Consolidar Solicitudes</h3>
+          <button onClick={onHide} className="text-gray-400 hover:text-gray-600"><XMarkIcon className="w-6 h-6" /></button>
         </div>
 
-        {(loadingInitialData && !solicitudesPendientes.length) ? <div className="p-10 flex-grow flex items-center justify-center"><LoadingSpinner message="Cargando datos..." /></div> : (
-          <div className="flex-grow overflow-y-auto p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {loadingInitialData ? <LoadingSpinner /> : (
+          <div className="flex-grow overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100">1. Seleccionar Solicitudes</h4>
-               <div className="mb-3">
-                <label htmlFor="categoriaFiltro" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Filtrar por Categoría de Producto:</label>
-                <select id="categoriaFiltro" value={selectedCategoriaFiltro} onChange={(e) => setSelectedCategoriaFiltro(e.target.value)}
-                    disabled={submittingConsolidation}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                    <option value="">Todas las Categorías</option>
-                    {categoriasProducto.map(cat => <option key={cat.id} value={cat.id}>{cat.nombre}</option>)}
-                </select>
-              </div>
+              <h4 className="font-medium">1. Seleccionar Solicitudes</h4>
               <div className="max-h-96 overflow-y-auto border dark:border-gray-600 rounded-md p-2 space-y-2">
-                {filteredSolicitudes.length > 0 ? filteredSolicitudes.map(sol => (
-                  <div key={sol.id} className={`p-2.5 rounded-md cursor-pointer transition-colors
-                    ${selectedSolicitudIds.has(sol.id) ? 'bg-primary-100 dark:bg-primary-700 border border-primary-400 dark:border-primary-500' : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-600/50 border dark:border-transparent'}`}
-                    onClick={() => !submittingConsolidation && handleSolicitudSelect(sol.id)}
-                  >
-                    <div className="flex justify-between items-center">
-                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Solicitud #{sol.id} <span className="text-xs font-normal text-gray-500 dark:text-gray-400">({sol.empleado?.nombre || 'N/A'})</span></p>
-                        {selectedSolicitudIds.has(sol.id) && <CheckCircleIcon className="w-5 h-5 text-green-500"/>}
-                    </div>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 truncate" title={sol.descripcion || ''}>{sol.descripcion || 'Sin descripción'}</p>
-                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        {sol.detalles?.slice(0,2).map(d => d.producto?.descripcion || d.descripcion_producto_personalizado).join(', ')}
-                        {sol.detalles && sol.detalles.length > 2 ? '...' : ''}
-                    </div>
+                {solicitudesPendientes.map(sol => (
+                  <div key={sol.id} onClick={() => {
+                    const newSet = new Set(selectedSolicitudIds);
+                    if (newSet.has(sol.id)) newSet.delete(sol.id);
+                    else newSet.add(sol.id);
+                    setSelectedSolicitudIds(newSet);
+                  }} className={`p-2 rounded border cursor-pointer ${selectedSolicitudIds.has(sol.id) ? 'bg-primary-50 border-primary-500' : 'dark:bg-gray-700 border-transparent'}`}>
+                    <p className="text-sm font-bold">Solicitud #{sol.id}</p>
+                    <p className="text-xs text-gray-500 truncate">{sol.descripcion}</p>
                   </div>
-                )) : <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No hay solicitudes pendientes o que coincidan con el filtro.</p>}
+                ))}
               </div>
             </div>
-
             <div className="space-y-4">
-              <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100">2. Productos Consolidados</h4>
-              <div className="max-h-60 overflow-y-auto border dark:border-gray-600 rounded-md p-2 text-sm space-y-1">
-                {productosConsolidados.length > 0 ? productosConsolidados.map(p => (
-                  <div key={p.uniqueKey} className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded items-center">
-                    <div className="truncate pr-2">
-                        <span className="text-gray-800 dark:text-gray-200 block truncate" title={p.descripcion}>
-                            {p.descripcion}
-                        </span>
-                        {!p.producto_id && <span className="text-xs text-orange-600 dark:text-orange-400 italic">(Nuevo/Personalizado)</span>}
-                    </div>
-                    <span className="font-bold text-primary-600 dark:text-primary-400 whitespace-nowrap bg-white dark:bg-gray-800 px-2 py-0.5 rounded border dark:border-gray-600">
-                        x {p.cantidadTotal}
-                    </span>
+              <h4 className="font-medium">2. Proveedor y Resumen</h4>
+              <select value={selectedProveedorId} onChange={e => setSelectedProveedorId(e.target.value)} className="w-full p-2 border rounded dark:bg-gray-700">
+                <option value="">Seleccionar Proveedor...</option>
+                {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+              <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border dark:border-gray-700">
+                <p className="text-xs font-bold mb-2">Productos a consolidar:</p>
+                {productosConsolidados.map(p => (
+                  <div key={p.uniqueKey} className="text-xs flex justify-between py-1 border-b dark:border-gray-700">
+                    <span className="truncate pr-2">{p.descripcion}</span>
+                    <span className="font-bold">x{p.cantidadTotal}</span>
                   </div>
-                )) : <p className="text-gray-500 dark:text-gray-400 text-center py-3">Seleccione solicitudes para ver el resumen.</p>}
+                ))}
               </div>
-              
-              {productosConsolidados.length > 0 && (
-                <p className="text-xs text-blue-600 dark:text-blue-400 italic flex items-center bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-100 dark:border-blue-800">
-                  <InformationCircleIcon className="w-4 h-4 mr-1.5 flex-shrink-0" />
-                  Nota: Podrá editar cantidades y precios al crear la Orden de Compra final.
-                </p>
-              )}
-
-              <h4 className="text-lg font-medium text-gray-800 dark:text-gray-100 mt-3">3. Seleccionar Proveedor <span className="text-red-500">*</span></h4>
-              <div>
-                <label htmlFor="proveedorId" className="sr-only">Proveedor</label>
-                <select id="proveedorId" value={selectedProveedorId} onChange={(e) => setSelectedProveedorId(e.target.value)} required
-                  disabled={submittingConsolidation}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                  <option value="">-- Elegir Proveedor --</option>
-                  {proveedores.map(prov => <option key={prov.id} value={prov.id}>{prov.nombre}</option>)}
-                </select>
-              </div>
-               {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+              <button onClick={handleSubmitConsolidacion} disabled={!selectedProveedorId || selectedSolicitudIds.size === 0 || submittingConsolidation} className="w-full py-2 bg-primary-600 text-white rounded font-bold disabled:opacity-50">
+                {submittingConsolidation ? "Procesando..." : "Crear Orden Consolidada"}
+              </button>
             </div>
           </div>
         )}
-
-        <div className="p-4 sm:p-5 border-t dark:border-gray-700 flex justify-end space-x-3">
-          <button type="button" onClick={onHide}
-            disabled={submittingConsolidation}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none disabled:opacity-50">
-            Cancelar
-          </button>
-          <button type="button" onClick={handleSubmitConsolidacion} disabled={submittingConsolidation || loadingInitialData || !selectedProveedorId || productosConsolidados.length === 0}
-            className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none disabled:opacity-50">
-            {submittingConsolidation ? <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" /> : <CheckCircleIcon className="w-5 h-5 mr-1.5 -ml-1" />}
-            {submittingConsolidation ? "Procesando..." : "Crear Orden Consolidada"}
-          </button>
-        </div>
       </div>
     </div>
   );

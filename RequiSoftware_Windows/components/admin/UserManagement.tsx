@@ -1,9 +1,12 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, supabaseAdmin } from '../../supabaseClient';
 import { Empleado, UserProfile, Cargo, Departamento, EmpleadoCargoHistorial, UserProfileRol, EmpleadoEstado, Database } from '../../types';
-import { PlusCircleIcon, PencilIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, EyeSlashIcon, TrashIcon, NoSymbolIcon } from '@heroicons/react/24/outline';
+import { PlusCircleIcon, PencilIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
-import { AuthError, User } from '@supabase/supabase-js'; 
+// FIX: AuthError and User are not exported consistently. Using any where imports fail.
+type AuthError = any;
+type User = any;
 
 const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-70 dark:disabled:opacity-50";
 const btnPrimaryClasses = "flex items-center justify-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md shadow-sm text-sm disabled:bg-primary-400 dark:disabled:bg-primary-700 disabled:cursor-not-allowed";
@@ -18,8 +21,43 @@ type FormData = Partial<EmpleadoWithProfile> &
   Omit<Partial<UserProfile>, 'id' | 'departamento'> & 
   { 
     password?: string; 
-    email?: string;
+    countryCode?: string;
+    localPhoneNumber?: string;
   };
+
+// Lista de códigos de país
+const countryCodes = [
+    { name: "Venezuela", code: "+58" }, { name: "United States", code: "+1" }, { name: "Colombia", code: "+57" },
+    { name: "Spain", code: "+34" }, { name: "Argentina", code: "+54" }, { name: "Brazil", code: "+55" },
+    { name: "Chile", code: "+56" }, { name: "Mexico", code: "+52" }, { name: "Peru", code: "+51" },
+    { name: "Afghanistan", code: "+93" }, { name: "Albania", code: "+355" }, { name: "Algeria", code: "+213" },
+    { name: "Andorra", code: "+376" }, { name: "Angola", code: "+244" }, { name: "Australia", code: "+61" },
+    { name: "Austria", code: "+43" }, { name: "Bahamas", code: "+1-242" }, { name: "Bahrain", code: "+973" },
+    { name: "Bangladesh", code: "+880" }, { name: "Belgium", code: "+32" }, { name: "Bolivia", code: "+591" },
+    { name: "Canada", code: "+1" }, { name: "China", code: "+86" }, { name: "Costa Rica", code: "+506" },
+    { name: "Croatia", code: "+385" }, { name: "Cuba", code: "+53" }, { name: "Cyprus", code: "+357" },
+    { name: "Czech Republic", code: "+420" }, { name: "Denmark", code: "+45" }, { name: "Dominican Republic", code: "+1-809" },
+    { name: "Ecuador", code: "+593" }, { name: "Egypt", code: "+20" }, { name: "El Salvador", code: "+503" },
+    { name: "Finland", code: "+358" }, { name: "France", code: "+33" }, { name: "Germany", code: "+49" },
+    { name: "Greece", code: "+30" }, { name: "Guatemala", code: "+504" }, { name: "Honduras", code: "+504" },
+    { name: "Hungary", code: "+36" }, { name: "Iceland", code: "+354" }, { name: "India", code: "+91" },
+    { name: "Indonesia", code: "+62" }, { name: "Iran", code: "+98" }, { name: "Iraq", code: "+964" },
+    { name: "Ireland", code: "+353" }, { name: "Israel", code: "+972" }, { name: "Italy", code: "+39" },
+    { name: "Jamaica", code: "+1-876" }, { name: "Japan", code: "+81" }, { name: "Jordan", code: "+962" },
+    { name: "Kenya", code: "+254" }, { name: "Kuwait", code: "+965" }, { name: "Lebanon", code: "+961" },
+    { name: "Malaysia", code: "+60" }, { name: "Morocco", code: "+212" }, { name: "Netherlands", code: "+31" },
+    { name: "New Zealand", code: "+64" }, { name: "Nicaragua", code: "+505" }, { name: "Nigeria", code: "+234" },
+    { name: "Norway", code: "+47" }, { name: "Oman", code: "+968" }, { name: "Pakistan", code: "+92" },
+    { name: "Panama", code: "+507" }, { name: "Paraguay", code: "+595" }, { name: "Philippines", code: "+63" },
+    { name: "Poland", code: "+48" }, { name: "Portugal", code: "+351" }, { name: "Qatar", code: "+974" },
+    { name: "Romania", code: "+40" }, { name: "Russia", code: "+7" }, { name: "Saudi Arabia", code: "+966" },
+    { name: "Singapore", code: "+65" }, { name: "South Africa", code: "+27" }, { name: "South Korea", code: "+82" },
+    { name: "Sweden", code: "+46" }, { name: "Switzerland", code: "+41" }, { name: "Syria", code: "+963" },
+    { name: "Taiwan", code: "+886" }, { name: "Thailand", code: "+66" }, { name: "Turkey", code: "+90" },
+    { name: "Ukraine", code: "+380" }, { name: "United Arab Emirates", code: "+971" }, { name: "United Kingdom", code: "+44" },
+    { name: "Uruguay", code: "+598" }, { name: "Yemen", code: "+967" },
+].sort((a, b) => a.name.localeCompare(b.name));
+
 
 export const UserManagement: React.FC = () => {
   const [empleados, setEmpleados] = useState<EmpleadoWithProfile[]>([]);
@@ -36,20 +74,25 @@ export const UserManagement: React.FC = () => {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackType, setFeedbackType] = useState<'success' | 'error'>('success');
   
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [cargoHistorial, setCargoHistorial] = useState<EmpleadoCargoHistorial[]>([]);
+
   const [loadingData, setLoadingData] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoadingMap, setActionLoadingMap] = useState<Record<number, boolean>>({});
 
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
 
   const fetchData = useCallback(async () => {
     setLoadingData(true);
     try {
-      // Usar supabaseAdmin para obtener la lista de usuarios con sus correos
-      const { data: authUsersResponse, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+      // FIX: Use supabaseAdmin.auth as any for accessing admin methods which might be missing in type def.
+      const { data: authUsersResponse, error: authUsersError } = await (supabaseAdmin.auth as any).admin.listUsers();
       if (authUsersError) throw authUsersError;
       const authUsersMap = new Map<string, User>();
-      authUsersResponse.users.forEach(u => authUsersMap.set(u.id, u));
+      // FIX: Cast response to any to resolve 'never' type issue
+      (authUsersResponse as any).users.forEach((u: any) => authUsersMap.set(u.id, u));
 
       const { data: empData, error: empError } = await supabase
         .from('empleado')
@@ -71,7 +114,8 @@ export const UserManagement: React.FC = () => {
         }
       });
       
-      const processedEmpData: EmpleadoWithProfile[] = (empData || []).map(emp => {
+      // FIX: Cast empData as any[] to safely map over results that might be typed as never[]
+      const processedEmpData: EmpleadoWithProfile[] = ((empData as any[]) || []).map(emp => {
         const profile = emp.id ? profilesMap.get(emp.id) : undefined;
         return {
           ...emp,
@@ -92,9 +136,9 @@ export const UserManagement: React.FC = () => {
       setDepartamentos(deptosData || []);
 
     } catch (error) {
-        const typedError = error as AuthError;
+        const typedError = error as any;
         let message = `Error al cargar datos: ${typedError.message || 'Error desconocido.'}`;
-        if (typedError.message.includes("service_role key")) {
+        if (typedError.message?.includes("service_role key")) {
             message += "\n\nNOTA: Para listar usuarios se requiere una clave de 'service_role' en la configuración de Supabase. El resto de la funcionalidad puede operar con la clave anónima, pero la visualización de emails de usuarios fallará.";
         }
         console.error(message, typedError);
@@ -112,118 +156,178 @@ export const UserManagement: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: ['cargo_actual_id', 'departamento_id'].includes(name) ? (value ? Number(value) : null) : value }));
   };
 
+  const handleCedulaInvalid = (event: React.InvalidEvent<HTMLInputElement>) => {
+    const target = event.target as HTMLInputElement;
+    if (target.validity.patternMismatch) target.setCustomValidity("La cédula solo debe contener números (7-8 dígitos).");
+    else if (target.validity.valueMissing) target.setCustomValidity("La cédula es obligatoria.");
+    else target.setCustomValidity("");
+  };
+  const handleCedulaInput = (event: React.FormEvent<HTMLInputElement>) => (event.target as HTMLInputElement).setCustomValidity("");
+
   const validatePassword = (password: string): string | null => {
     const errors: string[] = [];
-    if (password.length < 6) {
-      errors.push("Debe tener al menos 6 caracteres.");
+    if (password.length < 8) {
+      errors.push("Debe tener al menos 8 caracteres.");
     }
-    // Añadir más validaciones si es necesario
-    return errors.length > 0 ? errors.join(" ") : null;
+    if (!/[a-z]/.test(password)) {
+      errors.push("Debe contener al menos una letra minúscula.");
+    }
+    if (!/[A-Z]/.test(password)) {
+      errors.push("Debe contener al menos una letra mayúscula.");
+    }
+    if (!/\d/.test(password)) {
+      errors.push("Debe contener al menos un número.");
+    }
+    if (!/[^a-zA-Z0-9]/.test(password)) {
+      errors.push("Debe contener al menos un carácter especial (ej. !@#$%).");
+    }
+
+    if (errors.length > 0) {
+      return "La contraseña no cumple los requisitos:\n- " + errors.join('\n- ');
+    }
+    
+    return null;
   };
 
-  const openModal = (emp?: EmpleadoWithProfile) => {
-    setFeedbackMessage('');
-    setShowFeedbackModal(false);
-    if (emp) {
-      setIsEditing(true);
-      setFormData({
-        ...emp,
-        rol: emp.user_profile?.rol || 'usuario',
-        email: emp.user_profile?.email || '',
-        password: '', 
-      });
-    } else {
-      setIsEditing(false);
-      setFormData({
-        estado: 'activo',
-        rol: 'usuario',
-        departamento_id: departamentos.length > 0 ? departamentos[0].id : undefined,
-        cargo_actual_id: cargos.length > 0 ? cargos[0].id : undefined,
-      });
-    }
-    setIsModalOpen(true);
-  };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleUnifiedSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
-    setFeedbackMessage('');
+
+    const { nombre, apellido, cedula, cargo_actual_id, departamento_id, email, password, rol, estado, countryCode, localPhoneNumber } = formData;
+    const fullPhoneNumber = localPhoneNumber ? `${countryCode || ''}${localPhoneNumber.replace(/\s+/g, '')}` : null;
 
     try {
-        if (!formData.nombre || !formData.apellido || !formData.cedula || !formData.departamento_id || !formData.cargo_actual_id) {
-            throw new Error("Por favor complete todos los campos obligatorios del empleado.");
+        // --- Validations ---
+        if (!nombre || !apellido || !cedula || !cargo_actual_id || !departamento_id) {
+            throw new Error('Nombre, apellido, cédula, cargo y departamento son obligatorios.');
         }
 
-        if (formData.password && !isEditing) {
-             const passError = validatePassword(formData.password);
-             if (passError) throw new Error(`Contraseña inválida: ${passError}`);
+        if (formData.user_profile && (!email || !rol)) {
+            throw new Error('Email y rol son obligatorios para editar un perfil de usuario.');
         }
 
-        let empleadoId = formData.id;
-
-        // 1. Crear o Actualizar Empleado
-        const empleadoPayload = {
-            nombre: formData.nombre,
-            apellido: formData.apellido,
-            cedula: formData.cedula,
-            telefono: formData.telefono,
-            cargo_actual_id: formData.cargo_actual_id,
-            departamento_id: formData.departamento_id,
-            estado: formData.estado || 'activo',
-        };
-
-        if (isEditing && empleadoId) {
-            const { error: empError } = await supabase.from('empleado').update(empleadoPayload).eq('id', empleadoId);
-            if (empError) throw empError;
-        } else {
-            const { data: newEmp, error: empError } = await supabase.from('empleado').insert(empleadoPayload).select().single();
-            if (empError) throw empError;
-            empleadoId = newEmp.id;
+        if (!isEditing && (!email || !rol)) {
+            throw new Error('Email y rol son obligatorios para crear un perfil de usuario.');
         }
 
-        // 2. Gestionar Usuario de Autenticación (Si se proporciona email)
-        if (formData.email) {
-            let userId = formData.user_profile?.id;
-
-            if (isEditing && userId && formData.password) {
-                 // Actualizar contraseña si se proporcionó una nueva
-                 const { error: updateAuthError } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: formData.password });
-                 if (updateAuthError) throw updateAuthError;
-            } else if (!isEditing && formData.password) {
-                // Crear nuevo usuario de Auth
-                const { data: authData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
-                    email: formData.email,
-                    password: formData.password,
-                    email_confirm: true
-                });
-                if (createAuthError) throw createAuthError;
-                userId = authData.user.id;
+        let successMessage = '';
+        if (isEditing) {
+            // --- UPDATE EXISTING EMPLOYEE AND USER ---
+            if (password && password.length > 0) {
+                if (password !== passwordConfirmation) {
+                    throw new Error('Las contraseñas no coinciden.');
+                }
+                const passwordValidationError = validatePassword(password);
+                if (passwordValidationError) throw new Error(passwordValidationError);
             }
 
-            // 3. Crear o Actualizar Perfil de Usuario (Vincular Auth y Empleado)
-            if (userId) {
+            const empleadoPayload = { nombre, apellido, cedula, cargo_actual_id, departamento_id, estado, telefono: fullPhoneNumber };
+            // FIX: Cast from() call to any to bypass brittle 'never' type inference
+            const { error: empUpdateError } = await (supabase.from('empleado') as any).update(empleadoPayload).eq('id', formData.id!);
+            if (empUpdateError) throw new Error(`Error actualizando empleado: ${empUpdateError.message}`);
+
+            if (formData.user_profile?.id) {
                 const profilePayload = {
-                    id: userId,
-                    empleado_id: empleadoId,
-                    departamento_id: formData.departamento_id,
-                    rol: formData.rol || 'usuario',
+                    empleado_id: formData.id!,
+                    departamento_id: departamento_id,
+                    rol: rol as UserProfileRol,
                 };
-                
-                // Usar upsert para manejar tanto creación como actualización del perfil
-                const { error: profileError } = await supabase.from('user_profile').upsert(profilePayload);
+                // FIX: Cast from() call to any to bypass brittle 'never' type inference
+                const { error: profileError } = await (supabase.from('user_profile') as any).update(profilePayload).eq('id', formData.user_profile.id);
+                if (profileError) throw new Error(`Error actualizando perfil: ${profileError.message}`);
+
+                if (password && password.length > 0) {
+                    // FIX: Casting supabaseAdmin.auth as any for accessing admin methods.
+                    const { error: adminUserError } = await (supabaseAdmin.auth as any).admin.updateUserById(
+                        formData.user_profile.id,
+                        { password: password }
+                    );
+                    if (adminUserError) {
+                        let friendlyMessage = adminUserError.message;
+                        if (friendlyMessage.includes("Password should contain")) {
+                            friendlyMessage = "La contraseña no cumple con los requisitos de seguridad del servidor (mayúsculas, minúsculas, números, símbolos).";
+                        } else if (friendlyMessage.includes("service_role")) {
+                            friendlyMessage = "No se pudo actualizar la contraseña. Verifique los permisos de administrador (service_role).";
+                        }
+                        throw new Error(`Error al actualizar la contraseña: ${friendlyMessage}`);
+                    }
+                    successMessage = 'Empleado, perfil y contraseña actualizados exitosamente.';
+                } else {
+                    successMessage = 'Empleado y perfil actualizados exitosamente.';
+                }
+            } else {
+                 successMessage = 'Empleado actualizado (sin perfil de usuario asociado).';
+            }
+            setFeedbackMessage(successMessage);
+            setFeedbackType('success');
+        } else {
+            // --- CREATE NEW EMPLOYEE AND USER ---
+            if (!password) {
+                throw new Error('La contraseña es obligatoria para nuevos perfiles.');
+            }
+             if (password !== passwordConfirmation) {
+                throw new Error('Las contraseñas no coinciden.');
+            }
+            const passwordValidationError = validatePassword(password);
+            if (passwordValidationError) throw new Error(passwordValidationError);
+
+            let authUserId: string | undefined;
+            // 1. Create Auth User
+            // FIX: Casting supabase.auth as any to access signUp method.
+            const { data: signUpData, error: signUpError } = await (supabase.auth as any).signUp({ email: email!, password: password! });
+            if (signUpError) {
+                let friendlyMessage = signUpError.message;
+                if (friendlyMessage.includes("Password should contain")) {
+                    friendlyMessage = "La contraseña no cumple con los requisitos de seguridad del servidor (mayúsculas, minúsculas, números, símbolos).";
+                } else if (friendlyMessage.includes("User already registered")) {
+                    friendlyMessage = "Ya existe un usuario con este correo electrónico.";
+                }
+                throw new Error(`Error de autenticación: ${friendlyMessage}`);
+            }
+            if (!signUpData.user) throw new Error('No se pudo crear el usuario en Auth. Es posible que el correo ya exista.');
+            authUserId = signUpData.user.id;
+
+            try {
+                // 2. Create Empleado
+                const empleadoPayload = { nombre, apellido, cedula, cargo_actual_id, departamento_id, estado, telefono: fullPhoneNumber };
+                // FIX: Cast from() call to any to bypass brittle 'never' type inference
+                const { data: empInsertData, error: empInsertError } = await (supabase.from('empleado') as any).insert(empleadoPayload).select('id').single();
+                if (empInsertError) throw empInsertError;
+                // FIX: Cast result to any for property access
+                if (!empInsertData) throw new Error("No se pudo crear the registro del empleado.");
+                const newEmpleadoId = (empInsertData as any).id;
+
+                // 3. UPDATE User Profile (assuming a trigger created it on signup)
+                const profileUpdatePayload = {
+                    empleado_id: newEmpleadoId,
+                    departamento_id: departamento_id,
+                    rol: rol as UserProfileRol,
+                };
+                // FIX: Cast from() call to any to bypass brittle 'never' type inference
+                const { error: profileError } = await (supabase
+                    .from('user_profile') as any)
+                    .update(profileUpdatePayload)
+                    .eq('id', authUserId); 
                 if (profileError) throw profileError;
+
+                // 4. Create history record
+                // FIX: Cast from() call to any to bypass brittle 'never' type inference
+                await (supabase.from('empleadocargohistorial') as any).insert({ empleado_id: newEmpleadoId, cargo_id: cargo_actual_id, fecha_inicio: new Date().toISOString().split('T')[0] });
+
+                setFeedbackMessage('Empleado y usuario creado exitosamente. El nuevo usuario deberá confirmar su correo electrónico.');
+                setFeedbackType('success');
+
+            } catch (creationError) {
+                 throw new Error(`${(creationError as Error).message}\n\nACCIÓN MANUAL REQUERIDA: Un usuario de autenticación fue creado para '${email}' (ID: ${authUserId}) pero el proceso falló. Por favor, elimine este usuario desde el panel de Supabase (Authentication > Users) para evitar problemas futuros.`);
             }
         }
-
-        setFeedbackMessage(isEditing ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.');
-        setFeedbackType('success');
         setShowFeedbackModal(true);
         setIsModalOpen(false);
         fetchData();
 
     } catch (error) {
-        console.error("Error submitting user form:", error);
-        setFeedbackMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+        setFeedbackMessage((error as Error).message);
         setFeedbackType('error');
         setShowFeedbackModal(true);
     } finally {
@@ -231,191 +335,250 @@ export const UserManagement: React.FC = () => {
     }
   };
 
-  const handleToggleStatus = async (emp: EmpleadoWithProfile) => {
-      if (!emp.id) return;
-      const newStatus = emp.estado === 'activo' ? 'inactivo' : 'activo';
-      setActionLoadingMap(prev => ({ ...prev, [emp.id]: true }));
-      
+
+  const handleToggleEstado = async (empleado: EmpleadoWithProfile) => {
+    setActionLoadingMap(prev => ({ ...prev, [empleado.id]: true }));
+    const newEstado: EmpleadoEstado = empleado.estado === 'activo' ? 'inactivo' : 'activo';
+    if (window.confirm(`¿Seguro que desea cambiar el estado de ${empleado.nombre} a ${newEstado}?`)) {
       try {
-          const { error } = await supabase.from('empleado').update({ estado: newStatus }).eq('id', emp.id);
-          if (error) throw error;
-          fetchData();
-      } catch (error) {
-          console.error("Error toggling status:", error);
-          alert("Error al cambiar el estado del empleado.");
-      } finally {
-          setActionLoadingMap(prev => ({ ...prev, [emp.id]: false }));
-      }
+        // FIX: Cast from() call to any to bypass brittle 'never' type inference
+        const { error } = await (supabase.from('empleado') as any).update({ estado: newEstado }).eq('id', empleado.id);
+        if (error) throw error;
+        fetchData();
+      } catch (error) { setFeedbackMessage('Error al cambiar estado.'); setFeedbackType('error'); setShowFeedbackModal(true); }
+    }
+    setActionLoadingMap(prev => ({ ...prev, [empleado.id]: false }));
   };
 
-  const filteredEmpleados = empleados.filter(e => 
-    e.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    e.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.cedula.includes(searchTerm)
+  const handleViewHistory = async (empleadoId: number) => {
+    setActionLoadingMap(prev => ({ ...prev, [empleadoId]: true }));
+    try {
+      const { data, error } = await supabase.from('empleadocargohistorial').select('*, cargo:cargo_id(nombre)').eq('empleado_id', empleadoId).order('fecha_inicio', { ascending: false });
+      if (error) throw error;
+      setCargoHistorial(data || []); setShowHistoryModal(true);
+    } catch (error) { setFeedbackMessage('Error al cargar historial.'); setFeedbackType('error'); setShowFeedbackModal(true); }
+    setActionLoadingMap(prev => ({ ...prev, [empleadoId]: false }));
+  };
+
+  const openModal = (emp?: EmpleadoWithProfile) => {
+    setShowPassword(false);
+    setPasswordConfirmation('');
+    if (emp) {
+      setIsEditing(true);
+      const telefono = emp.telefono || '';
+      let countryCode = '+58';
+      let localPhoneNumber = '';
+      
+      const sortedCodes = [...countryCodes].sort((a, b) => b.code.length - a.code.length);
+      const foundCode = sortedCodes.find(c => telefono.startsWith(c.code));
+
+      if (foundCode) {
+        countryCode = foundCode.code;
+        localPhoneNumber = telefono.substring(foundCode.code.length);
+      } else if (telefono.startsWith('+')) {
+        const firstDigitIndex = telefono.search(/\d/);
+        if (firstDigitIndex > 0) {
+            countryCode = telefono.substring(0, firstDigitIndex);
+            localPhoneNumber = telefono.substring(firstDigitIndex);
+        } else {
+            localPhoneNumber = telefono;
+        }
+      } else {
+        localPhoneNumber = telefono;
+      }
+      
+      setFormData({
+        ...emp,
+        email: emp.user_profile?.email || '',
+        rol: emp.user_profile?.rol || 'usuario',
+        countryCode,
+        localPhoneNumber,
+      });
+    } else {
+      setIsEditing(false);
+      setFormData({ rol: 'usuario', estado: 'activo', countryCode: '+58', localPhoneNumber: '' });
+    }
+    setIsModalOpen(true);
+  };
+  
+  const filteredEmpleados = empleados.filter(emp =>
+    `${emp.nombre} ${emp.apellido}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.cedula || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    emp.cargo?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (emp.user_profile?.email && emp.user_profile.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+  
+  const getProfileStatus = (emp: EmpleadoWithProfile): React.ReactNode => {
+    if (emp.user_profile) {
+      return (<div className="text-green-600 dark:text-green-400 text-xs font-semibold">{emp.user_profile.email || 'Perfil Activo'}</div>);
+    }
+    return <span className="text-yellow-600 dark:text-yellow-400 text-xs font-medium">Sin Perfil</span>;
+  };
 
   if (loadingData) return <LoadingSpinner message="Cargando usuarios..." />;
 
   return (
-    <div>
-        {/* Feedback Modal */}
-        {showFeedbackModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 p-4">
-                <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full border-t-4 ${feedbackType === 'success' ? 'border-green-500' : 'border-red-500'}`}>
-                    <div className="flex items-center mb-4">
-                        {feedbackType === 'success' ? <CheckCircleIcon className="w-8 h-8 text-green-500 mr-3"/> : <ExclamationTriangleIcon className="w-8 h-8 text-red-500 mr-3"/>}
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{feedbackType === 'success' ? 'Éxito' : 'Error'}</h3>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-300 mb-6">{feedbackMessage}</p>
-                    <button onClick={() => setShowFeedbackModal(false)} className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md transition-colors">Cerrar</button>
-                </div>
-            </div>
-        )}
-
+    <div className="p-4 md:p-6 bg-white dark:bg-gray-800 shadow-xl rounded-lg">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">Gestión de Usuarios y Empleados</h2>
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">Gestión de Empleados y Usuarios</h2>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-            <input type="text" placeholder="Buscar..." className={`${inputFieldClasses} flex-grow`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-            <button onClick={() => openModal()} className={btnPrimaryClasses}>
-                <PlusCircleIcon className="w-5 h-5 mr-2" /> Añadir Usuario
+            <input type="text" placeholder="Buscar..." className={`${inputFieldClasses} flex-grow`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <button onClick={() => openModal()} className={btnPrimaryClasses} disabled={submitting || Object.values(actionLoadingMap).some(Boolean)}>
+                <PlusCircleIcon className="w-5 h-5 mr-2" /> Añadir Empleado y Usuario
             </button>
         </div>
       </div>
-
-      <div className="overflow-x-auto shadow-md rounded-lg">
+      <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Nombre</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cédula</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cargo</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Departamento</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Email (Acceso)</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Rol</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Estado</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Acciones</th>
+              {['Empleado', 'Cédula', 'Teléfono', 'Cargo', 'Perfil', 'Estado Emp.', 'Acciones'].map(header => (
+                <th key={header} className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">{header}</th>
+              ))}
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {filteredEmpleados.map(emp => (
-              <tr key={emp.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{emp.nombre} {emp.apellido}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{emp.cedula}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{emp.cargo?.nombre || 'N/D'}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{emp.departamento?.nombre || 'N/D'}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{emp.user_profile?.email || <span className="text-gray-400 italic">Sin acceso</span>}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                    {emp.user_profile?.rol ? (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${emp.user_profile.rol === 'admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}`}>
-                            {emp.user_profile.rol}
-                        </span>
-                    ) : '-'}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${emp.estado === 'activo' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
-                        {emp.estado}
-                    </span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium space-x-2">
-                  <button onClick={() => openModal(emp)} className="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300" title="Editar">
-                    <PencilIcon className="w-5 h-5" />
+              <tr key={emp.id}>
+                <td className="px-3 py-2 whitespace-nowrap text-sm"><div className="font-medium text-gray-900 dark:text-white">{emp.nombre} {emp.apellido}</div></td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{emp.cedula}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{emp.telefono || 'N/A'}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{emp.cargo?.nombre || 'N/A'}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{getProfileStatus(emp)}</td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm">
+                  <button onClick={() => handleToggleEstado(emp)} disabled={actionLoadingMap[emp.id]}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-full cursor-pointer ${emp.estado === 'activo' ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100 hover:bg-green-200' : 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100 hover:bg-red-200'} disabled:opacity-50`}
+                    title={`Cambiar a ${emp.estado === 'activo' ? 'inactivo' : 'activo'}`}>
+                    {actionLoadingMap[emp.id] ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : emp.estado}
                   </button>
-                  <button onClick={() => handleToggleStatus(emp)} disabled={!!actionLoadingMap[emp.id]} className={`${emp.estado === 'activo' ? 'text-red-600 hover:text-red-900 dark:text-red-400' : 'text-green-600 hover:text-green-900 dark:text-green-400'}`} title={emp.estado === 'activo' ? "Desactivar" : "Activar"}>
-                    {actionLoadingMap[emp.id] ? <ArrowPathIcon className="w-5 h-5 animate-spin" /> : (emp.estado === 'activo' ? <NoSymbolIcon className="w-5 h-5" /> : <CheckCircleIcon className="w-5 h-5" />)}
-                  </button>
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium space-x-1">
+                  <button onClick={() => openModal(emp)} className="p-1.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 rounded-md hover:bg-blue-100 dark:hover:bg-blue-700" title="Editar Empleado y Perfil" disabled={actionLoadingMap[emp.id]}><PencilIcon className="w-4 h-4"/></button>
+                  <button onClick={() => emp.id && handleViewHistory(emp.id)} className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600" title="Ver Historial Cargos" disabled={actionLoadingMap[emp.id]}><EyeIcon className="w-4 h-4"/></button>
                 </td>
               </tr>
             ))}
-            {filteredEmpleados.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No se encontraron empleados.</td></tr>
-            )}
+             {filteredEmpleados.length === 0 && <tr><td colSpan={7} className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">No se encontraron empleados.</td></tr>}
           </tbody>
         </table>
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black bg-opacity-60 p-4">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">{isEditing ? 'Editar' : 'Añadir'} Usuario / Empleado</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre <span className="text-red-500">*</span></label>
-                        <input type="text" name="nombre" value={formData.nombre || ''} onChange={handleFormChange} required className={inputFieldClasses} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Apellido <span className="text-red-500">*</span></label>
-                        <input type="text" name="apellido" value={formData.apellido || ''} onChange={handleFormChange} required className={inputFieldClasses} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cédula <span className="text-red-500">*</span></label>
-                        <input type="text" name="cedula" value={formData.cedula || ''} onChange={handleFormChange} required className={inputFieldClasses} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Teléfono</label>
-                        <input type="text" name="telefono" value={formData.telefono || ''} onChange={handleFormChange} className={inputFieldClasses} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Departamento <span className="text-red-500">*</span></label>
-                        <select name="departamento_id" value={formData.departamento_id || ''} onChange={handleFormChange} required className={inputFieldClasses}>
-                            <option value="">Seleccionar...</option>
-                            {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cargo <span className="text-red-500">*</span></label>
-                        <select name="cargo_actual_id" value={formData.cargo_actual_id || ''} onChange={handleFormChange} required className={inputFieldClasses}>
-                            <option value="">Seleccionar...</option>
-                            {cargos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                        </select>
-                    </div>
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-                    <h4 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-3">Acceso al Sistema</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email (Usuario)</label>
-                            <input type="email" name="email" value={formData.email || ''} onChange={handleFormChange} className={inputFieldClasses} placeholder="Para acceso al sistema" />
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-60 p-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">{isEditing ? 'Editar' : 'Añadir'} Empleado y Usuario</h3>
+                <form onSubmit={handleUnifiedSubmit} className="space-y-4">
+                    <fieldset className="border p-4 rounded-md dark:border-gray-600"><legend className="px-2 text-sm font-medium text-gray-600 dark:text-gray-300">Datos del Empleado</legend>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre <span className="text-red-500">*</span></label><input type="text" name="nombre" id="nombre" value={formData.nombre || ''} onChange={handleFormChange} required className={`mt-1 ${inputFieldClasses}`} /></div>
+                            <div><label htmlFor="apellido" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Apellido <span className="text-red-500">*</span></label><input type="text" name="apellido" id="apellido" value={formData.apellido || ''} onChange={handleFormChange} required className={`mt-1 ${inputFieldClasses}`} /></div>
+                            <div><label htmlFor="cedula" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cédula <span className="text-red-500">*</span></label><input type="text" name="cedula" id="cedula" value={formData.cedula || ''} onChange={handleFormChange} onInvalid={handleCedulaInvalid} onInput={handleCedulaInput} required className={`mt-1 ${inputFieldClasses}`} pattern="\d{7,8}" /></div>
+                            <div>
+                                <label htmlFor="localPhoneNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Teléfono</label>
+                                <div className="mt-1 flex rounded-md shadow-sm">
+                                    <select
+                                        name="countryCode"
+                                        id="countryCode"
+                                        value={formData.countryCode || '+58'}
+                                        onChange={handleFormChange}
+                                        className="block w-28 px-3 py-2 rounded-none rounded-l-md border-r-0 border-gray-300 dark:border-gray-600 focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white"
+                                    >
+                                        {countryCodes.map(c => <option key={c.name} value={c.code}>{c.name} ({c.code})</option>)}
+                                    </select>
+                                    <input
+                                        type="tel"
+                                        name="localPhoneNumber"
+                                        id="localPhoneNumber"
+                                        value={formData.localPhoneNumber || ''}
+                                        onChange={handleFormChange}
+                                        className={`flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md ${inputFieldClasses.replace('rounded-md', '')}`}
+                                        placeholder="4121234567"
+                                        pattern="\d{7,15}"
+                                        title="Ingrese solo el número de teléfono, sin el código de país."
+                                    />
+                                </div>
+                            </div>
+                            <div><label htmlFor="cargo_actual_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cargo <span className="text-red-500">*</span></label><select name="cargo_actual_id" id="cargo_actual_id" value={formData.cargo_actual_id || ''} onChange={handleFormChange} required className={`mt-1 ${inputFieldClasses}`}><option value="">Seleccionar</option>{cargos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
+                            <div><label htmlFor="departamento_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Departamento <span className="text-red-500">*</span></label><select name="departamento_id" id="departamento_id" value={formData.departamento_id || ''} onChange={handleFormChange} required className={`mt-1 ${inputFieldClasses}`}><option value="">Seleccionar</option>{departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}</select></div>
+                            <div className="md:col-span-2"><label htmlFor="estado" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Estado <span className="text-red-500">*</span></label><select name="estado" id="estado" value={formData.estado || 'activo'} onChange={handleFormChange} className={`mt-1 ${inputFieldClasses}`}><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select></div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Rol</label>
-                            <select name="rol" value={formData.rol || 'usuario'} onChange={handleFormChange} className={inputFieldClasses}>
-                                <option value="usuario">Usuario</option>
-                                <option value="admin">Administrador</option>
-                            </select>
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {isEditing ? 'Nueva Contraseña (Dejar en blanco para no cambiar)' : 'Contraseña'}
-                            </label>
-                            <div className="relative">
-                                <input 
-                                    type={showPassword ? "text" : "password"} 
-                                    name="password" 
-                                    value={formData.password || ''} 
-                                    onChange={handleFormChange} 
-                                    className={`${inputFieldClasses} pr-10`}
-                                    placeholder={isEditing ? "********" : "Mínimo 6 caracteres"}
-                                    required={!isEditing && !!formData.email} // Requerido solo si se crea nuevo usuario con email
-                                />
-                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                                    {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-                                </button>
+                    </fieldset>
+                    <fieldset className="border p-4 rounded-md dark:border-gray-600"><legend className="px-2 text-sm font-medium text-gray-600 dark:text-gray-300">Datos de Acceso</legend>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email <span className="text-red-500">*</span></label><input type="email" name="email" id="email" value={formData.email || ''} onChange={handleFormChange} required disabled={isEditing} className={`mt-1 ${inputFieldClasses}`} /></div>
+                            <div><label htmlFor="rol" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Rol <span className="text-red-500">*</span></label><select name="rol" id="rol" value={formData.rol || 'usuario'} onChange={handleFormChange} required className={`mt-1 ${inputFieldClasses}`}><option value="usuario">Usuario</option><option value="admin">Administrador</option></select></div>
+                            <div>
+                                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {isEditing ? 'Nueva Contraseña' : <>Contraseña <span className="text-red-500">*</span></>}
+                                </label>
+                                <div className="relative mt-1">
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        name="password"
+                                        id="password"
+                                        placeholder={isEditing ? "Dejar en blanco para no cambiar" : "Crear contraseña para el usuario"}
+                                        onChange={handleFormChange}
+                                        required={!isEditing}
+                                        className={`pr-10 ${inputFieldClasses}`}
+                                        autoComplete="new-password"
+                                    />
+                                    <button type="button" className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
+                                        {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                                    </button>
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Mínimo 8 caracteres, con mayúsculas, minúsculas, números y símbolos.</p>
+                            </div>
+                            <div>
+                                <label htmlFor="passwordConfirmation" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Confirmar Contraseña {!isEditing && <span className="text-red-500">*</span>}
+                                </label>
+                                <div className="relative mt-1">
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        name="passwordConfirmation"
+                                        id="passwordConfirmation"
+                                        placeholder="Repita la nueva contraseña"
+                                        value={passwordConfirmation}
+                                        onChange={(e) => setPasswordConfirmation(e.target.value)}
+                                        required={!isEditing}
+                                        className={`pr-10 ${inputFieldClasses}`}
+                                        autoComplete="new-password"
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </fieldset>
+                    <div className="flex justify-end space-x-3 pt-5 border-t dark:border-gray-700"><button type="button" onClick={() => setIsModalOpen(false)} className={btnSecondaryClasses} disabled={submitting}>Cancelar</button><button type="submit" className={btnPrimaryClasses} disabled={submitting}>{submitting && <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" />}{submitting ? 'Guardando...' : 'Guardar Cambios'}</button></div>
+                </form>
+            </div>
+        </div>
+      )}
+      
+      {showFeedbackModal && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black bg-opacity-60 p-4">
+            <div className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md text-center border-t-4 ${feedbackType === 'success' ? 'border-green-500' : 'border-red-500'}`}>
+                {feedbackType === 'success' ? <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" /> : <ExclamationTriangleIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />}
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">{feedbackType === 'success' ? '¡Éxito!' : 'Error'}</h3>
+                <p className="text-gray-700 dark:text-gray-300 mb-6 whitespace-pre-line text-sm">{feedbackMessage}</p>
+                <button onClick={() => setShowFeedbackModal(false)} className={feedbackType === 'success' ? btnPrimaryClasses : btnDangerClasses}>Entendido</button>
+            </div>
+        </div>
+      )}
 
-                <div className="flex justify-end space-x-3 pt-4 border-t dark:border-gray-700">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className={btnSecondaryClasses} disabled={submitting}>Cancelar</button>
-                    <button type="submit" className={btnPrimaryClasses} disabled={submitting}>
-                        {submitting && <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" />}
-                        {submitting ? 'Guardando...' : 'Guardar'}
-                    </button>
-                </div>
-            </form>
-          </div>
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-60 p-4">
+             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 border-b dark:border-gray-700 pb-3">Historial de Cargos</h3>
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-700"><tr><th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Cargo</th><th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fecha Inicio</th><th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Fecha Fin</th></tr></thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {cargoHistorial.length > 0 ? cargoHistorial.map(h => (
+                            <tr key={h.id}><td className="px-3 py-2.5 text-gray-700 dark:text-gray-300">{h.cargo?.nombre || 'N/A'}</td><td className="px-3 py-2.5 text-gray-700 dark:text-gray-300">{new Date(h.fecha_inicio).toLocaleDateString()}</td><td className="px-3 py-2.5 text-gray-700 dark:text-gray-300">{h.fecha_fin ? new Date(h.fecha_fin).toLocaleDateString() : 'Actual'}</td></tr>
+                        )) : <tr><td colSpan={3} className="px-3 py-4 text-center text-gray-500 dark:text-gray-400">No hay historial.</td></tr>}
+                    </tbody>
+                </table>
+                <div className="mt-6 text-right"><button onClick={() => setShowHistoryModal(false)} className={btnSecondaryClasses}>Cerrar</button></div>
+            </div>
         </div>
       )}
     </div>

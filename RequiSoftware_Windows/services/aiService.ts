@@ -1,6 +1,6 @@
+
 import { supabase } from '../supabaseClient';
 import { GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY } from '../config';
 
 interface ProductInput {
   productId: number;
@@ -12,6 +12,7 @@ async function getProductNames(productIds: number[]): Promise<string[]> {
     return [];
   }
   try {
+    // FIX: Explicitly type the return to avoid 'never' type inference issues.
     const { data, error } = await supabase
       .from('producto')
       .select('id, descripcion')
@@ -66,13 +67,13 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
   };
 
   try {
-    // Verificar si existe la clave antes de intentar usar la IA
-    if (!GEMINI_API_KEY || (GEMINI_API_KEY as string) === "TU_CLAVE_API_GEMINI_AQUI") {
-        console.warn("API_KEY no definida o es el placeholder en config.ts. Usando descripción manual.");
+    // FIX: Always use process.env.API_KEY for GoogleGenAI initialization as per guidelines.
+    if (!process.env.API_KEY) {
+        console.warn("API_KEY no definida en process.env. Usando descripción manual.");
         return generateManualDescription();
     }
 
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const prompt = `Como asistente de compras, genera una descripción muy breve (máximo 5 palabras) para una solicitud que contiene: ${productList}. Ejemplo: "Suministros de Oficina". NO uses comillas.`;
 

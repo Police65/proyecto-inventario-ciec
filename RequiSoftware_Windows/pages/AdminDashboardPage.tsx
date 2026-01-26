@@ -1,18 +1,21 @@
+
 import React, { useState, useEffect } from 'react';
-// @ts-ignore
-import { useOutletContext, useNavigate } from 'react-router-dom';
+// @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
+import { useOutletContext, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { SolicitudCompra, OrdenCompra, UserProfile, OrdenConsolidada, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, Proveedor, OrdenCompraDetalle as OrdenCompraDetalleType, CategoriaProducto, NotificacionInsert, Database } from '../types';
 import LoadingSpinner from '../components/core/LoadingSpinner';
-import { THRESHOLD_ORDEN_GRANDE } from '../config'; 
-import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } from '../services/notificationService'; 
+import { THRESHOLD_ORDEN_GRANDE } from '../config'; // Importar umbral de valor
+import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } from '../services/notificationService'; // Importar servicio de notificaciones
 
+// Importar componentes individuales que conforman el dashboard
 import RequestTable from '../components/requests/RequestTable';
 import OrderTable from '../components/orders/OrderTable';
 import { UserManagement } from '../components/admin/UserManagement';
-import { DepartmentManagement } from '../components/admin/DepartmentManagement'; 
+import { DepartmentManagement } from '../components/admin/DepartmentManagement'; // IMPORT NEW COMPONENT
 import ConsolidatedOrderTable from '../components/orders/ConsolidatedOrderTable';
 
+// Modales
 import { OrderForm } from '@/components/orders/OrderForm'; 
 import { DirectOrderForm } from '@/components/orders/DirectOrderForm'; 
 import ConsolidationModal from '../components/orders/ConsolidationModal';
@@ -21,11 +24,12 @@ import RequestDetailsModal from '../components/requests/RequestDetailsModal';
 import ConsolidatedOrderDetailsModal from '../components/orders/ConsolidatedOrderDetailsModal';
 
 interface AdminDashboardContext {
-  userProfile: UserProfile; 
-  activeUITab: string; 
-  setActiveUITab: (tab: string) => void; 
+  userProfile: UserProfile; // Perfil del administrador logueado
+  activeUITab: string; // Pestaña activa actualmente en la UI (ej. 'solicitudes', 'ordenes')
+  setActiveUITab: (tab: string) => void; // Función para cambiar la pestaña activa
 }
 
+// Definiciones de tipo para datos crudos de consultas Supabase
 type RawSolicitudFromQuery = Omit<SolicitudCompra, 'empleado' | 'departamento' | 'detalles'> & {
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
   departamento: Pick<Departamento, 'id' | 'nombre' | 'estado'> | null;
@@ -54,12 +58,14 @@ const commonSelectOrden = `
     proveedor:proveedor_id(id, nombre, rif, direccion, estado, tipo_contribuyente, porcentaje_retencion_iva),
     detalles:ordencompra_detalle(id, producto_id, cantidad, precio_unitario, descripcion_producto_personalizado, producto:producto_id(id, descripcion)),
     empleado:empleado_id(id, nombre, apellido),
-    solicitud_compra:solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, descripcion, empleado_id, departamento_id)
+    solicitud_compra:solicitudcompra!ordencompra_solicitud_comp_id_fkey(id, descripcion, empleado_id, departamento_id)
   `;
 
+// FIX: Import React to resolve React.ReactElement namespace error.
 export const AdminDashboardPage = (): React.ReactElement => {
   const { userProfile, activeUITab } = useOutletContext<AdminDashboardContext>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [loading, setLoading] = useState(true); 
   const [error, setError] = useState<string | null>(null); 
@@ -87,6 +93,15 @@ export const AdminDashboardPage = (): React.ReactElement => {
 
   const [newlyCreatedOrder, setNewlyCreatedOrder] = useState<OrdenCompra | null>(null);
   const [showPDFConfirmationModal, setShowPDFConfirmationModal] = useState(false);
+
+  // Manejar apertura automática de formulario de orden directa desde estado de navegación
+  useEffect(() => {
+    if (location.state?.openDirectOrder) {
+      setShowDirectOrderForm(true);
+      // Limpiar el estado para que no se reabra al refrescar
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const mapSolicitudData = (req: RawSolicitudFromQuery): SolicitudCompra => ({
     id: req.id,
@@ -163,7 +178,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
     empleado: order.empleado ? { 
       id: order.empleado.id, nombre: order.empleado.nombre, apellido: order.empleado.apellido,
       cedula: '', cargo_actual_id: null, 
-      departamento_id: order.solicitud_compra?.departamento_id || 0, 
+      departamento_id: order.solicitud_compra?.departamento_id || 0, // Best effort
       estado: 'activo',
       created_at: '', updated_at: '',
     } as Empleado : undefined,
@@ -189,7 +204,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
     try {
       const commonSelectSolicitud = `
         id, codigo_visible, descripcion, fecha_solicitud, estado, empleado_id, departamento_id, created_at, updated_at,
-        detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, descripcion_producto_personalizado, categoria_producto_sugerida_id, categoria_sugerida_nombre, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
+        detalles:solicitudcompra_detalle(id, solicitud_comp_id, producto_id, cantidad, descripcion_producto_personalizado, categoria_producto_sugerida_id, categoria_sugerida_nombre, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
         empleado:empleado_id(id, nombre, apellido),
         departamento:departamento_id(id, nombre, estado)
       `;
@@ -198,7 +213,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
         .from('solicitudcompra')
         .select(commonSelectSolicitud)
         .eq('estado', 'Pendiente')
-        .not('descripcion', 'ilike', 'Orden Directa%') 
+        .not('descripcion', 'ilike', 'Orden Directa%') // FILTRO AGREGADO
         .order('fecha_solicitud', { ascending: false }) 
         .returns<RawSolicitudFromQuery[]>(); 
       if (pendingError) throw pendingError;
@@ -208,7 +223,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
         .from('solicitudcompra')
         .select(commonSelectSolicitud)
         .in('estado', ['Aprobada', 'Rechazada'])
-        .not('descripcion', 'ilike', 'Orden Directa%') 
+        .not('descripcion', 'ilike', 'Orden Directa%') // FILTRO AGREGADO
         .order('fecha_solicitud', { ascending: false })
         .returns<RawSolicitudFromQuery[]>();
       if (historyError) throw historyError;
@@ -219,7 +234,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
           .from('solicitudcompra')
           .select(commonSelectSolicitud)
           .eq('empleado_id', userProfile.empleado_id)
-          .not('descripcion', 'ilike', 'Orden Directa%') 
+          .not('descripcion', 'ilike', 'Orden Directa%') // FILTRO AGREGADO
           .order('fecha_solicitud', { ascending: false })
           .returns<RawSolicitudFromQuery[]>();
         if (myRequestsError) throw myRequestsError;
@@ -300,8 +315,9 @@ export const AdminDashboardPage = (): React.ReactElement => {
   const handleRejectRequest = async (requestId: number) => {
     if (!window.confirm(`¿Está seguro de rechazar la solicitud #${requestId}? Esta acción no se puede deshacer.`)) return;
     try {
-      const { error } = await supabase
-        .from('solicitudcompra')
+      // FIX: Cast from() to any to resolve 'never' type error in Supabase update
+      const { error } = await (supabase
+        .from('solicitudcompra') as any)
         .update({ estado: 'Rechazada' })
         .eq('id', requestId);
       if (error) throw error;
@@ -347,14 +363,14 @@ export const AdminDashboardPage = (): React.ReactElement => {
     try {
       const { data: rawFullOrder, error: fetchError } = await supabase
           .from('ordencompra')
-          .select(commonSelectOrden) 
+          .select(commonSelectOrden) // Uses the detailed select string
           .eq('id', createdOrderInfo.id)
           .single<RawOrdenFromQuery>();
 
       if (fetchError || !rawFullOrder) {
           console.error("Error fetching full order details after creation in AdminDashboardPage:", fetchError);
           setError(fetchError?.message || "No se pudo obtener los detalles completos de la orden creada.");
-          fullOrderData = { id: createdOrderInfo.id } as OrdenCompra; 
+          fullOrderData = { id: createdOrderInfo.id } as OrdenCompra; // Fallback for PDF modal
       } else {
           fullOrderData = mapOrdenData(rawFullOrder);
       }
@@ -395,7 +411,9 @@ export const AdminDashboardPage = (): React.ReactElement => {
             });
           }
       }
-      
+      // Nota: esta parte necesita ajustarse si handleOrderCreated se llama también desde un flujo de consolidación que pasa múltiples solicitud_ids.
+      // Por ahora, asume una única solicitud_compra_id vinculada a la orden, o una orden directa.
+
       if(notificationsToCreate.length > 0) {
         await createNotifications(notificationsToCreate);
       }
@@ -403,8 +421,8 @@ export const AdminDashboardPage = (): React.ReactElement => {
     } catch (e) {
         const catchedError = e as Error;
         console.error("Exception fetching full order details or sending notifications:", catchedError);
-        setError(catchedError.message || "Excepción al obtener detalles de la orden o enviar notificaciones.");
-        if (!newlyCreatedOrder) setNewlyCreatedOrder({ id: createdOrderInfo.id } as OrdenCompra); 
+        setError(catchedError.message || "Excepción al obtener detalles de la orden or enviar notificaciones.");
+        if (!newlyCreatedOrder) setNewlyCreatedOrder({ id: createdOrderInfo.id } as OrdenCompra); // Fallback para PDF
     } finally {
         setLoading(false);
         setShowPDFConfirmationModal(true);
@@ -475,7 +493,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
               onApprove={handleApproveRequest}
               onReject={handleRejectRequest}
               onRowClick={(req) => { setSelectedRequestDetail(req); setShowRequestDetailsModal(true); }}
-              currentEmpleadoId={userProfile.empleado_id || undefined} 
+              currentEmpleadoId={userProfile.empleado_id || undefined} // Pasar ID para validación visual
             />
           </div>
         );
@@ -499,7 +517,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
               showStatus={true}
               userActions={true}
               onClone={handleCloneRequest}
-              onEdit={handleEditRequest} 
+              onEdit={handleEditRequest} // Habilitar edición para administradores en sus propias solicitudes
               onRowClick={(req) => { setSelectedRequestDetail(req); setShowRequestDetailsModal(true); }}
             />
           </div>

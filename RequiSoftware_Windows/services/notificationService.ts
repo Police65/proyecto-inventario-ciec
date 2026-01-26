@@ -1,88 +1,95 @@
-
 // services/notificationService.ts
 import { supabase } from '../supabaseClient';
 import { NotificacionInsert, UserProfileRol } from '../types';
 
 /**
- * Obtiene todos los IDs de usuarios administradores (UUIDs de auth.users).
- * @returns {Promise<string[]>} Una promesa que resuelve a un array de IDs de administradores.
+ * Fetches all admin user IDs (auth.users UUIDs).
+ * @returns {Promise<string[]>} A promise that resolves to an array of admin user IDs.
  */
 export const fetchAdminUserIds = async (): Promise<string[]> => {
   try {
     const { data, error } = await supabase
       .from('user_profile')
-      .select('id') // Este 'id' es el UUID de auth.users desde la tabla user_profile
+      .select('id') // This 'id' is the auth.users UUID from user_profile table
       .eq('rol', 'admin' as UserProfileRol);
 
     if (error) {
-      console.error('Error obteniendo IDs de administradores:', error.message, error.details, error.code);
+      console.error('Error fetching admin user IDs:', error.message, error.details, error.code);
       return [];
     }
-    return (data || []).map(profile => profile.id);
+    // FIX: Cast profile entries to any for safe property access.
+    return (data || []).map(profile => (profile as any).id);
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('Excepción en fetchAdminUserIds:', errorMessage, err);
+    console.error('Exception in fetchAdminUserIds:', errorMessage, err);
     return [];
   }
 };
 
 /**
- * Obtiene el ID de autenticación (UUID) para un empleado_id dado.
- * @param {number} empleadoId - El ID del empleado.
- * @returns {Promise<string | null>} Una promesa que resuelve al ID de autenticación o null si no se encuentra.
+ * Fetches the auth user ID (UUID) for a given empleado_id.
+ * @param {number} empleadoId - The ID of the employee.
+ * @returns {Promise<string | null>} A promise that resolves to the user's auth ID or null if not found/error.
  */
 export const fetchUserAuthIdByEmpleadoId = async (empleadoId: number): Promise<string | null> => {
   try {
+    // FIX: Explicitly type the return to avoid 'never' type inference issues.
     const { data, error } = await supabase
       .from('user_profile')
-      .select('id') // Este 'id' es el UUID de auth.users
+      .select('id') // This 'id' is the auth.users UUID
       .eq('empleado_id', empleadoId)
+      // FIX: Add explicit return type for single object queries
       .returns<{id: string}>()
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 significa que no hay filas, lo cual es un caso válido (null)
-      console.error(`Error obteniendo auth ID para empleado ID ${empleadoId}:`, error.message, error.details, error.code);
+    if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is a valid case (null)
+      console.error(`Error fetching user auth ID for empleado ID ${empleadoId}:`, error.message, error.details, error.code);
       return null;
     }
-    return (data as { id: string } | null)?.id || null;
+    // FIX: Add optional chaining and cast if needed to access properties.
+    const result = data as any;
+    return result?.id || null;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error(`Excepción en fetchUserAuthIdByEmpleadoId para empleado ID ${empleadoId}:`, errorMessage, err);
+    console.error(`Exception in fetchUserAuthIdByEmpleadoId for empleado ID ${empleadoId}:`, errorMessage, err);
     return null;
   }
 };
 
 /**
- * Crea una o más notificaciones.
- * @param {NotificacionInsert[]} notificationsPayload - Array de objetos de notificación para insertar.
- * @returns {Promise<{ success: boolean; error?: any }>} Objeto indicando éxito o fallo.
+ * Creates one or more notifications.
+ * @param {NotificacionInsert[]} notificationsPayload - An array of notification objects to insert.
+ * @returns {Promise<{ success: boolean; error?: any }>} An object indicating success or failure.
  */
 export const createNotifications = async (
   notificationsPayload: NotificacionInsert[]
 ): Promise<{ success: boolean; error?: any }> => {
   if (!notificationsPayload || notificationsPayload.length === 0) {
-    console.warn("[NotificationService] No se proporcionaron payloads de notificación.");
-    return { success: true };
+    console.warn("[NotificationService] No notification payloads provided to createNotifications.");
+    return { success: true }; // No-op is a success
   }
 
+  // Enrich with default values for fields managed by DB or that should always be set
   const enrichedPayloads = notificationsPayload.map(n => ({
     ...n,
-    // created_at es manejado por el default de la BD
-    read: false, // Las notificaciones son no leídas por defecto
+    // created_at is handled by DB default trigger
+    read: false, // Notifications are unread by default
+    // 'user_id', 'title', 'description', 'type', 'related_id' are expected in NotificacionInsert
   }));
 
   try {
-    const { error } = await supabase.from('notificaciones').insert(enrichedPayloads);
+    // FIX: Cast from() to any to resolve 'never' type error during insert.
+    const { error } = await (supabase.from('notificaciones') as any).insert(enrichedPayloads);
 
     if (error) {
-      console.error('Error creando notificaciones en Supabase:', error.message, error.details, error.code, error);
+      console.error('Error creating notifications in Supabase:', error.message, error.details, error.code, error);
       return { success: false, error };
     }
-    console.log(`[NotificationService] Creadas exitosamente ${enrichedPayloads.length} notificación(es).`);
+    console.log(`[NotificationService] Successfully created ${enrichedPayloads.length} notification(s).`);
     return { success: true };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error('Excepción en createNotifications:', errorMessage, err);
+    console.error('Exception in createNotifications:', errorMessage, err);
     return { success: false, error: err };
   }
 };

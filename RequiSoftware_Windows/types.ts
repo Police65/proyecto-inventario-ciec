@@ -1,10 +1,5 @@
 
 // types.ts
-// Este archivo contiene las definiciones de TypeScript para las estructuras de datos (tablas)
-// y otros tipos personalizados utilizados en la aplicación.
-
-// Basado en el esquema SQL proporcionado por el usuario.
-
 export interface Camaraindustriales {
   id: number;
   nombre: string;
@@ -12,42 +7,42 @@ export interface Camaraindustriales {
   web?: string | null;
   correo?: string | null;
   telefonos?: string | null;
-  rif: string; // ÚNICO
-  created_at: string; // timestamptz (cadena ISO 8601)
-  updated_at: string; // timestamptz
+  rif: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Cargo {
   id: number;
-  nombre: string; // Nombre del cargo, ÚNICO
-  departamento_id: number; // FK a 'departamento'
+  nombre: string;
+  departamento_id: number;
   created_at: string;
   updated_at: string;
 }
 
 export interface CategoriaProducto {
   id: number;
-  nombre: string; // ÚNICO
+  nombre: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface CategoriaProveedor {
   id: number;
-  nombre: string; // ÚNICO
+  nombre: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface Departamento {
   id: number;
-  nombre: string; // ÚNICO
+  nombre: string;
   estado: 'activo' | 'inactivo';
   created_at: string;
   updated_at: string;
 }
 
-export type EmpleadoEstado = 'activo' | 'inactivo'; // Estados posibles para un empleado
+export type EmpleadoEstado = 'activo' | 'inactivo';
 
 export interface Empleado {
   id: number;
@@ -61,34 +56,9 @@ export interface Empleado {
   telefono?: string | null;
   created_at: string;
   updated_at: string;
-  // Propiedades de relación (cargadas con JOINs)
   cargo?: Pick<Cargo, 'id' | 'nombre'>;
   departamento?: Pick<Departamento, 'id' | 'nombre'>;
 }
-
-export interface EmpleadoCargoHistorial {
-  id: number;
-  empleado_id: number;
-  cargo_id: number;
-  fecha_inicio: string;
-  fecha_fin?: string | null;
-  created_at: string;
-  updated_at: string;
-  // Propiedades de relación
-  cargo?: Pick<Cargo, 'nombre'>;
-}
-
-export interface FacturaOrden {
-  id: number;
-  orden_compra_id?: number | null; // FK a 'ordencompra'
-  numero_factura?: string | null;
-  fecha_recepcion?: string | null; // 'YYYY-MM-DD'
-  documento_factura?: string | null; // URL o ruta al archivo de la factura
-  total_recepcionado?: number | null; // Monto total según la factura
-  created_at: string;
-  updated_at: string;
-}
-
 
 export interface Inventario {
   id: number;
@@ -98,21 +68,11 @@ export interface Inventario {
   existencias?: number | null;
   created_at: string;
   updated_at: string;
-  // Propiedades de relación
   producto?: any;
 }
 
-// Tabla de unión entre OrdenCompra y SolicitudCompra
-export interface OrdenSolicitud {
-  ordencompra_id: number; // FK a 'ordencompra'
-  solicitud_id: number;   // FK a 'solicitudcompra'
-  created_at: string;
-  updated_at: string;
-}
-
 export type OrdenCompraEstado = 'Pendiente' | 'Completada' | 'Anulada';
-export type OrdenCompraUnidad = 'Bs' | 'USD'; // Unidades monetarias
-
+export type OrdenCompraUnidad = 'Bs' | 'USD';
 
 export interface OrdenCompra {
   id: number;
@@ -136,7 +96,6 @@ export interface OrdenCompra {
   updated_at: string;
   fecha_entrega_estimada?: string | null;
   fecha_entrega_real?: string | null;
-  // Propiedades de relación
   proveedor?: Proveedor;
   empleado?: Empleado;
   solicitud_compra?: any;
@@ -145,15 +104,14 @@ export interface OrdenCompra {
 
 export interface OrdenCompraDetalle {
   id: number;
-  orden_compra_id?: number | null;
+  orden_comp_id?: number | null;
   producto_id?: number | null;
   cantidad: number;
   precio_unitario: number;
-  monto_total?: number | null;
+  /* Added missing field to resolve constraint error in AdminDashboardPage.tsx */
+  descripcion_producto_personalizado?: string | null;
   created_at: string;
   updated_at: string;
-  descripcion_producto_personalizado?: string | null;
-  // Propiedades de relación
   producto?: Producto;
 }
 
@@ -166,7 +124,6 @@ export interface OrdenConsolidada {
   solicitudes: number[];
   created_at: string;
   updated_at: string;
-  // Propiedades de relación
   proveedor?: Pick<Proveedor, 'id' | 'nombre'>;
 }
 
@@ -180,36 +137,11 @@ export interface Producto {
   codigo_interno?: string | null;
   created_at: string;
   updated_at: string;
-  // Propiedades de relación
   categoria?: CategoriaProducto;
   inventario?: { existencias: number | null }[] | null;
 }
 
-// Productos que no se recibieron completamente en una orden
-export interface ProductoNoRecibido {
-  id: number;
-  orden_compra_id?: number | null; // FK a 'ordencompra'
-  producto_id?: number | null; // FK a 'producto'
-  cantidad_faltante?: number | null;
-  motivo?: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-// Productos que fueron solicitados pero no incluidos en una orden (por decisión o falta de stock)
-export interface ProductoRezagado {
-  id: number;
-  orden_compra_id?: number | null; // Orden de compra relacionada (si se llegó a crear una orden parcial)
-  producto_id?: number | null; // FK a 'producto'
-  cantidad: number; // Cantidad que quedó rezagada
-  motivo?: string | null; // Razón por la que se rezagó
-  solicitud_id?: number | null; // Solicitud original del producto
-  created_at: string;
-  updated_at: string;
-  // Propiedades de relación
-  producto?: Pick<Producto, 'id' | 'descripcion'>;
-}
-
+/* Added missing exported type to resolve error in ProviderManagement.tsx */
 export type ProveedorTipoContribuyente = 'normal' | 'especial';
 
 export interface Proveedor {
@@ -223,20 +155,12 @@ export interface Proveedor {
   tiempo_entrega_promedio_dias?: number | null;
   calificacion_promedio?: number | null;
   estado: string;
+  /* Updated to use the new ProveedorTipoContribuyente type */
   tipo_contribuyente: ProveedorTipoContribuyente;
   porcentaje_retencion_iva: number;
   created_at: string;
   updated_at: string;
-  // Propiedades de relación
   categorias?: ({ categoria_id: number; categoria?: Pick<CategoriaProveedor, 'id' | 'nombre'> })[];
-}
-
-// Tabla de unión para relación muchos-a-muchos entre Proveedor y CategoriaProveedor
-export interface ProveedorCategoria {
-  proveedor_id: number; // FK a 'proveedor'
-  categoria_id: number; // FK a 'categoria_proveedor'
-  created_at: string;
-  updated_at: string;
 }
 
 export type SolicitudCompraEstado = 'Pendiente' | 'Aprobada' | 'Rechazada';
@@ -251,13 +175,10 @@ export interface SolicitudCompra {
   departamento_id: number;
   created_at: string;
   updated_at: string;
-  // Propiedades de relación
   empleado?: Empleado;
   departamento?: Departamento;
   detalles?: (SolicitudCompraDetalle & { producto?: Producto & { categoria?: CategoriaProducto } })[];
-  // Propiedades para nuevas funcionalidades
   ordenes?: any[] | null;
-  rezagados?: (Pick<ProductoRezagado, 'id' | 'cantidad' | 'motivo'> & { producto?: Pick<Producto, 'id' | 'descripcion'> })[] | null;
 }
 
 export interface SolicitudCompraDetalle {
@@ -266,48 +187,40 @@ export interface SolicitudCompraDetalle {
   producto_id?: number | null;
   cantidad: number;
   descripcion_producto_personalizado?: string | null;
-  categoria_producto_sugerida_id?: number | null; // Para productos nuevos
-  categoria_sugerida_nombre?: string | null; // Para sugerir una nueva categoría
+  categoria_producto_sugerida_id?: number | null;
+  categoria_sugerida_nombre?: string | null;
   created_at: string;
   updated_at: string;
-  // Propiedades de relación
   producto?: Producto;
 }
 
-export type UserProfileRol = 'admin' | 'usuario'; // Roles de usuario en la aplicación
+export type UserProfileRol = 'admin' | 'usuario';
 
 export interface UserProfile {
-  id: string; // PK, FK a auth.users.id
-  empleado_id?: number | null; // FK a 'empleado'
-  departamento_id?: number | null; // FK a 'departamento'
+  id: string;
+  empleado_id?: number | null;
+  departamento_id?: number | null;
   rol?: UserProfileRol | null;
   has_completed_tour?: boolean | null;
   created_at: string;
   updated_at: string;
-  // La propiedad 'email' se añade en el cliente combinando datos de auth.users.
-  // No existe como columna en la tabla 'user_profile'.
-  email?: string | null; 
-  // Propiedades de relación
+  email?: string | null;
   empleado?: Empleado;
   departamento?: Departamento;
 }
 
 export interface Notificacion {
-  id: number; // El ID de la notificación, autogenerado por la DB
-  user_id: string; // UUID del usuario de auth.users al que va dirigida (FK a auth.users)
-  title: string; // Título corto de la notificación
-  description: string; // Descripción más detallada
-  created_at: string; // Fecha de creación
-  type?: string; // Tipo de notificación (ej: 'nueva_solicitud', 'solicitud_aprobada')
-  read: boolean; // Estado de lectura (true si ya fue leída)
+  id: number;
+  user_id: string;
+  title: string;
+  description: string;
+  created_at: string;
+  type?: string;
+  read: boolean;
   updated_at: string;
 }
 
-// Tipo para insertar notificaciones, excluyendo campos auto-generados o con default
 export type NotificacionInsert = Omit<Notificacion, 'id' | 'created_at' | 'updated_at' | 'read'>;
-
-
-// --- Tablas de Análisis (según esquema SQL) ---
 
 export interface ConsumoHistoricoProducto {
   id: number;
@@ -322,7 +235,6 @@ export interface ConsumoHistoricoProducto {
   descripcion_adicional?: string | null;
   created_at: string;
   updated_at: string;
-  // Propiedades de relación
   producto?: Pick<Producto, 'id' | 'descripcion'>;
   departamento?: Pick<Departamento, 'id' | 'nombre'>;
 }
@@ -341,7 +253,6 @@ export interface RendimientoProveedor {
   observaciones?: string | null;
   created_at: string;
   updated_at: string;
-  // Propiedades de relación
   proveedor?: Pick<Proveedor, 'nombre'>;
   orden_compra?: Pick<OrdenCompra, 'id' | 'fecha_orden'>;
 }
@@ -357,312 +268,153 @@ export interface MetricasProductoMensual {
   numero_ordenes?: number;
   created_at: string;
   updated_at: string;
-  // Propiedades de relación
   producto?: Pick<Producto, 'id' | 'descripcion'>;
 }
 
-// Para registrar qué compras se hicieron específicamente para un evento externo
-export interface ComprasParaEventoExterno {
+/* Added missing exported interface to resolve error in HomePage.tsx */
+export interface ProductoRezagado {
   id: number;
-  evento_id_externo: string; // ID del evento en la DB del compañero
-  orden_compra_id: number; // ID de la orden de compra en nuestra DB (FK a 'ordencompra')
-  descripcion_motivo?: string | null; // Por qué esta compra se asocia al evento
+  orden_compra_id: number;
+  producto_id: number;
+  cantidad: number;
+  motivo: string;
+  solicitud_id?: number | null;
   created_at: string;
   updated_at: string;
 }
 
-// Para registrar el consumo de productos de nuestro inventario en un evento externo
-export interface ConsumoParaEventoExterno {
+/* Added missing exported interface to resolve error in UserManagement.tsx */
+export interface EmpleadoCargoHistorial {
   id: number;
-  evento_id_externo: string; // ID del evento en la DB del compañero
-  nombre_evento_externo?: string | null; // Nombre del evento (puede obtenerse de la DB compañera)
-  fecha_evento: string; // 'YYYY-MM-DD'
-  producto_id: number; // Producto de nuestro inventario consumido (FK a 'producto')
-  cantidad_consumida: number;
-  departamento_solicitante_id?: number | null; // Nuestro departamento que usó el producto (FK a 'departamento')
-  notas?: string | null;
-  // Campos de la DB del compañero para referencia
-  organizer_type_externo?: string | null; // 'commission' o 'category'
-  organizer_id_externo?: string | null; // ID del organizador
-  location_externo?: string | null; // Ubicación del evento
-  costo_estimado_consumo?: number | null; // Calculado si es posible (cantidad * costo_unitario_producto)
+  empleado_id: number;
+  cargo_id: number;
+  fecha_inicio: string;
+  fecha_fin?: string | null;
+  created_at: string;
+  updated_at: string;
+  cargo?: Pick<Cargo, 'id' | 'nombre'>;
+}
+
+/* Added missing exported interface to resolve error in OrderCompletionForm.tsx */
+export interface ProductoNoRecibido {
+  id: number;
+  orden_compra_id: number;
+  producto_id: number;
+  cantidad_faltante: number;
+  motivo: string;
   created_at: string;
   updated_at: string;
 }
 
-// --- Tipos para la Base de Datos del Compañero (Eventos Externos) ---
-// Estos tipos definen la estructura esperada de los datos de la BD del compañero.
-
-export interface PartnerCommission { // Comisiones (organizadores)
-  id: string; // UUID
+// Tipos para la Base de Datos del Compañero
+export interface PartnerCommission {
+  id: string;
   name: string;
+  is_active: boolean;
 }
 
-export interface PartnerCompany { // Empresas (participantes/clientes del compañero)
-  id: string; // UUID
-  name: string;
-  rif: string;
-  status: 'Active' | 'Inactive';
-  email: string;
-  phone?: string | null;
-  address?: string | null;
-}
-
-export interface PartnerEventCategory { // Categorías de Eventos
-  id: string; // UUID
-  name: string;
-}
-
-export interface PartnerEvent { // Eventos
-  id: string; // UUID, ej: "00dc8082-c888-4a0b-a194-105057f2d764"
-  subject: string; // Nombre del evento
-  organizer_type: 'commission' | 'category'; // Tipo de organizador
-  organizer_id: string; // ID de la comisión o categoría (UUID)
-  date: string; // Fecha del evento 'YYYY-MM-DD'
-  start_time: string; // Hora de inicio 'HH:MM:SS'
-  end_time?: string | null; // Hora de fin 'HH:MM:SS'
-  location?: string | null;
-  facilitator_id?: string | null; // ID del facilitador (de PartnerParticipant)
-  attendees_in_person?: string[] | null; // Array de IDs de PartnerParticipant
-  attendees_online?: string[] | null; // Array de IDs de PartnerParticipant
-  external_participants_count?: number;
-  description?: string | null;
-  cost?: number | null; // Costo del evento
-  investment?: number | null; // Inversión
-  revenue?: number | null; // Ingresos
-  // Campos opcionales que podrían poblarse con JOINs o búsquedas separadas para UI
-  organizer_name?: string;
-  facilitator_name?: string;
-}
-
-export interface PartnerMeeting { // Reuniones (similar a Eventos pero podría ser específico)
-  id: string; // UUID
-  subject: string;
-  commission_id: string; // FK a PartnerCommission
+export interface PartnerEvent {
+  id: string;
+  subject: string; // Título en el esquema del compañero
   date: string;
   start_time: string;
   end_time?: string | null;
   location?: string | null;
-  facilitator_id?: string | null;
-  attendees_in_person?: string[] | null;
-  attendees_online?: string[] | null;
-  external_participants_count?: number;
   description?: string | null;
+  is_cancelled: boolean;
 }
 
-export interface PartnerParticipant { // Personas participantes en eventos/reuniones
-  id: string; // UUID
-  name: string;
-  company_id?: string | null; // FK a PartnerCompany
-  role: string; // Cargo/rol del participante
-  email: string;
-  phone?: string | null;
-  commission_ids?: string[] | null; // IDs de comisiones a las que pertenece (array de UUIDs)
+export interface PartnerMeeting {
+  id: string;
+  subject: string;
+  commission_id: string;
+  date: string;
+  start_time: string;
+  end_time?: string | null;
+  location?: string | null;
+  description?: string | null;
+  is_cancelled: boolean;
+  commission?: { name: string }; // Relación
 }
-
-
-// --- Definición del Esquema de Base de Datos para el cliente Supabase ---
 
 export interface Database {
   public: {
     Tables: {
-      camaraindustriales: {
-        Row: Camaraindustriales;
-        Insert: Partial<Camaraindustriales>;
-        Update: Partial<Camaraindustriales>;
-        Relationships: any[];
-      };
-      cargo: {
-        Row: Cargo;
-        Insert: Partial<Cargo>;
-        Update: Partial<Cargo>;
-        Relationships: any[];
-      };
-      categoria_producto: {
-        Row: CategoriaProducto;
-        Insert: Partial<CategoriaProducto>;
-        Update: Partial<CategoriaProducto>;
-        Relationships: any[];
-      };
-      categoria_proveedor: {
-        Row: CategoriaProveedor;
-        Insert: Partial<CategoriaProveedor>;
-        Update: Partial<CategoriaProveedor>;
-        Relationships: any[];
-      };
-      compras_para_evento_externo: {
-        Row: ComprasParaEventoExterno;
-        Insert: Partial<ComprasParaEventoExterno>;
-        Update: Partial<ComprasParaEventoExterno>;
-        Relationships: any[];
-      };
-      consumo_historico_producto: {
-        Row: ConsumoHistoricoProducto;
-        Insert: Partial<ConsumoHistoricoProducto>;
-        Update: Partial<ConsumoHistoricoProducto>;
-        Relationships: any[];
-      };
-      consumo_para_evento_externo: {
-        Row: ConsumoParaEventoExterno;
-        Insert: Partial<ConsumoParaEventoExterno>;
-        Update: Partial<ConsumoParaEventoExterno>;
-        Relationships: any[];
-      };
-      departamento: {
-        Row: Departamento;
-        Insert: Partial<Departamento>;
-        Update: Partial<Departamento>;
-        Relationships: any[];
-      };
-      empleado: {
-        Row: Empleado;
-        Insert: Partial<Empleado>;
-        Update: Partial<Empleado>;
-        Relationships: any[];
-      };
-      empleadocargohistorial: {
-        Row: EmpleadoCargoHistorial;
-        Insert: Partial<EmpleadoCargoHistorial>;
-        Update: Partial<EmpleadoCargoHistorial>;
-        Relationships: any[];
-      };
-      facturas_orden: {
-        Row: FacturaOrden;
-        Insert: Partial<FacturaOrden>;
-        Update: Partial<FacturaOrden>;
-        Relationships: any[];
-      };
-      inventario: {
-        Row: Inventario;
-        Insert: Partial<Inventario>;
-        Update: Partial<Inventario>;
-        Relationships: any[];
-      };
-      metricas_producto_mensual: {
-        Row: MetricasProductoMensual;
-        Insert: Partial<MetricasProductoMensual>;
-        Update: Partial<MetricasProductoMensual>;
-        Relationships: any[];
-      };
-      notificaciones: {
-        Row: Notificacion;
-        Insert: Partial<Notificacion>;
-        Update: Partial<Notificacion>;
-        Relationships: any[];
-      };
-      orden_solicitud: {
-        Row: OrdenSolicitud;
-        Insert: Partial<OrdenSolicitud>;
-        Update: Partial<OrdenSolicitud>;
-        Relationships: any[];
-      };
-      ordencompra: {
-        Row: OrdenCompra;
-        Insert: Partial<OrdenCompra>;
-        Update: Partial<OrdenCompra>;
-        Relationships: any[];
-      };
-      ordencompra_detalle: {
-        Row: OrdenCompraDetalle;
-        Insert: Partial<OrdenCompraDetalle>;
-        Update: Partial<OrdenCompraDetalle>;
-        Relationships: any[];
-      };
-      ordenes_consolidadas: {
-        Row: OrdenConsolidada;
-        Insert: Partial<OrdenConsolidada>;
-        Update: Partial<OrdenConsolidada>;
-        Relationships: any[];
-      };
-      producto: {
-        Row: Producto;
-        Insert: Partial<Producto>;
-        Update: Partial<Producto>;
-        Relationships: any[];
-      };
-      productos_no_recibidos: {
-        Row: ProductoNoRecibido;
-        Insert: Partial<ProductoNoRecibido>;
-        Update: Partial<ProductoNoRecibido>;
-        Relationships: any[];
-      };
-      productos_rezagados: {
-        Row: ProductoRezagado;
-        Insert: Partial<ProductoRezagado>;
-        Update: Partial<ProductoRezagado>;
-        Relationships: any[];
-      };
-      proveedor: {
-        Row: Proveedor;
-        Insert: Partial<Proveedor>;
-        Update: Partial<Proveedor>;
-        Relationships: any[];
-      };
-      proveedor_categoria: {
-        Row: ProveedorCategoria;
-        Insert: Partial<ProveedorCategoria>;
-        Update: Partial<ProveedorCategoria>;
-        Relationships: any[];
-      };
-      rendimiento_proveedor: {
-        Row: RendimientoProveedor;
-        Insert: Partial<RendimientoProveedor>;
-        Update: Partial<RendimientoProveedor>;
-        Relationships: any[];
-      };
-      solicitudcompra: {
-        Row: SolicitudCompra;
-        Insert: Partial<SolicitudCompra>;
-        Update: Partial<SolicitudCompra>;
-        Relationships: any[];
-      };
-      solicitudcompra_detalle: {
-        Row: SolicitudCompraDetalle;
-        Insert: Partial<SolicitudCompraDetalle>;
-        Update: Partial<SolicitudCompraDetalle>;
-        Relationships: any[];
-      };
-      user_profile: {
-        Row: UserProfile;
-        Insert: Partial<UserProfile>;
-        Update: Partial<UserProfile>;
-        Relationships: any[];
-      };
+      camaraindustriales: { Row: Camaraindustriales; Insert: any; Update: any };
+      cargo: { Row: Cargo; Insert: any; Update: any };
+      categoria_producto: { Row: CategoriaProducto; Insert: any; Update: any };
+      categoria_proveedor: { Row: CategoriaProveedor; Insert: any; Update: any };
+      departamento: { Row: Departamento; Insert: any; Update: any };
+      empleado: { Row: Empleado; Insert: any; Update: any };
+      inventario: { Row: Inventario; Insert: any; Update: any };
+      notificaciones: { Row: Notificacion; Insert: any; Update: any };
+      ordencompra: { Row: OrdenCompra; Insert: any; Update: any };
+      ordencompra_detalle: { Row: OrdenCompraDetalle; Insert: any; Update: any };
+      ordenes_consolidadas: { Row: OrdenConsolidada; Insert: any; Update: any };
+      producto: { Row: Producto; Insert: any; Update: any };
+      proveedor: { Row: Proveedor; Insert: any; Update: any };
+      rendimiento_proveedor: { Row: RendimientoProveedor; Insert: any; Update: any };
+      solicitudcompra: { Row: SolicitudCompra; Insert: any; Update: any };
+      solicitudcompra_detalle: { Row: SolicitudCompraDetalle; Insert: any; Update: any };
+      user_profile: { Row: UserProfile; Insert: any; Update: any };
+      consumo_historico_producto: { Row: ConsumoHistoricoProducto; Insert: any; Update: any };
+      metricas_producto_mensual: { Row: MetricasProductoMensual; Insert: any; Update: any };
+      facturas_orden: { Row: any; Insert: any; Update: any };
+      orden_solicitud: { Row: any; Insert: any; Update: any };
+      productos_no_recibidos: { Row: any; Insert: any; Update: any };
+      productos_rezagados: { Row: any; Insert: any; Update: any };
+      proveedor_categoria: { Row: any; Insert: any; Update: any };
+      empleadocargohistorial: { Row: any; Insert: any; Update: any };
+      consumo_para_evento_externo: { Row: any; Insert: any; Update: any };
     };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      [_ in never]: never;
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
+    Views: { [_ in never]: never };
+    Functions: { [_ in never]: never };
+    Enums: { [_ in never]: never };
+    CompositeTypes: { [_ in never]: never };
   };
 }
-
 
 export interface PartnerDatabaseSchema {
   public: {
     Tables: {
-      events: { Row: PartnerEvent; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
-      meetings: { Row: PartnerMeeting; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
-      commissions: { Row: PartnerCommission; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
-      companies: { Row: PartnerCompany; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
-      event_categories: { Row: PartnerEventCategory; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
-      participants: { Row: PartnerParticipant; Insert: { [key: string]: any }; Update: { [key: string]: any }; };
+      events: { Row: PartnerEvent; Insert: any; Update: any };
+      meetings: { Row: PartnerMeeting; Insert: any; Update: any };
+      commissions: { Row: PartnerCommission; Insert: any; Update: any };
+      departments: { Row: any; Insert: any; Update: any };
+      participants: { Row: any; Insert: any; Update: any };
     };
-    Views: { [_ in never]: never; };
-    Functions: { [_ in never]: never; };
-    Enums: { [_ in never]: never; };
-    CompositeTypes: { [_ in never]: never; };
+    Views: { [_ in never]: never };
+    Functions: { [_ in never]: never };
+    Enums: { [_ in never]: never };
+    CompositeTypes: { [_ in never]: never };
   };
 }
 
-// --- Tipos Personalizados para Formularios y Componentes ---
+export interface AISummaryStat {
+  dept: string;
+  total: number;
+  mean: number;
+  stdDev: number;
+  amounts: number[];
+  anomalies: boolean[];
+}
+
+export interface ChartDataItem {
+  name: string;
+  value: number;
+}
+
+export interface ProductSelectionItem {
+  id: number | null;
+  descripcion: string;
+  quantity: number;
+  precio_unitario: number;
+  selected: boolean;
+  isNewProduct?: boolean;
+  categoria_id?: number | null;
+  codigo_interno?: string | null;
+  unidad_medida?: string | null;
+}
 
 export interface OrdenCompraFormData {
   proveedor_id: number;
@@ -675,32 +427,4 @@ export interface OrdenCompraFormData {
   estado: OrdenCompraEstado;
   observaciones: string;
   fecha_entrega_estimada: string | null;
-}
-
-export interface ProductSelectionItem {
-  id: number | null;
-  descripcion: string;
-  quantity: number;
-  precio_unitario: number;
-  selected: boolean;
-  motivo?: string;
-  categoria_id?: number | null;
-  codigo_interno?: string | null;
-  unidad_medida?: string | null;
-}
-
-// --- Tipos para Componentes de IA ---
-
-export interface AISummaryStat {
-  dept: string;
-  total: number;
-  mean: number;
-  stdDev: number;
-  amounts: number[];
-  anomalies: boolean[];
-}
-
-export interface ChartDataItem {
-    name: string;
-    value: number;
 }

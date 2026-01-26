@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children?: ReactNode;
@@ -10,15 +10,14 @@ interface State {
   errorInfo?: ErrorInfo;
 }
 
+// FIX: Use React.Component explicitly to ensure properly inherited properties like setState and props.
 class ErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: undefined,
-      errorInfo: undefined,
-    };
-  }
+  // FIX: Initialize state as a class property to avoid constructor-related inheritance issues in some environments.
+  state: State = {
+    hasError: false,
+    error: undefined,
+    errorInfo: undefined,
+  };
 
   static getDerivedStateFromError(error: Error): State {
     // Actualizar estado para que el próximo renderizado muestre la UI de respaldo.
@@ -28,10 +27,12 @@ class ErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // También puedes registrar el error en un servicio de reporte de errores
     console.error("Uncaught error:", error, errorInfo);
+    // FIX: Use setState which is inherited from React.Component.
     this.setState({ errorInfo });
   }
 
   render() {
+    // FIX: Access state from 'this' which is now correctly recognized as a React Component.
     if (this.state.hasError) {
       // Puedes renderizar cualquier UI de respaldo personalizada
       return (
@@ -61,6 +62,7 @@ class ErrorBoundary extends React.Component<Props, State> {
             color: '#3f3f46' // zinc-700
           }}>
             <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>Detalles del Error</summary>
+            {/* FIX: Access error and errorInfo from this.state. */}
             {this.state.error && this.state.error.toString()}
             <br />
             {this.state.errorInfo && this.state.errorInfo.componentStack}
@@ -84,6 +86,7 @@ class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
+    // FIX: Access children from this.props which is now correctly recognized.
     return this.props.children;
   }
 }
