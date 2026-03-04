@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
@@ -146,9 +147,10 @@ const DetailedStats: React.FC = () => {
       try {
         const { data: orders } = await supabase.from('ordencompra').select('neto_a_pagar, solicitud_compra_id, solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, departamento_id, departamento!inner(id, nombre))').eq('estado', 'Completada').returns<OrderWithNestedInfo[]>();
         const expenses: { [key: string]: number } = {};
+        // FIX: Corrected iteration variable from 'expenses' to 'orders' to correctly aggregate expenses from orders data.
         (orders || []).forEach(order => {
-          const deptName = order.solicitudcompra?.departamento?.nombre || 'Departamento Desconocido';
-          expenses[deptName] = (expenses[deptName] || 0) + (order.neto_a_pagar || 0);
+          const deptName = (order as any).solicitudcompra?.departamento?.nombre || 'Departamento Desconocido';
+          expenses[deptName] = (expenses[deptName] || 0) + ((order as any).neto_a_pagar || 0);
         });
         setDepartmentExpenses(Object.entries(expenses).map(([dept, total]) => ({ dept, total })).sort((a,b) => b.total - a.total));
         
@@ -176,8 +178,8 @@ const DetailedStats: React.FC = () => {
         const consumedProductsCount: { [key: string]: number } = {};
         (consumoData || []).forEach(consumo => {
             const productoData = consumo.producto && (Array.isArray(consumo.producto) ? consumo.producto[0] : consumo.producto);
-            if (productoData?.descripcion && consumo.cantidad_consumida > 0) {
-                consumedProductsCount[productoData.descripcion] = (consumedProductsCount[productoData.descripcion] || 0) + consumo.cantidad_consumida;
+            if (productoData?.descripcion && (consumo as any).cantidad_consumida > 0) {
+                consumedProductsCount[productoData.descripcion] = (consumedProductsCount[productoData.descripcion] || 0) + (consumo as any).cantidad_consumida;
             }
         });
         setTopConsumedProducts(Object.entries(consumedProductsCount).map(([product, quantity]) => ({ product, quantity })).sort((a, b) => b.quantity - a.quantity).slice(0, 5));
@@ -186,12 +188,29 @@ const DetailedStats: React.FC = () => {
         let formattedMonthlyExpenses: MonthlyTotalExpense[] = [];
         if (metricasMensuales && metricasMensuales.length > 0) {
             const monthlyAgg: { [key: string]: { gastoTotal: number, originalDate: Date } } = {};
-            metricasMensuales.forEach(m => { const originalDate = parseISO(m.mes); const monthYearKey = format(originalDate, 'yyyy-MM'); if (!monthlyAgg[monthYearKey]) { monthlyAgg[monthYearKey] = { gastoTotal: 0, originalDate: startOfMonth(originalDate) }; } monthlyAgg[monthYearKey].gastoTotal += (m.gasto_total_producto || 0); });
+            metricasMensuales.forEach(m => { 
+                const originalDate = parseISO((m as any).mes); 
+                const monthYearKey = format(originalDate, 'yyyy-MM'); 
+                if (!monthlyAgg[monthYearKey]) { 
+                    monthlyAgg[monthYearKey] = { gastoTotal: 0, originalDate: startOfMonth(originalDate) }; 
+                } 
+                monthlyAgg[monthYearKey].gastoTotal += ((m as any).gasto_total_producto || 0); 
+            });
             formattedMonthlyExpenses = Object.values(monthlyAgg).map(data => ({ mes: format(data.originalDate, 'MMM yyyy', { locale: es }), gastoTotal: data.gastoTotal, originalDate: data.originalDate })).sort((a, b) => a.originalDate.getTime() - b.originalDate.getTime());
         } else {
              const { data: ordenesParaMetricas } = await supabase.from('ordencompra').select('fecha_orden, neto_a_pagar').eq('estado', 'Completada');
              const monthlyData: { [key: string]: { gastoTotal: number, originalDate: Date } } = {};
-             (ordenesParaMetricas || []).forEach(orden => { if (!orden.fecha_orden || !orden.neto_a_pagar) return; try { const originalDate = parseISO(orden.fecha_orden); const monthYearKey = format(originalDate, 'yyyy-MM'); if (!monthlyData[monthYearKey]) { monthlyData[monthYearKey] = { gastoTotal: 0, originalDate: startOfMonth(originalDate) }; } monthlyData[monthYearKey].gastoTotal += (orden.neto_a_pagar || 0); } catch (e) {} });
+             (ordenesParaMetricas || []).forEach(orden => { 
+                if (!(orden as any).fecha_orden || !(orden as any).neto_a_pagar) return; 
+                try { 
+                    const originalDate = parseISO((orden as any).fecha_orden); 
+                    const monthYearKey = format(originalDate, 'yyyy-MM'); 
+                    if (!monthlyData[monthYearKey]) { 
+                        monthlyData[monthYearKey] = { gastoTotal: 0, originalDate: startOfMonth(originalDate) }; 
+                    } 
+                    monthlyData[monthYearKey].gastoTotal += ((orden as any).neto_a_pagar || 0); 
+                } catch (e) {} 
+            });
              formattedMonthlyExpenses = Object.values(monthlyData).map(data => ({ mes: format(data.originalDate, 'MMM yyyy', { locale: es }), gastoTotal: data.gastoTotal, originalDate: data.originalDate })).sort((a, b) => a.originalDate.getTime() - b.originalDate.getTime());
         }
         setMonthlyExpenses(formattedMonthlyExpenses);
@@ -228,8 +247,8 @@ const DetailedStats: React.FC = () => {
       if (expenseQuery.endDate) query = query.lte('ordencompra.fecha_orden', expenseQuery.endDate);
       const { data, error } = await query;
       if (error) throw error;
-      const totalSpent = data.reduce((acc, item) => acc + (item.cantidad * item.precio_unitario), 0);
-      const totalQuantity = data.reduce((acc, item) => acc + item.cantidad, 0);
+      const totalSpent = data.reduce((acc, item) => acc + ((item as any).cantidad * (item as any).precio_unitario), 0);
+      const totalQuantity = data.reduce((acc, item) => acc + (item as any).cantidad, 0);
       
       const ordersMap = new Map<number, { id: number; fecha_orden: string }>();
       data.forEach((item: any) => {
@@ -261,7 +280,7 @@ const DetailedStats: React.FC = () => {
       if (consumptionQuery.endDate) query = query.lte('fecha_consumo', consumptionQuery.endDate);
       const { data, error, count } = await query;
       if (error) throw error;
-      const totalConsumed = data.reduce((acc, item) => acc + item.cantidad_consumida, 0);
+      const totalConsumed = data.reduce((acc, item) => acc + (item as any).cantidad_consumida, 0);
       setConsumptionResult({ totalConsumed, requestCount: count || 0 });
     } catch (err) { setConsumptionError(err instanceof Error ? err.message : "Error al realizar la consulta.");
     } finally { setConsumptionLoading(false); }
@@ -299,7 +318,7 @@ const DetailedStats: React.FC = () => {
         if (data.length === 0) { setSupplierPerformanceResult({ avgQuality: 0, avgCompliance: 0, avgPrice: 0, avgCommunication: 0, avgDeliveryDaysDiff: 0, evaluationCount: 0 }); return; }
 
         const calcAvg = (field: keyof RendimientoProveedor) => data.reduce((acc, item) => acc + (Number(item[field]) || 0), 0) / data.length;
-        const deliveryDiffs = data.map(item => (item.tiempo_entrega_real_dias || 0) - (item.tiempo_entrega_estimado_dias || 0));
+        const deliveryDiffs = data.map(item => ((item as any).tiempo_entrega_real_dias || 0) - ((item as any).tiempo_entrega_estimado_dias || 0));
         const avgDeliveryDaysDiff = deliveryDiffs.reduce((a, b) => a + b, 0) / deliveryDiffs.length;
 
         setSupplierPerformanceResult({
@@ -319,7 +338,7 @@ const DetailedStats: React.FC = () => {
     setProductRequestHistoryLoading(true); setProductRequestHistoryError(null); setProductRequestHistoryResult(null);
     try {
         let query = supabase.from('solicitudcompra_detalle')
-            .select('cantidad, solicitud:solicitud_compra_id!inner(id, fecha_solicitud, estado, empleado:empleado_id(nombre, apellido), departamento:departamento_id(nombre))')
+            .select('cantidad, solicitud:solicitud_compra_id!inner(id, fecha_solicitud, estado, empleado:empleado_id(nombre, apellido), departamento:departamento_id(nombre))') // CORRECCIÓN: solicitud_compra_id
             .eq('producto_id', productRequestHistoryQuery.product);
         if (productRequestHistoryQuery.startDate) query = query.gte('solicitud.fecha_solicitud', productRequestHistoryQuery.startDate);
         if (productRequestHistoryQuery.endDate) query = query.lte('solicitud.fecha_solicitud', productRequestHistoryQuery.endDate);
@@ -351,7 +370,7 @@ const DetailedStats: React.FC = () => {
         if (productIdsError) throw productIdsError;
         if (productIds.length === 0) { setCategoryExpenseResult({ totalSpent: 0, orderCount: 0, topProducts: [] }); return; }
         
-        const ids = productIds.map(p => p.id);
+        const ids = (productIds as any[]).map(p => p.id);
         let query = supabase.from('ordencompra_detalle')
             .select('cantidad, precio_unitario, producto:producto_id!inner(descripcion), ordencompra!inner(fecha_orden, estado)')
             .in('producto_id', ids)

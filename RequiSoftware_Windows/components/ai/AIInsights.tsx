@@ -181,13 +181,14 @@ export const AIInsights: React.FC = () => {
     try {
         // FIX: Always use process.env.API_KEY for GoogleGenAI initialization as per guidelines.
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        // Updated: Using 'gemini-3-pro-preview' for complex text tasks as per guidelines.
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3-pro-preview',
           contents: prompt,
           config: {
             temperature: 0.5,
             maxOutputTokens: 2000,
-            thinkingConfig: { thinkingBudget: 1000 }
+            thinkingConfig: { thinkingBudget: 1000 } // budget set correctly with maxOutputTokens
           }
         });
 
@@ -220,7 +221,7 @@ export const AIInsights: React.FC = () => {
         case "auditor":
           const { data: ordersData, error: ordersError } = await supabase
             .from("ordencompra")
-            .select(`neto_a_pagar, solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, departamento!inner(id, nombre))`)
+            .select(`neto_a_pagar, solicitudcompra!ordencompra_solicitud_comp_id_fkey(id, departamento!inner(id, nombre))`)
             .eq('estado', 'Completada')
             .returns<OrderForAuditor[]>();
 
@@ -322,7 +323,6 @@ export const AIInsights: React.FC = () => {
           break;
 
         case "eventos_externos":
-            // FIX: PartnerEvent does not contain organizer_type or organizer_name. Removing invalid property access.
             const eventsSummary = externalEventsData.map(e => ({ tipo: 'Evento', nombre: e.subject, fecha: e.date, lugar: e.location })).slice(0, 5);
             const meetingsSummary = externalMeetingsData.map(m => ({ tipo: 'Reunión', nombre: m.subject, fecha: m.date, comision_id: m.commission_id, lugar: m.location })).slice(0, 5);
             const externalActivitiesSummary = [...eventsSummary, ...meetingsSummary];
@@ -338,7 +338,7 @@ export const AIInsights: React.FC = () => {
                         Responde en ESPAÑOL. Usa formato Markdown con títulos claros (ej. ## Impacto Potencial de Actividades Externas, ## Datos Clave a Registrar, ## Recomendaciones de Planificación Proactiva) y listas para facilitar la lectura.`;
                 generatedInsight = await fetchAIResponse(prompt, type);
             }
-            break;
+          break;
 
         case "tendencias":
             prompt = `Eres un analista de datos para RequiSoftware CIEC. Observa estos datos (ficticios) de gastos totales por departamento (en Bs.F) durante los últimos 3 meses:

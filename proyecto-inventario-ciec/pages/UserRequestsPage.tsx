@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 // @ts-ignore
 import { useOutletContext, useNavigate } from 'react-router-dom';
@@ -40,16 +41,17 @@ export const UserRequestsPage: React.FC = () => {
     try {
       const commonSelectSolicitud = `
         id, codigo_visible, descripcion, fecha_solicitud, estado, empleado_id, departamento_id, created_at, updated_at,
-        detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
+        detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, descripcion_producto_personalizado, categoria_producto_sugerida_id, categoria_sugerida_nombre, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
         empleado:empleado_id(id, nombre, apellido),
         departamento:departamento_id(id, nombre, estado)
-      `;
+      `; // CORRECCIÓN: solicitud_compra_id
 
       // FIX: Explicitly type the return to avoid 'never' type issues.
       const { data: requestsRaw, error: requestsError } = await supabase
         .from('solicitudcompra')
         .select(commonSelectSolicitud)
         .eq('empleado_id', userProfile.empleado_id)
+        .not('descripcion', 'ilike', 'Orden Directa%') // FILTRO AGREGADO: Excluir órdenes directas
         .order('fecha_solicitud', { ascending: false })
         .returns<any[]>(); // Use any[] for complex select
 
@@ -124,6 +126,11 @@ export const UserRequestsPage: React.FC = () => {
     }
   };
 
+  const handleEditRequest = (request: SolicitudCompra) => {
+    // Navegar a la página de formulario con la solicitud a editar en el estado
+    navigate('/new-request', { state: { requestToEdit: request } });
+  };
+
   const renderContent = () => {
     if (loading) {
       return <LoadingSpinner message="Cargando tus solicitudes..." />;
@@ -140,7 +147,7 @@ export const UserRequestsPage: React.FC = () => {
           <RequestTable
             requests={solicitudesHistorial}
             showStatus={true}
-            userActions={true} // Habilitar acciones de usuario
+            userActions={true} // Habilitar acciones de usuario (clonar)
             onClone={handleCloneRequest} // Pasar la función de clonar
             onRowClick={handleShowDetails}
           />
@@ -155,6 +162,8 @@ export const UserRequestsPage: React.FC = () => {
         <RequestTable
           requests={solicitudesPendientes}
           showStatus={true}
+          userActions={true}
+          onEdit={handleEditRequest} // Permitir editar si está pendiente
           onRowClick={handleShowDetails}
         />
       </div>

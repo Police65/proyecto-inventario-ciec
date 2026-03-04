@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
-import { UserProfile, Proveedor, Producto, OrdenCompra, OrdenCompraUnidad, OrdenCompraFormData, CategoriaProducto, NotificacionInsert } from '../../types';
-import { XMarkIcon, CheckIcon, PlusCircleIcon, TrashIcon, ArrowPathIcon, CalendarDaysIcon, TagIcon } from '@heroicons/react/24/outline';
+import { UserProfile, Proveedor, Producto, OrdenCompra, OrdenCompraUnidad, OrdenCompraFormData, CategoriaProducto, NotificacionInsert, CategoriaProveedor } from '../../types';
+import { XMarkIcon, CheckIcon, PlusCircleIcon, TrashIcon, ArrowPathIcon, CalendarDaysIcon, TagIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 import { v4 as uuidv4 } from 'uuid';
 import { useOrderCalculations } from '../../hooks/useOrderCalculations';
@@ -66,6 +66,12 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
   const [submittingCategory, setSubmittingCategory] = useState(false);
   const [categoryError, setCategoryError] = useState<string|null>(null);
 
+  // Category Validation State
+  const [providerCategories, setProviderCategories] = useState<Set<number>>(new Set());
+  const [showCategoryWarning, setShowCategoryWarning] = useState(false);
+  const [mismatchedProducts, setMismatchedProducts] = useState<{productName: string, categoryId: number, categoryName: string}[]>([]);
+  const [addingCategories, setAddingCategories] = useState(false);
+
 
   const [formData, setFormData] = useState<Partial<OrdenCompraFormData>>({
     proveedor_id: undefined, unidad: 'Bs', retencion_porcentaje: 75,
@@ -98,7 +104,7 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       setLoadingInitialData(true);
       const loadInitialData = async () => {
         try {
-          const { data: provData, error: provError } = await supabase.from('proveedor').select('*');
+          const { data: provData, error: provError } = await supabase.from('proveedor').select('*, categorias:proveedor_categoria(categoria_id)');
           if (provError) throw provError;
           setProveedores(provData || []);
 
@@ -132,7 +138,14 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
                 ...prev,
                 retencion_porcentaje: selectedProvider.porcentaje_retencion_iva
             }));
+            if (selectedProvider.categorias) {
+              setProviderCategories(new Set(selectedProvider.categorias.map((c: any) => c.categoria_id)));
+            } else {
+              setProviderCategories(new Set());
+            }
         }
+    } else {
+      setProviderCategories(new Set());
     }
   }, [formData.proveedor_id, proveedores]);
 
@@ -220,8 +233,9 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     setSubmittingCategory(true);
     setCategoryError(null);
     try {
-      const { data: newCategory, error: insertError } = await supabase
-        .from('categoria_producto')
+      // FIX: Cast from() to any to resolve 'never' type error during insert.
+      const { data: newCategory, error: insertError } = await (supabase
+        .from('categoria_producto') as any)
         .insert({ nombre: newCategoryNameInput.trim() })
         .select()
         .single();
@@ -229,10 +243,11 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       
       await fetchProductCategories(); // Refrescar lista de categorías
 
+      // FIX: Cast newCategory to any for property access since it was inserted via any-casted from().
       if (newCategory && currentLineItemIdForNewCategory) {
         setProductos(prevItems => prevItems.map(item =>
           item.id === currentLineItemIdForNewCategory
-            ? { ...item, newProduct_categoria_id: newCategory.id }
+            ? { ...item, newProduct_categoria_id: (newCategory as any).id }
             : item
         ));
       }
@@ -249,8 +264,7 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
   };
 
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const processOrderCreation = async () => {
     setError(null);
     setSubmittingOrder(true);
 
@@ -277,15 +291,17 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     }
 
     try {
-      const { data: solicitudData, error: solError } = await supabase
-        .from('solicitudcompra')
+      // FIX: Cast from() to any to resolve 'never' type error during insert.
+      const { data: solicitudData, error: solError } = await (supabase
+        .from('solicitudcompra') as any)
         .insert({
           descripcion: `Orden Directa - ${formData.observaciones || new Date().toLocaleDateString()}`,
           estado: 'Aprobada', empleado_id: userProfile.empleado_id, departamento_id: userProfile.departamento_id,
         }).select('id').single();
       if (solError) throw solError;
+      // FIX: Cast solicitudData to any for property access.
       if (!solicitudData) throw new Error("No se pudo crear la solicitud base para la orden directa.");
-      const solicitudBaseId = solicitudData.id;
+      const solicitudBaseId = (solicitudData as any).id;
 
       const ordenPayload: Omit<OrdenCompra, 'id'|'fecha_modificacion'|'detalles'|'empleado'|'proveedor'|'solicitud_compra' | 'factura' | 'created_at' | 'updated_at' | 'fecha_orden'> = {
         solicitud_compra_id: solicitudBaseId, proveedor_id: Number(formData.proveedor_id),
@@ -297,10 +313,12 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
         precio_unitario: 0, changed_by: userProfile.empleado_id,
         fecha_entrega_estimada: formData.fecha_entrega_estimada || null, fecha_entrega_real: null
       };
-      const { data: ordenData, error: ordenError } = await supabase.from('ordencompra').insert(ordenPayload).select('id, neto_a_pagar').single(); // También seleccionar neto_a_pagar para alerta
+      // FIX: Cast from() to any to resolve 'never' type error during insert.
+      const { data: ordenData, error: ordenError } = await (supabase.from('ordencompra') as any).insert(ordenPayload).select('id, neto_a_pagar').single();
       if (ordenError) throw ordenError;
+      // FIX: Cast ordenData to any for property access.
       if (!ordenData) throw new Error("No se pudo crear la orden de compra.");
-      const ordenId = ordenData.id;
+      const ordenId = (ordenData as any).id;
 
       const detallesOrdenPayload = await Promise.all(productos.map(async p => {
         let productoRealId = p.selected_producto_id;
@@ -313,11 +331,13 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
             codigo_interno: p.newProduct_codigo_interno || null,
             unidad_medida: p.newProduct_unidad_medida || null,
           };
-          const { data: newProd, error: newProdError } = await supabase.from('producto').insert(newProdData).select('id, descripcion').single();
+          // FIX: Cast from() to any to resolve 'never' type error during insert.
+          const { data: newProd, error: newProdError } = await (supabase.from('producto') as any).insert(newProdData).select('id, descripcion').single();
           if (newProdError) throw new Error(`Error creando producto '${p.newProduct_descripcion}': ${newProdError.message}`);
+          // FIX: Cast newProd to any for property access.
           if (!newProd) throw new Error(`No se pudo crear el producto '${p.newProduct_descripcion}'.`);
-          productoRealId = newProd.id;
-          // productoDescripcionFinal = newProd.descripcion; // No usado para el payload
+          productoRealId = (newProd as any).id;
+          // productoDescripcionFinal = (newProd as any).descripcion; // No usado para el payload
         }
         if (!productoRealId) throw new Error("Producto inválido en la línea de orden.");
 
@@ -328,10 +348,12 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
         };
       }));
 
-      const { error: detallesError } = await supabase.from('ordencompra_detalle').insert(detallesOrdenPayload);
+      // FIX: Cast from() to any to resolve 'never' type error during insert.
+      const { error: detallesError } = await (supabase.from('ordencompra_detalle') as any).insert(detallesOrdenPayload);
       if (detallesError) throw detallesError;
 
-      await supabase.from('orden_solicitud').insert({ ordencompra_id: ordenId, solicitud_id: solicitudBaseId });
+      // FIX: Cast from() to any to resolve 'never' type error during insert.
+      await (supabase.from('orden_solicitud') as any).insert({ ordencompra_id: ordenId, solicitud_id: solicitudBaseId });
 
       // --- Notificaciones ---
       const notificationsToCreate: NotificacionInsert[] = [];
@@ -343,16 +365,16 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
         notificationsToCreate.push(...adminUserIds.map(adminId => ({
           user_id: adminId,
           title: 'Nueva Orden de Compra Directa Creada',
-          description: `Se ha creado la orden directa #${ordenId}. Proveedor: ${selectedProvider?.nombre || 'N/D'}. Total: ${ordenData.neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
+          description: `Se ha creado la orden directa #${ordenId}. Proveedor: ${selectedProvider?.nombre || 'N/D'}. Total: ${(ordenData as any).neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
           type: 'orden_creada', // Usando 'orden_creada' genérico
           // related_id: ordenId, // Eliminado
         })));
 
-        if (ordenData.neto_a_pagar > THRESHOLD_ORDEN_GRANDE) {
+        if ((ordenData as any).neto_a_pagar > THRESHOLD_ORDEN_GRANDE) {
           notificationsToCreate.push(...adminUserIds.map(adminId => ({
             user_id: adminId,
             title: 'Alerta de Gasto Elevado en Orden Directa',
-            description: `La orden directa #${ordenId} supera el umbral (${THRESHOLD_ORDEN_GRANDE.toLocaleString('es-VE')} Bs) con un total de ${ordenData.neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
+            description: `La orden directa #${ordenId} supera el umbral (${THRESHOLD_ORDEN_GRANDE.toLocaleString('es-VE')} Bs) con un total de ${(ordenData as any).neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
             type: 'alerta_gasto_orden',
             // related_id: ordenId, // Eliminado
           })));
@@ -379,6 +401,79 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       setSubmittingOrder(false);
     }
   };
+
+  const handleAddCategoriesAndProceed = async () => {
+    setAddingCategories(true);
+    try {
+      const categoriesToAdd = mismatchedProducts.map(m => ({
+        proveedor_id: Number(formData.proveedor_id),
+        categoria_id: m.categoryId
+      }));
+      
+      // Use upsert or ignore duplicates
+      const { error } = await supabase.from('proveedor_categoria').upsert(categoriesToAdd, { onConflict: 'proveedor_id,categoria_id', ignoreDuplicates: true });
+      if (error) throw error;
+      
+      setShowCategoryWarning(false);
+      await processOrderCreation();
+    } catch (err) {
+      console.error("Error adding categories:", err);
+      alert("Error al actualizar categorías del proveedor.");
+    } finally {
+      setAddingCategories(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!formData.proveedor_id) return;
+
+    // Check for category mismatches
+    const mismatches: {productName: string, categoryId: number, categoryName: string}[] = [];
+    const mismatchedCategoryIds = new Set<number>();
+
+    for (const item of productos) {
+      let catId: number | null = null;
+      let prodName = '';
+
+      if (item.isNewProduct && item.newProduct_categoria_id) {
+        catId = item.newProduct_categoria_id;
+        prodName = item.newProduct_descripcion;
+      } else if (item.selected_producto_id) {
+        const product = fetchedDbProducts.find(p => p.id === item.selected_producto_id);
+        if (product && product.categoria_id) {
+          catId = product.categoria_id;
+          prodName = product.descripcion;
+        }
+      }
+
+      if (catId && !providerCategories.has(catId)) {
+        mismatchedCategoryIds.add(catId);
+        mismatches.push({
+          productName: prodName,
+          categoryId: catId,
+          categoryName: 'Cargando...'
+        });
+      }
+    }
+
+    if (mismatches.length > 0) {
+      // Fetch category names
+      const { data: catData } = await supabase.from('categoria_producto').select('id, nombre').in('id', Array.from(mismatchedCategoryIds));
+      if (catData) {
+        mismatches.forEach(m => {
+          const cat = catData.find(c => c.id === m.categoryId);
+          if (cat) m.categoryName = cat.nombre;
+        });
+      }
+      setMismatchedProducts(mismatches);
+      setShowCategoryWarning(true);
+      return;
+    }
+
+    await processOrderCreation();
+  };
+
   
   const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
   const smallInputFieldClasses = "block w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
@@ -540,6 +635,40 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
                 <div><label htmlFor="newCategoryNameInputModal" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre Categoría <span className="text-red-500">*</span></label><input type="text" id="newCategoryNameInputModal" value={newCategoryNameInput} onChange={(e) => setNewCategoryNameInput(e.target.value)} required className={`mt-1 w-full px-3 py-2 border ${inputFieldClasses}`} /></div>
                 <div className="mt-4 flex justify-end space-x-2"><button type="button" onClick={() => setShowNewCategoryModal(false)} disabled={submittingCategory} className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">Cancelar</button><button type="submit" disabled={submittingCategory} className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none flex items-center">{submittingCategory && <ArrowPathIcon className="w-4 h-4 animate-spin mr-1.5"/>}Guardar Categoría</button></div>
             </form>
+        </div>
+      )}
+      
+      {/* Category Warning Modal */}
+      {showCategoryWarning && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-70 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4 text-amber-600 dark:text-amber-500">
+              <ExclamationTriangleIcon className="w-8 h-8" />
+              <h4 className="text-lg font-bold">Advertencia de Categoría</h4>
+            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+              Los siguientes productos pertenecen a categorías que este proveedor no tiene registradas:
+            </p>
+            <ul className="list-disc pl-5 mb-4 text-sm text-gray-600 dark:text-gray-400 max-h-40 overflow-y-auto">
+              {mismatchedProducts.map((m, idx) => (
+                <li key={idx}>
+                  <span className="font-semibold">{m.productName}</span> - Categoría: {m.categoryName}
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
+              ¿Desea añadir estas categorías al proveedor y continuar con la orden?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowCategoryWarning(false)} className="px-4 py-2 border rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                Cancelar
+              </button>
+              <button onClick={handleAddCategoriesAndProceed} disabled={addingCategories} className="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 flex items-center">
+                {addingCategories && <ArrowPathIcon className="w-4 h-4 animate-spin mr-2" />}
+                Añadir Categorías y Continuar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

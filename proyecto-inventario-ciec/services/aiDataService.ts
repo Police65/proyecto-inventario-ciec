@@ -1,3 +1,4 @@
+
 import { supabase } from '../supabaseClient';
 import { Producto, Proveedor, OrdenCompra, Inventario, CategoriaProducto, SolicitudCompra, Departamento, Empleado } from '../types';
 import { startOfMonth } from 'date-fns/startOfMonth';
@@ -47,7 +48,8 @@ export const getDepartmentExpenses = async (
             console.warn(`Departamento llamado '${departmentName}' no encontrado o error:`, deptError?.message);
             return `No se encontró el departamento '${departmentName}'.`;
         }
-        const departmentId = deptData.id;
+        // FIX: Cast deptData to any for safe property access.
+        const departmentId = (deptData as any).id;
 
         const { data: solicitations, error: solError } = await supabase
             .from('solicitudcompra')
@@ -62,12 +64,13 @@ export const getDepartmentExpenses = async (
             return `No hay solicitudes registradas para el departamento '${departmentName}'.`;
         }
 
-        const solicitationIds = solicitations.map(s => s.id);
+        // FIX: Cast solicitation entries to any for safe property access.
+        const solicitationIds = (solicitations as any[]).map(s => s.id);
 
         let query = supabase
             .from('ordencompra')
             .select('neto_a_pagar, fecha_orden')
-            .in('solicitud_compra_id', solicitationIds)
+            .in('solicitud_compra_id', solicitationIds) // CORRECCIÓN: solicitud_compra_id
             .eq('estado', 'Completada');
 
         const today = new Date();
@@ -102,7 +105,8 @@ export const getDepartmentExpenses = async (
             return `No hay órdenes completadas para el departamento '${departmentName}' en el período especificado (${period || 'todos los tiempos'}).`;
         }
 
-        const totalExpenses = orders.reduce((sum, order) => sum + (order.neto_a_pagar || 0), 0);
+        // FIX: Cast order entries to any for safe property access.
+        const totalExpenses = (orders as any[]).reduce((sum, order) => sum + (order.neto_a_pagar || 0), 0);
         return totalExpenses;
 
     } catch (err) {
@@ -156,7 +160,8 @@ export const getTotalExpenses = async (
             return `No hay órdenes completadas en el período especificado (${period || 'todos los tiempos'}).`;
         }
 
-        const totalExpenses = orders.reduce((sum, order) => sum + (order.neto_a_pagar || 0), 0);
+        // FIX: Cast order entries to any for safe property access.
+        const totalExpenses = (orders as any[]).reduce((sum, order) => sum + (order.neto_a_pagar || 0), 0);
         return totalExpenses;
 
     } catch (err) {
@@ -231,15 +236,17 @@ export const getProductDetailsByNameOrCode = async (identifier: string): Promise
         return `Producto '${identifier}' no encontrado en el catálogo.`;
     }
     
-    const inventarioEntry = Array.isArray(data.inventario) ? data.inventario[0] : data.inventario;
+    // FIX: Cast data to any for property access since it was fetched via complex select.
+    const productData = data as any;
+    const inventarioEntry = Array.isArray(productData.inventario) ? productData.inventario[0] : productData.inventario;
     const inventarioExistencias = inventarioEntry?.existencias !== undefined ? inventarioEntry.existencias : "No en inventario";
-    const categoriaData = Array.isArray(data.categoria) ? data.categoria[0] : data.categoria;
+    const categoriaData = Array.isArray(productData.categoria) ? productData.categoria[0] : productData.categoria;
 
 
     return {
-        id: data.id,
-        descripcion: data.descripcion,
-        codigo_interno: data.codigo_interno,
+        id: productData.id,
+        descripcion: productData.descripcion,
+        codigo_interno: productData.codigo_interno,
         categoria_nombre: categoriaData?.nombre || "Sin categoría",
         inventario_existencias: inventarioExistencias,
     };
@@ -296,20 +303,23 @@ export const getSupplierDetailsByNameOrRif = async (identifier: string): Promise
  */
 export const getInventoryByProductNameOrCode = async (identifier: string): Promise<(Pick<Inventario, 'existencias' | 'ubicacion' | 'fecha_actualizacion'> & { producto_descripcion?: string }) | string> => {
     try {
-        const { data: productData, error: productError } = await supabase
+        const { data: productDataResult, error: productError } = await supabase
             .from('producto')
             .select('id, descripcion')
             .or(`descripcion.ilike.%${identifier}%,codigo_interno.eq.${identifier}`)
             .limit(1)
             .single();
 
-        if (productError && productError.code !== 'PGRST116') { // PGRST116 significa que no hay filas, lo cual manejamos a continuación
+        if (productError && productError.code !== 'PGRST116') { 
             console.error(`Error al obtener el ID del producto para la consulta de inventario de '${identifier}':`, productError.message);
             return `Error al buscar el producto '${identifier}' para consultar inventario.`;
         }
-        if (!productData) return `Producto '${identifier}' no encontrado en el catálogo.`;
+        if (!productDataResult) return `Producto '${identifier}' no encontrado en el catálogo.`;
 
-        const { data: invData, error: invError } = await supabase
+        // FIX: Cast productDataResult to any for property access.
+        const productData = productDataResult as any;
+
+        const { data: invDataResult, error: invError } = await supabase
             .from('inventario')
             .select('existencias, ubicacion, fecha_actualizacion')
             .eq('producto_id', productData.id)
@@ -319,7 +329,10 @@ export const getInventoryByProductNameOrCode = async (identifier: string): Promi
             console.error(`Error al obtener el inventario del producto '${productData.descripcion}':`, invError.message);
             return `Error al consultar inventario para '${productData.descripcion}'.`;
         }
-        if (!invData) return `Producto '${productData.descripcion}' encontrado, pero sin registro de stock en inventario.`;
+        if (!invDataResult) return `Producto '${productData.descripcion}' encontrado, pero sin registro de stock en inventario.`;
+
+        // FIX: Cast invDataResult to any for property access.
+        const invData = invDataResult as any;
 
         return { 
             producto_descripcion: productData.descripcion,
@@ -409,9 +422,11 @@ export const getInventorySummary = async (options?: { lowStockThresholdPercent?:
             
         if (lowStockError) return "Error al contar productos con bajo stock.";
         
+        // FIX: Cast items to any to access properties when type inference fails.
         const actualLowStockCount = (lowStockItems || []).filter(item => {
-            const productoData = item.producto && (Array.isArray(item.producto) ? item.producto[0] : item.producto);
-            return productoData && productoData.stock_minimo !== null && item.existencias !== null && item.existencias < productoData.stock_minimo;
+            const productPart = (item as any).producto;
+            const productoData = productPart && (Array.isArray(productPart) ? productPart[0] : productPart);
+            return productoData && productoData.stock_minimo !== null && (item as any).existencias !== null && (item as any).existencias < productoData.stock_minimo;
         }).length;
 
 
@@ -425,11 +440,13 @@ export const getInventorySummary = async (options?: { lowStockThresholdPercent?:
         return {
             total_productos_distintos_en_inventario: totalDistinctProducts || 0,
             productos_con_bajo_stock_critico: actualLowStockCount,
+            // FIX: Cast items to any to access properties when type inference fails.
             productos_mas_abundantes: (topStockedItems || []).map(item => {
-                const productoData = item.producto && (Array.isArray(item.producto) ? item.producto[0] : item.producto);
+                const productPart = (item as any).producto;
+                const productoData = productPart && (Array.isArray(productPart) ? productPart[0] : productPart);
                 return {
                     producto: productoData?.descripcion || 'Desconocido',
-                    existencias: item.existencias
+                    existencias: (item as any).existencias
                 };
             })
         };
@@ -497,7 +514,7 @@ export const getProductsByCategoryName = async (categoryName: string, limit: num
         const { data, error } = await supabase
             .from('producto')
             .select('id, descripcion, codigo_interno')
-            .eq('categoria_id', category.id)
+            .eq('categoria_id', (category as any).id)
             .limit(limit)
             .order('descripcion', { ascending: true });
 
@@ -506,7 +523,7 @@ export const getProductsByCategoryName = async (categoryName: string, limit: num
             return `Error al obtener productos de la categoría '${categoryName}'.`;
         }
         if (!data || data.length === 0) return `No hay productos registrados en la categoría '${categoryName}'.`;
-        return data;
+        return data as any[];
     } catch (err) {
         console.error(`Excepción en getProductsByCategoryName para '${categoryName}':`, err);
         return `Excepción al obtener productos de la categoría '${categoryName}'.`;
@@ -527,7 +544,7 @@ export const getAllProductCategories = async (): Promise<Pick<CategoriaProducto,
             return "Error al obtener las categorías de productos.";
         }
         if (!data || data.length === 0) return "No hay categorías de productos registradas en el sistema.";
-        return data;
+        return data as any[];
     } catch (err) {
         console.error('Excepción en getAllProductCategories:', err);
         return "Excepción al obtener las categorías de productos.";

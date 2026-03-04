@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
@@ -10,25 +9,26 @@ import { useGuidedTour } from '../../hooks/useGuidedTour'; // Importar el nuevo 
 import { supabase } from '../../supabaseClient'; // Para el conteo de solicitudes
 import LoadingSpinner from './LoadingSpinner';
 import LowStockAlertModal from '../inventory/LowStockAlertModal';
+import { ClockIcon } from '@heroicons/react/24/outline';
 
 interface AuthenticatedLayoutProps {
   userProfile: UserProfile;
   onLogout: () => void;
 }
 
-const SWIPE_THRESHOLD = 50; 
-const SWIPE_EDGE_ZONE = 50; 
+const SWIPE_THRESHOLD = 50;
+const SWIPE_EDGE_ZONE = 50;
 
 export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userProfile, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   useGuidedTour({ userProfile });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     const storedSidebarState = sessionStorage.getItem('sidebarOpen');
-    const onMainPage = location.pathname === '/home' || location.pathname === '/'; 
-    
+    const onMainPage = location.pathname === '/home' || location.pathname === '/';
+
     if (storedSidebarState !== null) {
       return storedSidebarState === 'true';
     }
@@ -43,45 +43,58 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [lowStockItems, setLowStockItems] = useState<Inventario[]>([]);
   const [showLowStockModal, setShowLowStockModal] = useState(false);
-  
+
+  // Estado para controlar que la verificación de stock solo ocurra una vez por sesión activa (login)
+  const [hasCheckedLowStock, setHasCheckedLowStock] = useState(false);
+
   const touchStartX = useRef<number | null>(null);
 
   const isOnMainPage = location.pathname === '/home' || location.pathname === '/';
   const actualNavbarVisible = true;
   const actualSidebarVisible = isSidebarOpen;
 
+  // Sincronizar pestaña activa si se pasa en el estado de navegación
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveUITab(location.state.tab);
+    }
+  }, [location.state]);
+
   useEffect(() => {
     // Comprobar bajo stock al iniciar la sesión (cuando se carga el perfil)
-    if (userProfile?.rol === 'admin' && !sessionStorage.getItem('lowStockAlertShown')) {
+    // Usamos hasCheckedLowStock en lugar de sessionStorage para que se reinicie en cada login
+    if (userProfile?.rol === 'admin' && !hasCheckedLowStock) {
       const checkLowStock = async () => {
         try {
           const { data, error } = await supabase
             .from('inventario')
             .select('*, producto:producto_id(descripcion, stock_minimo, unidad_medida)')
-            .not('existencias', 'is', null); 
+            .not('existencias', 'is', null);
 
           if (error) throw error;
 
-          // FIX: Cast data as any[] to safely access properties that TypeScript might infer as never
-          const filteredLowStock = (data as any[] || []).filter(item => 
-            item.producto?.stock_minimo !== null && 
-            item.existencias !== null && 
-            item.existencias <= item.producto.stock_minimo
+          // Filtrar items que están por debajo del stock mínimo definido en el catálogo
+          const filteredLowStock = (data as any[] || []).filter(item =>
+            item.producto?.stock_minimo !== null &&
+            item.existencias !== null &&
+            item.existencias < item.producto.stock_minimo
           );
 
           if (filteredLowStock.length > 0) {
             setLowStockItems(filteredLowStock as Inventario[]);
             setShowLowStockModal(true);
           }
-          // Marcamos como mostrado en la sesión actual para no molestar en cada navegación interna
-          sessionStorage.setItem('lowStockAlertShown', 'true');
+
+          // Marcamos como verificado en este montaje del Layout. 
+          // Al cerrar sesión, este estado desaparece. Al loguear de nuevo, vuelve a ser false.
+          setHasCheckedLowStock(true);
         } catch (err) {
           console.error("Error comprobando bajo stock:", err);
         }
       };
       checkLowStock();
     }
-  }, [userProfile]);
+  }, [userProfile, hasCheckedLowStock]);
 
   useEffect(() => {
     if (!isOnMainPage && !hasInteracted) {
@@ -93,7 +106,7 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
       }
     }
   }, [location.pathname, hasInteracted, isOnMainPage]);
-  
+
   useEffect(() => {
     if (userProfile?.rol === 'usuario' && userProfile.empleado_id) {
       const fetchPendingCount = async () => {
@@ -102,7 +115,7 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
           .select('*', { count: 'exact', head: true })
           .eq('empleado_id', userProfile.empleado_id!)
           .eq('estado', 'Pendiente');
-        
+
         if (error) {
           console.error("Error al obtener el conteo de solicitudes pendientes del usuario:", error);
         } else {
@@ -124,7 +137,7 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
 
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches[0].clientX < SWIPE_EDGE_ZONE && !isSidebarOpen) { 
+      if (e.touches[0].clientX < SWIPE_EDGE_ZONE && !isSidebarOpen) {
         touchStartX.current = e.touches[0].clientX;
       } else {
         touchStartX.current = null;
@@ -136,14 +149,14 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
       const touchEndX = e.changedTouches[0].clientX;
       const deltaX = touchEndX - touchStartX.current;
 
-      if (deltaX > SWIPE_THRESHOLD && !isSidebarOpen) { 
+      if (deltaX > SWIPE_THRESHOLD && !isSidebarOpen) {
         setIsSidebarOpen(true);
         sessionStorage.setItem('sidebarOpen', 'true');
         if (!hasInteracted) setHasInteracted(true);
       }
       touchStartX.current = null;
     };
-    
+
     document.addEventListener('touchstart', handleTouchStart);
     document.addEventListener('touchend', handleTouchEnd);
 
@@ -172,38 +185,37 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
     resetTimers();
     setShowWarningModal(false);
   };
-  
+
   if (!userProfile) {
-    return <LoadingSpinner message="Sesión terminada o inválida, redirigiendo..." />; 
+    return <LoadingSpinner message="Sesión terminada o inválida, redirigiendo..." />;
   }
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden">
-      <Sidebar 
-        isVisible={actualSidebarVisible} 
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-500">
+      <Sidebar
+        isVisible={actualSidebarVisible}
         userProfile={userProfile}
         pendingRequestsCount={pendingRequestsCount}
         onNewRequestClick={() => {
-          setHasInteracted(true); 
+          setHasInteracted(true);
           navigate('/new-request');
         }}
         onSelectTab={(tab) => {
-          setHasInteracted(true); 
+          setHasInteracted(true);
           setActiveUITab(tab);
         }}
         onLogout={onLogout}
         activeUITab={activeUITab}
         setHasInteracted={setHasInteracted}
       />
-      
-      <div 
-        className={`flex flex-col flex-1 w-full overflow-y-auto transition-all duration-300 ease-in-out ${
-          actualSidebarVisible ? 'lg:ml-64' : 'ml-0' 
-        }`}
+
+      <div
+        className={`flex flex-col flex-1 w-full overflow-y-auto transition-all duration-300 ease-in-out ${actualSidebarVisible ? 'lg:ml-64' : 'ml-0'
+          }`}
       >
         {actualNavbarVisible && (
-          <CustomNavbar 
-            userProfile={userProfile} 
+          <CustomNavbar
+            userProfile={userProfile}
             onToggleSidebar={toggleSidebar}
             onLogout={onLogout}
             setHasInteracted={setHasInteracted}
@@ -216,34 +228,36 @@ export const AuthenticatedLayout: React.FC<AuthenticatedLayoutProps> = ({ userPr
         </main>
       </div>
 
-      <LowStockAlertModal 
-        show={showLowStockModal} 
-        onClose={() => setShowLowStockModal(false)} 
-        items={lowStockItems} 
+      <LowStockAlertModal
+        show={showLowStockModal}
+        onClose={() => setShowLowStockModal(false)}
+        items={lowStockItems}
+        // FIX: Access rol from userProfile as userRole variable is not defined in this scope.
         userRole={userProfile.rol}
       />
 
       {showWarningModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Sesión a punto de expirar</h3>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-              Tu sesión se cerrará en {Math.floor(timeLeft / 60)}:
-              {(timeLeft % 60).toString().padStart(2, '0')} por inactividad.
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-2xl max-w-sm w-full border border-slate-200 dark:border-slate-800 animate-pop-in">
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+              <ClockIcon className="w-10 h-10" />
+            </div>
+            <h3 className="text-xl font-display font-black text-slate-900 dark:text-white text-center">Sesión por expirar</h3>
+            <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 text-center leading-relaxed">
+              Por motivos de seguridad, tu sesión se cerrará en <span className="font-bold text-primary-600 dark:text-primary-400">{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</span> por inactividad.
             </p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">¿Deseas mantener la sesión abierta?</p>
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={onLogout}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-transform duration-150 ease-in-out active:scale-95"
-              >
-                Cerrar sesión ahora
-              </button>
+            <div className="mt-8 flex flex-col gap-3">
               <button
                 onClick={handleContinueSession}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-transform duration-150 ease-in-out active:scale-95"
+                className="w-full px-6 py-4 text-sm font-black uppercase tracking-widest text-white bg-primary-600 hover:bg-primary-700 rounded-2xl shadow-lg shadow-primary-500/25 transition-all duration-300 active:scale-95"
               >
                 Mantener sesión
+              </button>
+              <button
+                onClick={onLogout}
+                className="w-full px-6 py-4 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all duration-300"
+              >
+                Cerrar sesión ahora
               </button>
             </div>
           </div>

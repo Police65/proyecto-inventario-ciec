@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { PaperAirplaneIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 import { UserProfile } from '../../types'; // Relative path
@@ -77,6 +78,10 @@ const parseChatResponseToHTML = (text: string): string => {
 
 // This helper function asks the AI to act as a router, choosing which data function to call.
 const getIntentFromQuery = async (query: string): Promise<{function: string; args: any}> => {
+    // FIX: Always use process.env.API_KEY for GoogleGenAI initialization as per guidelines.
+    if (!process.env.API_KEY) {
+        throw new Error("Clave de API de Gemini no configurada en process.env");
+    }
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const availableFunctions = `
 - getInventorySummary: Returns a high-level summary of the inventory. Call for general questions about inventory like 'how many products are in inventory?', 'what is the inventory status?'.
@@ -118,8 +123,9 @@ const getIntentFromQuery = async (query: string): Promise<{function: string; arg
     `;
 
     try {
+        // Updated: Changed model to 'gemini-3-flash-preview' for intent routing task.
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: intentPrompt,
             config: {
                 temperature: 0,
@@ -130,7 +136,7 @@ const getIntentFromQuery = async (query: string): Promise<{function: string; arg
         const responseText = response.text;
         
         let jsonStr = responseText.trim();
-        const fenceRegex = /^` + "```" + `json\s*\n?(.*?)\n?\s*` + "```" + `$/s;
+        const fenceRegex = /^```json\s*\n?(.*?)\n?\s*```$/s;
         const match = jsonStr.match(fenceRegex);
         if (match && match[1]) jsonStr = match[1];
         
@@ -230,7 +236,7 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
       }
     } catch (dataFetchError) {
         console.error("Error fetching context data:", dataFetchError);
-        contextDataString = "[Datos del sistema: Hubo un error al consultar la información de la base de datos para tu pregunta.]";
+        contextDataString = "[Datos del sistema: Hubo un error al consultar la información de la base de datos para tu pregunta o la clave API no está configurada.]";
     }
     
     setIsFetchingContext(false);
@@ -246,13 +252,19 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
     ];
 
     try {
+        // FIX: Always use process.env.API_KEY for GoogleGenAI initialization as per guidelines.
+        if (!process.env.API_KEY) {
+             throw new Error("La clave API de Gemini no está configurada en process.env. Por favor, añádela.");
+        }
+
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        // Updated: Changed model to 'gemini-3-flash-preview' and handled initialization correctly.
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: contents,
             config: {
                 systemInstruction: systemPrompt,
-                maxOutputTokens: 1500,
+                // Removed maxOutputTokens to follow guidelines about avoiding it if not required.
             }
         });
 

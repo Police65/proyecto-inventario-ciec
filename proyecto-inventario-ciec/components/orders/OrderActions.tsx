@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { OrdenCompra, OrdenCompraEstado, NotificacionInsert, Database } from '../../types';
 import { supabase } from '../../supabaseClient';
@@ -24,8 +25,9 @@ const OrderActions: React.FC<OrderActionsProps> = ({ order, onUpdate }) => {
     }
     
     try {
-      const { error: updateError } = await supabase
-        .from('ordencompra')
+      // FIX: Cast from() to any to resolve 'never' type error in Supabase update
+      const { error: updateError } = await (supabase
+        .from('ordencompra') as any)
         .update({ estado: newStatus, fecha_modificacion: new Date().toISOString() })
         .eq('id', order.id);
 

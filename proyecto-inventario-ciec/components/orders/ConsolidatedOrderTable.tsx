@@ -11,7 +11,7 @@ interface ConsolidatedOrderTableProps {
 }
 
 const ConsolidatedOrderTable: React.FC<ConsolidatedOrderTableProps> = ({ orders, onOrderClick, onConvertToRegularOrder, onUpdate }) => {
-  
+
   const getStatusBadge = (estado: string) => {
     const variants: { [key: string]: string } = {
       Pendiente: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100',
@@ -28,14 +28,14 @@ const ConsolidatedOrderTable: React.FC<ConsolidatedOrderTableProps> = ({ orders,
 
   const handleDeleteConsolidacion = async (id: number) => {
     if (window.confirm(`¿Está seguro de eliminar la orden consolidada #${id}? Esta acción no se puede deshacer.`)) {
-        try {
-            const { error } = await supabase.from('ordenes_consolidadas').delete().eq('id', id);
-            if (error) throw error;
-            onUpdate(); // Refrescar datos
-        } catch (err) {
-            console.error("Error eliminando consolidación:", err);
-            alert(`Error al eliminar orden consolidada: ${err instanceof Error ? err.message : String(err)}`);
-        }
+      try {
+        const { error } = await supabase.from('ordenes_consolidadas').delete().eq('id', id);
+        if (error) throw error;
+        onUpdate(); // Refrescar datos
+      } catch (err) {
+        console.error("Error eliminando consolidación:", err);
+        alert(`Error al eliminar orden consolidada: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   };
 
@@ -52,37 +52,41 @@ const ConsolidatedOrderTable: React.FC<ConsolidatedOrderTableProps> = ({ orders,
   }
 
   return (
-    <div className="overflow-x-auto shadow-md rounded-lg">
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-        <thead className="bg-gray-50 dark:bg-gray-700">
+    <div className="overflow-x-auto shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden animate-slide-up">
+      <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
+        <thead className="bg-slate-50 dark:bg-slate-900/50">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Proveedor</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Productos</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Solicitudes IDs</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Fecha Creación</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">ID</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Proveedor</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Productos</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Solicitudes IDs</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Fecha Creación</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Estado</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Acciones</th>
           </tr>
         </thead>
-        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+        <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
           {orders.map(order => (
-            <tr 
-              key={order.id} 
+            <tr
+              key={order.id}
               onClick={() => onOrderClick(order)}
-              className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+              className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
             >
-              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{order.id}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{order.proveedor?.nombre || 'N/A'}</td>
-              <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 max-w-xs truncate">
-                {(order.productos as Array<{descripcion: string, cantidad: number}>)?.map(p => `${p.descripcion} (x${p.cantidad})`).join(', ') || 'N/A'}
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">{order.id}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800 dark:text-slate-200">{order.proveedor?.nombre || 'N/A'}</td>
+              <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 max-w-xs truncate">
+                {(order.productos as Array<{ descripcion: string, cantidad: number }>)?.map(p => `${p.descripcion} (x${p.cantidad})`).join(', ') || 'N/A'}
               </td>
-               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                {(order.solicitudes as number[])?.join(', ') || 'N/A'}
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">
+                <div className="flex flex-wrap gap-1">
+                  {(order.solicitudes as number[])?.map(id => (
+                    <span key={id} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-bold text-[10px]">#{id}</span>
+                  ))}
+                </div>
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{new Date(order.fecha_creacion).toLocaleDateString()}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">{new Date(order.fecha_creacion).toLocaleDateString()}</td>
               <td className="px-4 py-3 whitespace-nowrap text-sm">{getStatusBadge(order.estado)}</td>
-              <td 
+              <td
                 className="px-4 py-3 whitespace-nowrap text-sm font-medium"
                 onClick={(e) => e.stopPropagation()} // Prevenir clic en fila al interactuar con acciones
               >

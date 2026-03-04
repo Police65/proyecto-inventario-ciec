@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Producto, CategoriaProducto, Database } from '../../types';
@@ -102,10 +103,12 @@ const ProductManagement: React.FC = () => {
 
     try {
       if (isEditing && currentProduct.id) {
-        const { error } = await supabase.from('producto').update(productData).eq('id', currentProduct.id);
+        // FIX: Cast from() to any to resolve 'never' type error in Supabase update
+        const { error } = await (supabase.from('producto') as any).update(productData).eq('id', currentProduct.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('producto').insert(productData);
+        // FIX: Cast from() to any to resolve 'never' type error in Supabase insert
+        const { error } = await (supabase.from('producto') as any).insert(productData);
         if (error) throw error;
       }
       setShowModal(false);
@@ -202,8 +205,9 @@ const ProductManagement: React.FC = () => {
     setSubmittingProductCategory(true);
     setProductCategoryError(null);
     try {
-      const { error } = await supabase
-        .from('categoria_producto')
+      // FIX: Cast from() to any to resolve 'never' type error in Supabase insert
+      const { error } = await (supabase
+        .from('categoria_producto') as any)
         .insert({ nombre: newProductCategoryName.trim() });
       
       if (error) {
@@ -425,7 +429,7 @@ const ProductManagement: React.FC = () => {
       )}
 
       {showProductCategoryModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Añadir Nueva Categoría de Producto</h3>
             <form onSubmit={handleProductCategorySubmit} className="space-y-4">

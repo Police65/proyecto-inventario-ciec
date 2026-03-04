@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { OrdenCompra, OrdenCompraEstado, ProductoNoRecibido, OrdenCompraDetalle, Producto, NotificacionInsert } from '../../types'; 
 import { supabase } from '../../supabaseClient';
@@ -109,7 +110,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
   
         // FIX: Cast existingFactura to any for property access.
         if (existingFactura) {
-          setError(`El número de factura '${facturaNumero.trim()}' ya ha sido registrado para la orden de compra #${(existingFactura as any).orden_compra_id}.`);
+          setError(`El número de factura '${facturaNumero.trim()}' ya ha sido registrado para la orden de compra #${(existingFactura as any).orden_comp_id}.`);
           setSubmittingCompletion(false);
           return;
         }
@@ -135,7 +136,7 @@ export const OrderCompletionForm: React.FC<OrderCompletionFormProps> = ({ show, 
             fecha_entrega_real: fechaEntregaReal 
         })
         .eq('id', order.id)
-        .select('*, solicitud_compra:solicitud_comp_id(empleado_id)')
+        .select('*, solicitud_compra:solicitud_compra_id(empleado_id)') // CORRECCIÓN: solicitud_compra_id
         .single();
 
       if (orderUpdateError) throw orderUpdateError;

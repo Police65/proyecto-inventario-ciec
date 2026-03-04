@@ -1,11 +1,8 @@
 
 import React, { useState } from 'react';
-import { useAuth } from '../../hooks/useAuth'; 
-// @ts-ignore: useNavigate is no longer used for redirection, but keeping import just in case, or remove if linting complains.
-import { useNavigate } from 'react-router-dom';
-import { EyeIcon, EyeSlashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { useAuth } from '../../hooks/useAuth';
+import { EyeIcon, EyeSlashIcon, ArrowPathIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { LIGHT_MODE_LOGO_URL, DARK_MODE_LOGO_URL } from '../../assets/paths';
-
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,10 +10,8 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  
-  // The main App component now handles all redirection logic based on session state.
-  // This simplifies the Login component and prevents race conditions.
-  const { login: authLogin } = useAuth(); 
+
+  const { login: authLogin } = useAuth();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -24,137 +19,178 @@ const Login: React.FC = () => {
     setError(null);
     try {
       await authLogin(email, password);
-      // Navigation is now handled declaratively in App.tsx based on session state change.
-      // This prevents race conditions where navigation occurred before the auth state was fully propagated.
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message || "Error de inicio de sesión. Verifica tus credenciales.");
       } else {
         setError("Ocurrió un error desconocido durante el inicio de sesión.");
       }
-      console.error("Falló el inicio de sesión (componente Login):", err);
+      console.error("Falló el inicio de sesión:", err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-10 rounded-xl shadow-2xl">
-        <div>
-          {/* Logos dinámicos */}
-          <img
-              className="mx-auto h-16 w-auto block dark:hidden"
-              src={LIGHT_MODE_LOGO_URL}
-              alt="Logo RequiSoftware"
-          />
-          <img
-              className="mx-auto h-16 w-auto hidden dark:block"
-              src={DARK_MODE_LOGO_URL}
-              alt="Logo RequiSoftware"
-          />
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-            Iniciar Sesión
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            Accede a tu cuenta de RequiSoftware
-          </p>
+    <div className="min-h-screen grid lg:grid-cols-2 bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
+      {/* Left Side: Visual/Branding (Visible only on large screens) */}
+      <div className="hidden lg:flex relative flex-col justify-center p-12 overflow-hidden bg-slate-900">
+        {/* Animated Mesh Gradient Background */}
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-[-10%] left-[-10%] w-[70%] h-[70%] bg-primary-600/30 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[100px] animate-pulse [animation-delay:2s]" />
+          <div className="absolute top-[20%] right-[10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[80px] animate-pulse [animation-delay:4s]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(15,23,42,0.8)_100%)]" />
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          {error && ( // Mostrar mensaje de error si existe
-            <div className="p-3 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 rounded-md">
-              <p>{error}</p>
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px"> {/* Contenedor para inputs */}
-            <div>
-              <label htmlFor="email-address" className="sr-only"> {/* Etiqueta para accesibilidad */}
-                Correo Electrónico
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Correo Electrónico"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese su correo electrónico.')}
-                onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-              />
-            </div>
-            <div className="relative"> {/* Contenedor para input de contraseña y botón de mostrar/ocultar */}
-              <label htmlFor="password" className="sr-only">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"} // Cambiar tipo para mostrar/ocultar
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese su contraseña.')}
-                onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-              />
-              <button
-                type="button" // Evitar que envíe el formulario
-                onClick={() => setShowPassword(!showPassword)} // Alternar visibilidad
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-              >
-                {showPassword ? (
-                  <EyeSlashIcon className="h-5 w-5" />
-                ) : (
-                  <EyeIcon className="h-5 w-5" />
-                )}
-              </button>
-            </div>
+
+        {/* Content over background */}
+        <div className="relative z-10 max-w-xl">
+          <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 mb-8">
+            <span className="w-2 h-2 rounded-full bg-primary-500 mr-3 animate-ping" />
+            <span className="text-xs font-bold text-white/80 uppercase tracking-widest">Sistema de Gestión v3.0</span>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
-                Recordarme {/* Funcionalidad de "Recordarme" podría requerir lógica adicional con localStorage/cookies */}
-              </label>
+          <h1 className="text-6xl font-display font-black text-white leading-[1.1] mb-6">
+            Optimiza tu flujo de <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-blue-400">adquisiciones</span>
+          </h1>
+          <p className="text-xl text-slate-400 font-medium max-w-lg mb-10 leading-relaxed">
+            Gestión inteligente de órdenes de compra, seguimiento en tiempo real y reportes consolidados para tu empresa.
+          </p>
+
+          <div className="space-y-4">
+            {[
+              'Trazabilidad total de cada requerimiento',
+              'Consolidación inteligente de pedidos',
+              'Control de inventario en tiempo real',
+              'Reportes automatizados'
+            ].map((feature, i) => (
+              <div key={i} className="flex items-center space-x-3 text-slate-300">
+                <div className="w-5 h-5 rounded-full bg-primary-500/20 flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary-500" />
+                </div>
+                <span className="text-sm font-bold uppercase tracking-widest">{feature}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Floating elements decoration */}
+        <div className="absolute bottom-12 left-12 flex items-center space-x-4 opacity-50">
+          <div className="h-px w-12 bg-slate-700" />
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">CIEC Corp. Powering Enterprises</span>
+        </div>
+      </div>
+
+      {/* Right Side: Login Form */}
+      <div className="flex items-center justify-center p-8 lg:p-24 relative">
+        {/* Background blobs for mobile */}
+        <div className="lg:hidden absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary-100/50 blur-3xl -mr-32 -mt-32 rounded-full" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-100/30 blur-3xl -ml-32 -mb-32 rounded-full" />
+        </div>
+
+        <div className="w-full max-w-md relative z-10">
+          <div className="mb-12">
+            <div className="flex items-center space-x-4 mb-8">
+              <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800">
+                <img src={LIGHT_MODE_LOGO_URL} className="h-8 w-auto dark:hidden" alt="Logo" />
+                <img src={DARK_MODE_LOGO_URL} className="h-8 w-auto hidden dark:block" alt="Logo" />
+              </div>
+              <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
+              <span className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Acceso Seguro</span>
             </div>
 
-            <div className="text-sm">
-              <a href="#" className="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 transition-colors duration-150">
-                ¿Olvidaste tu contraseña? {/* Enlace a recuperación de contraseña (no implementado) */}
-              </a>
-            </div>
+            <h2 className="text-4xl font-display font-black text-slate-900 dark:text-white mb-4">
+              Iniciar Sesión
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">
+              Bienvenido de nuevo. Por favor, ingresa tus detalles.
+            </p>
           </div>
 
-          <div>
+          <form onSubmit={handleLogin} className="space-y-6">
+            {error && (
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-2xl flex items-center space-x-3 text-sm font-medium animate-shake">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-600 dark:bg-red-400" />
+                <p>{error}</p>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">Email</label>
+                <div className="relative group">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-6 pr-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-primary-500 dark:focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 outline-none transition-all duration-300 text-slate-900 dark:text-white font-medium"
+                    placeholder="ejemplo@empresa.com"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between ml-1">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Contraseña</label>
+                  <a href="#" className="text-[10px] font-bold uppercase tracking-widest text-primary-600 hover:text-primary-700 dark:text-primary-400 transition-colors">¿Olvidaste la clave?</a>
+                </div>
+                <div className="relative group">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-6 pr-14 py-4 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-primary-500 dark:focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 outline-none transition-all duration-300 text-slate-900 dark:text-white font-medium"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-6 flex items-center text-slate-400 hover:text-primary-600 transition-colors"
+                  >
+                    {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+
             <button
               type="submit"
-              disabled={loading} // Deshabilitar si está cargando
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-gray-800 disabled:bg-primary-300 dark:disabled:bg-primary-800 transition-transform duration-150 ease-in-out active:scale-95"
+              disabled={loading}
+              className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-black uppercase tracking-[0.2em] text-xs rounded-2xl hover:bg-primary-600 dark:hover:bg-primary-500 hover:text-white transition-all duration-500 shadow-xl shadow-slate-200 dark:shadow-none flex items-center justify-center space-x-2 group active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
             >
-              {loading ? ( // Mostrar ícono de carga si `loading` es true
-                <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />
+              {loading ? (
+                <ArrowPathIcon className="h-5 w-5 animate-spin" />
               ) : (
-                "Ingresar"
+                <>
+                  <span>Entrar al Sistema</span>
+                  <ChevronRightIcon className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
+                </>
               )}
             </button>
+          </form>
+
+          <div className="mt-12 pt-12 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-slate-600">
+              © {new Date().getFullYear()} RequiSoftware CIEC • Inteligencia Operacional
+            </p>
           </div>
-        </form>
-         <p className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-            © {new Date().getFullYear()} Cámara de Industriales del Estado Carabobo. Todos los derechos reservados.
-          </p>
+        </div>
       </div>
+
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-4px); }
+          75% { transform: translateX(4px); }
+        }
+        .animate-shake {
+          animation: shake 0.4s ease-in-out;
+        }
+      `}</style>
     </div>
   );
 };

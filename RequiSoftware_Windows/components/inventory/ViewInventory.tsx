@@ -3,22 +3,24 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Inventario, Producto } from '../../types';
 import LoadingSpinner from '../core/LoadingSpinner';
-import { MagnifyingGlassIcon, ArrowPathIcon, PencilSquareIcon, CheckCircleIcon, XMarkIcon, PlusIcon, SquaresPlusIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
-import { useNavigate } from 'react-router-dom';
+import { MagnifyingGlassIcon, ArrowPathIcon, PencilSquareIcon, CheckCircleIcon, XMarkIcon, PlusIcon, SquaresPlusIcon, InformationCircleIcon, FunnelIcon } from '@heroicons/react/24/outline';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const ViewInventory: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [inventory, setInventory] = useState<Inventario[]>([]);
   const [allProducts, setAllProducts] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showOnlyLowStock, setShowOnlyLowStock] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Inventario | 'producto_descripcion'; direction: 'ascending' | 'descending' } | null>(null);
 
   // Estados para el ajuste de stock manual
   const [editingItem, setEditingItem] = useState<Inventario | null>(null);
   const [newStockValue, setNewStockValue] = useState<number>(0);
-  const [newMinStockValue, setNewMinStockValue] = useState<number>(0); // NUEVO: Estado para stock mínimo
+  const [newMinStockValue, setNewMinStockValue] = useState<number>(0); 
   const [updatingStock, setUpdatingStock] = useState(false);
 
   // Estados para añadir/cargar stock
@@ -26,6 +28,15 @@ const ViewInventory: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
   const [initialLocation, setInitialLocation] = useState('Almacén Principal');
   const [initialQuantity, setInitialQuantity] = useState(0);
+
+  // Efecto para capturar filtro desde el Dashboard
+  useEffect(() => {
+    if (location.state?.filterLowStock) {
+      setShowOnlyLowStock(true);
+      // Limpiar el estado para que al recargar manualmente no persista forzosamente
+      window.history.replaceState({ ...location.state, filterLowStock: false }, document.title);
+    }
+  }, [location.state]);
 
   const fetchInventory = useCallback(async () => {
     setLoading(true);
@@ -64,8 +75,6 @@ const ViewInventory: React.FC = () => {
     
     setUpdatingStock(true);
     try {
-      // 1. Actualizar existencias en la tabla inventario
-      // FIX: Cast from() to any to resolve 'never' type error in Supabase update
       const { error: updateInvError } = await (supabase
         .from('inventario') as any)
         .update({ 
@@ -76,8 +85,6 @@ const ViewInventory: React.FC = () => {
 
       if (updateInvError) throw updateInvError;
 
-      // 2. Actualizar stock mínimo en la tabla producto
-      // FIX: Cast from() to any to resolve 'never' type error in Supabase update
       const { error: updateProdError } = await (supabase
         .from('producto') as any)
         .update({
@@ -87,7 +94,6 @@ const ViewInventory: React.FC = () => {
 
       if (updateProdError) throw updateProdError;
 
-      // 3. Actualizar estado local
       setInventory(prev => prev.map(item => 
         item.id === editingItem.id 
           ? { 
@@ -113,7 +119,6 @@ const ViewInventory: React.FC = () => {
 
     setUpdatingStock(true);
     try {
-      // Verificar si ya existe el producto en el inventario para esa ubicación específica
       const { data: existingEntry } = await supabase
         .from('inventario')
         .select('id, existencias')
@@ -121,11 +126,8 @@ const ViewInventory: React.FC = () => {
         .eq('ubicacion', initialLocation)
         .maybeSingle();
 
-      // FIX: Cast existingEntry to any for property access
       if (existingEntry) {
-        // Si existe, sumamos la cantidad nueva a la anterior
         const newTotal = ((existingEntry as any).existencias || 0) + initialQuantity;
-        // FIX: Cast from() to any to resolve 'never' type error in Supabase update
         const { data: updated, error: updateError } = await (supabase
             .from('inventario') as any)
             .update({
@@ -139,8 +141,6 @@ const ViewInventory: React.FC = () => {
         if (updateError) throw updateError;
         setInventory(prev => prev.map(item => item.id === (existingEntry as any).id ? updated as Inventario : item));
       } else {
-        // Si no existe, creamos el registro
-        // FIX: Cast from() to any to resolve 'never' type error in Supabase insert
         const { data, error: insertError } = await (supabase
             .from('inventario') as any)
             .insert({
@@ -169,6 +169,15 @@ const ViewInventory: React.FC = () => {
 
   const filteredAndSortedInventory = React.useMemo(() => {
     let sortableItems = [...inventory];
+    
+    if (showOnlyLowStock) {
+        sortableItems = sortableItems.filter(item => 
+          item.existencias !== null && 
+          item.producto?.stock_minimo !== null && 
+          item.existencias < item.producto.stock_minimo
+        );
+    }
+
     if (searchTerm) {
       sortableItems = sortableItems.filter(item =>
         item.producto?.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -198,7 +207,7 @@ const ViewInventory: React.FC = () => {
       });
     }
     return sortableItems;
-  }, [inventory, searchTerm, sortConfig]);
+  }, [inventory, searchTerm, sortConfig, showOnlyLowStock]);
 
   const requestSort = (key: keyof Inventario | 'producto_descripcion') => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -219,7 +228,9 @@ const ViewInventory: React.FC = () => {
   return (
     <div className="p-4 md:p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg h-full flex flex-col">
       <div className="flex flex-col xl:flex-row justify-between items-center mb-6 gap-4">
-        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white shrink-0">Existencias de Inventario</h2>
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white shrink-0">
+            {showOnlyLowStock ? 'Productos con Bajo Stock' : 'Existencias de Inventario'}
+        </h2>
         
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
           <div className="relative min-w-[200px] flex-grow xl:flex-grow-0">
@@ -236,9 +247,21 @@ const ViewInventory: React.FC = () => {
           </div>
 
           <button
+            onClick={() => setShowOnlyLowStock(!showOnlyLowStock)}
+            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm transition-all active:scale-95 border ${
+                showOnlyLowStock 
+                ? 'bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-400' 
+                : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+            }`}
+            title="Filtrar por bajo stock"
+          >
+            <FunnelIcon className="w-4 h-4 mr-2" />
+            {showOnlyLowStock ? 'Ver Todo' : 'Ver Bajo Stock'}
+          </button>
+
+          <button
             onClick={() => navigate('/inventory/add-product')}
             className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md shadow-sm text-sm transition-all active:scale-95"
-            title="Crear definición de nuevo producto"
           >
             <SquaresPlusIcon className="w-5 h-5 mr-2" />
             Nuevo Producto
@@ -247,7 +270,6 @@ const ViewInventory: React.FC = () => {
           <button
             onClick={() => setShowAddStockModal(true)}
             className="flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md shadow-sm text-sm transition-all active:scale-95"
-            title="Registrar stock para un producto"
           >
             <PlusIcon className="w-5 h-5 mr-2" />
             Cargar Stock
@@ -256,7 +278,6 @@ const ViewInventory: React.FC = () => {
           <button
             onClick={fetchInventory}
             className="p-2 text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title="Actualizar lista"
           >
             <ArrowPathIcon className="w-5 h-5" />
           </button>
@@ -286,7 +307,7 @@ const ViewInventory: React.FC = () => {
               const isLowStock = item.existencias !== null && item.producto?.stock_minimo !== null && item.existencias < item.producto.stock_minimo;
               
               return (
-                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${isLowStock && showOnlyLowStock ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}>
                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{item.producto?.descripcion || 'N/D'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{item.ubicacion || 'Almacén Central'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{item.producto?.categoria?.nombre || 'General'}</td>
@@ -302,10 +323,9 @@ const ViewInventory: React.FC = () => {
                       onClick={() => { 
                         setEditingItem(item); 
                         setNewStockValue(item.existencias || 0);
-                        setNewMinStockValue(item.producto?.stock_minimo || 0); // NUEVO: Inicializar stock mínimo
+                        setNewMinStockValue(item.producto?.stock_minimo || 0); 
                       }}
                       className="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 p-1 rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/20"
-                      title="Editar stock manual"
                     >
                       <PencilSquareIcon className="w-5 h-5 inline" />
                     </button>
@@ -315,7 +335,7 @@ const ViewInventory: React.FC = () => {
             }) : (
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                  No se encontraron productos en el inventario.
+                  {showOnlyLowStock ? 'No hay productos con bajo stock crítico actualmente.' : 'No se encontraron productos en el inventario.'}
                 </td>
               </tr>
             )}
@@ -323,10 +343,10 @@ const ViewInventory: React.FC = () => {
         </table>
       </div>
 
-      {/* Modal para Ajustar Stock Manual (Registro ya existente) */}
+      {/* Modal para Ajustar Stock Manual */}
       {editingItem && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-60 p-4 animate-fadeIn backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-md overflow-hidden transform transition-all border dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-md overflow-hidden border dark:border-gray-700">
             <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Ajustar Existencias y Límites</h3>
               <button onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-gray-600"><XMarkIcon className="w-6 h-6" /></button>
@@ -345,28 +365,27 @@ const ViewInventory: React.FC = () => {
                     id="stockInput"
                     min="0"
                     autoFocus
-                    className="block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center text-lg font-bold"
+                    className="block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center text-lg font-bold"
                     value={newStockValue}
                     onChange={(e) => setNewStockValue(parseInt(e.target.value) || 0)}
                   />
                 </div>
                 <div>
-                  <label htmlFor="minStockInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stock Mínimo <span className="text-red-500">*</span></label>
+                  <label htmlFor="minStockInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stock Mínimo</label>
                   <input 
                     type="number" 
                     id="minStockInput"
                     min="0"
-                    className="block w-full px-4 py-2 border border-orange-300 dark:border-orange-900 rounded-lg shadow-sm focus:ring-orange-500 focus:border-orange-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center text-lg font-bold"
+                    className="block w-full px-4 py-2 border border-orange-300 dark:border-orange-900 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center text-lg font-bold"
                     value={newMinStockValue}
                     onChange={(e) => setNewMinStockValue(parseInt(e.target.value) || 0)}
-                    title="Límite para alertas de bajo stock"
                   />
                 </div>
               </div>
 
               <div className="flex gap-3 pt-4 border-t dark:border-gray-700">
-                <button type="button" onClick={() => setEditingItem(null)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Cancelar</button>
-                <button type="submit" disabled={updatingStock} className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 flex items-center justify-center transition-all active:scale-95 shadow-md">
+                <button type="button" onClick={() => setEditingItem(null)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100">Cancelar</button>
+                <button type="submit" disabled={updatingStock} className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 flex items-center justify-center">
                   {updatingStock ? <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" /> : <CheckCircleIcon className="w-5 h-5 mr-2" />}
                   Guardar
                 </button>
@@ -376,10 +395,10 @@ const ViewInventory: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para Cargar Nuevo Stock (Cualquier producto del catálogo) */}
+      {/* Modal para Cargar Nuevo Stock */}
       {showAddStockModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-60 p-4 animate-fadeIn backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-lg overflow-hidden transform transition-all border dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-lg overflow-hidden border dark:border-gray-700">
             <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Cargar Stock al Inventario</h3>
               <button onClick={() => setShowAddStockModal(false)} className="text-gray-400 hover:text-gray-600"><XMarkIcon className="w-6 h-6" /></button>
@@ -388,16 +407,16 @@ const ViewInventory: React.FC = () => {
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-800 flex items-start mb-4">
                 <InformationCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-800 dark:text-blue-200">
-                  Si selecciona un producto que ya tiene stock, la nueva cantidad se <strong>sumará</strong> automáticamente al registro existente.
+                  Si selecciona un producto que ya tiene stock, la nueva cantidad se sumará al registro existente.
                 </p>
               </div>
 
               <div>
-                <label htmlFor="productSelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Seleccionar Producto del Catálogo <span className="text-red-500">*</span></label>
+                <label htmlFor="productSelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Seleccionar Producto</label>
                 <select 
                   id="productSelect"
                   required
-                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   value={selectedProductId}
                   onChange={(e) => setSelectedProductId(Number(e.target.value))}
                 >
@@ -414,19 +433,18 @@ const ViewInventory: React.FC = () => {
                   <input 
                     type="text" 
                     id="locationInput"
-                    placeholder="Ej: Almacén Principal"
-                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
                     value={initialLocation}
                     onChange={(e) => setInitialLocation(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label htmlFor="initialStockInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad a Añadir</label>
+                  <label htmlFor="initialStockInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad</label>
                   <input 
                     type="number" 
                     id="initialStockInput"
                     min="1"
-                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
                     value={initialQuantity}
                     onChange={(e) => setInitialQuantity(parseInt(e.target.value) || 0)}
                   />
@@ -434,10 +452,10 @@ const ViewInventory: React.FC = () => {
               </div>
 
               <div className="flex gap-3 pt-4 border-t dark:border-gray-700">
-                <button type="button" onClick={() => setShowAddStockModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Cancelar</button>
-                <button type="submit" disabled={updatingStock || !selectedProductId} className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 flex items-center justify-center transition-all active:scale-95 shadow-md">
+                <button type="button" onClick={() => setShowAddStockModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-md">Cancelar</button>
+                <button type="submit" disabled={updatingStock || !selectedProductId} className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 flex items-center justify-center">
                   {updatingStock ? <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" /> : <CheckCircleIcon className="w-5 h-5 mr-2" />}
-                  Cargar Stock
+                  Cargar
                 </button>
               </div>
             </form>

@@ -9,10 +9,6 @@ import { createNotifications, fetchAdminUserIds } from '../services/notification
 import FeedbackModal from '../components/core/FeedbackModal';
 import { supabase } from '../supabaseClient';
 
-interface RequestFormPageContext {
-  userProfile: UserProfile;
-}
-
 interface ProductLineForSubmit {
   id: string;
   isNew: boolean;
@@ -27,6 +23,11 @@ interface RequestFormData {
     products: ProductLineForSubmit[];
     description: string; // Cambiado a required string porque RequestForm siempre lo manda (aunque sea vacio)
     quoteFile: File | null;
+}
+
+// Added RequestFormPageContext interface to resolve the error on line 29
+interface RequestFormPageContext {
+  userProfile: UserProfile;
 }
 
 const RequestFormPage: React.FC = () => {
@@ -124,7 +125,7 @@ const RequestFormPage: React.FC = () => {
                 };
             } else {
                 return {
-                    solicitud_comp_id: requestToEdit.id, // Correction based on schema likely being solicitud_comp_id
+                    solicitud_compra_id: requestToEdit.id, // CORRECCIÓN: solicitud_compra_id
                     producto_id: parseInt(p.productId, 10),
                     cantidad: p.quantity,
                     descripcion_producto_personalizado: null,
@@ -267,7 +268,7 @@ const RequestFormPage: React.FC = () => {
         if (p.isNew) {
           const isCreatingNewCategory = p.newProductCategoryId === 'new';
           return {
-            solicitud_comp_id: solicitudId, // Correcting likely schema field name
+            solicitud_compra_id: solicitudId, // CORRECCIÓN: solicitud_compra_id
             producto_id: null,
             cantidad: p.quantity,
             descripcion_producto_personalizado: p.newProductDescription,
@@ -276,7 +277,7 @@ const RequestFormPage: React.FC = () => {
           };
         } else {
           return {
-            solicitud_comp_id: solicitudId, // Correcting likely schema field name
+            solicitud_compra_id: solicitudId, // CORRECCIÓN: solicitud_compra_id
             producto_id: parseInt(p.productId, 10),
             cantidad: p.quantity,
             descripcion_producto_personalizado: null,

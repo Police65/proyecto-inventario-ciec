@@ -18,6 +18,9 @@ interface FullOrdenCompraForPDF extends OrdenCompraType {
   proveedor: Proveedor | undefined;
   productos: (OrdenCompraDetalle & { producto: ProductoType | undefined })[];
   empleado: Empleado | undefined;
+  solicitud_compra?: {
+    empleado?: Empleado;
+  } | null;
 }
 
 interface PDFRenderData {
@@ -72,7 +75,8 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
           codigo_visible,
           proveedor:proveedor_id(*),
           productos:ordencompra_detalle(*, producto:producto_id(*)),
-          empleado:empleado_id(*)
+          empleado:empleado_id(*),
+          solicitud_compra:solicitud_compra_id(empleado:empleado_id(*))
         `)
         .eq('id', order.id)
         .single<FullOrdenCompraForPDF>();

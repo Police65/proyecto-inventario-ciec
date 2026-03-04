@@ -26,29 +26,30 @@ interface MenuCardProps {
   description: string;
   icon: React.ElementType;
   onClick: () => void;
-  color?: string; 
+  color?: string;
 }
 
 const MenuCard: React.FC<MenuCardProps> = ({ title, description, icon: Icon, onClick, color = 'bg-primary-500' }) => (
   <button
     onClick={onClick}
-    className="group bg-white dark:bg-gray-800 shadow-xl rounded-xl p-6 hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 ease-in-out flex flex-col justify-between items-start w-full text-left h-full active:scale-[0.98]"
+    className="group bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-none dark:border dark:border-slate-800 rounded-3xl p-8 hover:shadow-2xl hover:shadow-primary-500/10 transform hover:-translate-y-2 transition-all duration-500 ease-out flex flex-col justify-between items-start w-full text-left h-full active:scale-[0.98] relative overflow-hidden"
     aria-label={`Acceder a ${title}`}
   >
-    <div>
-      <div className={`p-3 rounded-lg ${color} text-white inline-block mb-4 group-hover:scale-110 transition-transform duration-300`}>
+    <div className="absolute top-0 right-0 w-32 h-32 bg-primary-100/20 dark:bg-primary-900/10 blur-3xl -mr-16 -mt-16 group-hover:bg-primary-500/20 transition-colors duration-500" />
+    <div className="relative z-10 w-full">
+      <div className={`p-4 rounded-2xl ${color} text-white inline-block mb-6 shadow-lg shadow-current/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>
         <Icon className="w-8 h-8" />
       </div>
-      <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+      <h3 className="text-2xl font-display font-bold text-slate-900 dark:text-white mb-3 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
         {title}
       </h3>
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+      <p className="text-base text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
         {description}
       </p>
     </div>
-    <div className="flex items-center text-sm font-medium text-primary-600 dark:text-primary-400 group-hover:underline mt-auto pt-2"> {/* Añadido mt-auto y pt-2 para espaciado */}
-      Acceder
-      <ArrowRightIcon className="w-4 h-4 ml-2 transform group-hover:translate-x-1 transition-transform duration-300" />
+    <div className="relative z-10 flex items-center text-sm font-bold text-primary-600 dark:text-primary-400 group-hover:underline mt-auto pt-4 border-t border-slate-50 dark:border-slate-800/50 w-full">
+      <span className="uppercase tracking-widest">Acceder</span>
+      <ArrowRightIcon className="w-4 h-4 ml-2 transform group-hover:translate-x-2 transition-transform duration-500" />
     </div>
   </button>
 );
@@ -67,7 +68,7 @@ const MainDashboardPage: React.FC = () => {
 
   const adminMenuItems: MenuCardProps[] = [
     {
-      title: 'Crear Nueva Solicitud',
+      title: 'Crear Solicitud',
       description: 'Genera una nueva solicitud de compra para tu departamento.',
       icon: PlusCircleIcon,
       onClick: () => handleNavigation('/new-request'),
@@ -112,7 +113,7 @@ const MainDashboardPage: React.FC = () => {
 
   const userMenuItems: MenuCardProps[] = [
     {
-      title: 'Crear Nueva Solicitud',
+      title: 'Crear Solicitud de Readquisición',
       description: 'Genera una nueva solicitud de compra de productos o servicios.',
       icon: PlusCircleIcon,
       onClick: () => handleNavigation('/new-request'),
@@ -144,14 +145,15 @@ const MainDashboardPage: React.FC = () => {
   const menuItems = userProfile?.rol === 'admin' ? adminMenuItems : userMenuItems;
 
   return (
-    <div className="space-y-8 h-full flex flex-col"> {/* Asegurar h-full y flex para el contenido */}
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
-          ¡Bienvenido, {userProfile?.empleado?.nombre || 'Usuario'}!
+    <div className="space-y-10 h-full flex flex-col py-4 animate-slide-up">
+      <div className="relative">
+        <h1 className="text-4xl md:text-5xl font-display font-black text-slate-900 dark:text-white tracking-tight">
+          ¡Hola, <span className="text-primary-600 dark:text-primary-400">{userProfile?.empleado?.nombre || 'Usuario'}</span>!
         </h1>
-        <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
-          {userProfile?.rol === 'admin' ? 'Panel de Administración RequiSoftware' : 'Sistema de Gestión de Compras RequiSoftware'}
+        <p className="mt-3 text-xl text-slate-600 dark:text-slate-400 max-w-2xl font-light">
+          {userProfile?.rol === 'admin' ? 'Sistema de Readquisición: Órdenes de Compra, Gestión de Inventario y Proveedores' : 'Te damos la bienvenida a tu portal de gestión de compras.'}
         </p>
+        <div className="absolute -top-10 -left-10 w-40 h-40 bg-primary-100/30 dark:bg-primary-900/20 blur-3xl -z-10 rounded-full" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 flex-grow"> {/* Añadido flex-grow */}

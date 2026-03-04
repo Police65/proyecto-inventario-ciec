@@ -1,6 +1,6 @@
 import React from 'react';
 import { OrdenCompra, OrdenCompraEstado } from '../../types';
-import OrderActions from './OrderActions'; 
+import OrderActions from './OrderActions';
 import OrderPDF from './OrderPDF'; // Importar el nuevo componente OrderPDF
 
 interface OrderTableProps {
@@ -22,7 +22,7 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, onOrderClick, onUpdate 
       </span>
     );
   };
-  
+
   if (!orders || orders.length === 0) {
     return (
       <div className="text-center py-10">
@@ -36,36 +36,36 @@ const OrderTable: React.FC<OrderTableProps> = ({ orders, onOrderClick, onUpdate 
   }
 
   return (
-    <div className="overflow-x-auto shadow-md rounded-lg">
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-        <thead className="bg-gray-50 dark:bg-gray-700">
+    <div className="overflow-x-auto shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden animate-slide-up">
+      <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
+        <thead className="bg-slate-50 dark:bg-slate-900/50">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Proveedor</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Solicitud Rel.</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Fecha</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">ID</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Proveedor</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Solicitud Rel.</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Fecha</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Total</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Estado</th>
+            <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Acciones</th>
           </tr>
         </thead>
-        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+        <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
           {orders.map(order => (
-            <tr 
-              key={order.id} 
+            <tr
+              key={order.id}
               onClick={() => onOrderClick(order)}
-              className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+              className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
             >
-              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">#{order.codigo_visible || order.id}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{order.proveedor?.nombre || 'N/A'}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                {order.solicitud_compra_id ? `#${order.solicitud_compra_id}` : 'Directa'}
-                {order.solicitud_compra?.descripcion && <span className="block text-xs text-gray-400 truncate max-w-[150px]" title={order.solicitud_compra.descripcion}>({order.solicitud_compra.descripcion})</span>}
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">#{order.codigo_visible || order.id}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800 dark:text-slate-200">{order.proveedor?.nombre || 'N/A'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">
+                <div className="font-bold">{order.solicitud_compra_id ? `#${order.solicitud_compra_id}` : 'Directa'}</div>
+                {order.solicitud_compra?.descripcion && <span className="block text-[10px] opacity-70 truncate max-w-[150px]" title={order.solicitud_compra.descripcion}>{order.solicitud_compra.descripcion}</span>}
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{new Date(order.fecha_orden).toLocaleDateString()}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{order.neto_a_pagar?.toLocaleString('es-VE', {minimumFractionDigits: 2})} {order.unidad}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">{new Date(order.fecha_orden).toLocaleDateString()}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-primary-600 dark:text-primary-400">{order.neto_a_pagar?.toLocaleString('es-VE', { minimumFractionDigits: 2 })} {order.unidad}</td>
               <td className="px-4 py-3 whitespace-nowrap text-sm">{getStatusBadge(order.estado)}</td>
-              <td 
+              <td
                 className="px-4 py-3 whitespace-nowrap text-sm font-medium"
                 onClick={(e) => e.stopPropagation()} // Prevenir clic en fila al interactuar con acciones
               >

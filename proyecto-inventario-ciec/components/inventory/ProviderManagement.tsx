@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Proveedor, CategoriaProveedor, ProveedorTipoContribuyente, Database } from '../../types';
@@ -140,27 +141,31 @@ const ProviderManagement: React.FC = () => {
       let savedProviderId: number;
 
       if (isEditing && currentProvider.id) {
-        const { data, error } = await supabase
-          .from('proveedor')
+        // FIX: Cast from() to any to resolve 'never' type error in Supabase update
+        const { data, error } = await (supabase
+          .from('proveedor') as any)
           .update(providerData)
           .eq('id', currentProvider.id)
           .select('id')
           .single();
         if (error) throw error;
+        // FIX: Cast data to any for property access
         if (!data) throw new Error("Error al actualizar proveedor.");
-        savedProviderId = data.id;
+        savedProviderId = (data as any).id;
 
         await supabase.from('proveedor_categoria').delete().eq('proveedor_id', savedProviderId);
 
       } else {
-        const { data, error } = await supabase
-          .from('proveedor')
+        // FIX: Cast from() to any to resolve 'never' type error in Supabase insert
+        const { data, error } = await (supabase
+          .from('proveedor') as any)
           .insert(providerData)
           .select('id')
           .single();
         if (error) throw error;
+        // FIX: Cast data to any for property access
         if (!data) throw new Error("Error al crear proveedor.");
-        savedProviderId = data.id;
+        savedProviderId = (data as any).id;
       }
 
       if (currentProvider.selectedCategorias && currentProvider.selectedCategorias.length > 0) {
@@ -168,7 +173,8 @@ const ProviderManagement: React.FC = () => {
             proveedor_id: savedProviderId,
             categoria_id: catId
         }));
-        const { error: catError } = await supabase.from('proveedor_categoria').insert(categoryLinks);
+        // FIX: Cast from() to any to resolve 'never' type error in Supabase insert
+        const { error: catError } = await (supabase.from('proveedor_categoria') as any).insert(categoryLinks);
         if (catError) throw catError;
       }
 
@@ -288,8 +294,9 @@ const ProviderManagement: React.FC = () => {
     setSubmittingCategory(true);
     setCategoryError(null);
     try {
-      const { error } = await supabase
-        .from('categoria_proveedor')
+      // FIX: Cast from() to any to resolve 'never' type error in Supabase insert
+      const { error } = await (supabase
+        .from('categoria_proveedor') as any)
         .insert({ nombre: newCategoryName.trim() });
       
       if (error) {

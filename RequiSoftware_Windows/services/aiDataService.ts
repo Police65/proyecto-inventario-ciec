@@ -1,3 +1,4 @@
+
 import { supabase } from '../supabaseClient';
 import { Producto, Proveedor, OrdenCompra, Inventario, CategoriaProducto, SolicitudCompra, Departamento, Empleado } from '../types';
 import { startOfMonth } from 'date-fns/startOfMonth';
@@ -69,7 +70,7 @@ export const getDepartmentExpenses = async (
         let query = supabase
             .from('ordencompra')
             .select('neto_a_pagar, fecha_orden')
-            .in('solicitud_comp_id', solicitationIds) // Schema correction: 'solicitud_comp_id' instead of 'solicitud_compra_id'
+            .in('solicitud_compra_id', solicitationIds) // CORRECCIÓN: solicitud_compra_id
             .eq('estado', 'Completada');
 
         const today = new Date();

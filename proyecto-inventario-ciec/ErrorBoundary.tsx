@@ -1,7 +1,8 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
+
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 interface State {
@@ -10,23 +11,29 @@ interface State {
   errorInfo?: ErrorInfo;
 }
 
+// Fixed: Inheriting from Component for proper typing and inheritance.
 class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
+  // FIX: Initialize state as a class property to avoid constructor-related inheritance issues in some environments.
+  state: State = {
     hasError: false,
+    error: undefined,
+    errorInfo: undefined,
   };
 
-  public static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): State {
     // Actualizar estado para que el próximo renderizado muestre la UI de respaldo.
-    return { hasError: true, error };
+    return { hasError: true, error, errorInfo: undefined };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // También puedes registrar el error en un servicio de reporte de errores
     console.error("Uncaught error:", error, errorInfo);
+    // Fixed: Accessed setState from inherited Component class.
     this.setState({ errorInfo });
   }
 
-  public render() {
+  render() {
+    // Fixed: Accessed state from 'this' which is now correctly recognized as a React Component.
     if (this.state.hasError) {
       // Puedes renderizar cualquier UI de respaldo personalizada
       return (
@@ -56,6 +63,7 @@ class ErrorBoundary extends Component<Props, State> {
             color: '#3f3f46' // zinc-700
           }}>
             <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>Detalles del Error</summary>
+            {/* Fixed: Accessed error and errorInfo from this.state. */}
             {this.state.error && this.state.error.toString()}
             <br />
             {this.state.errorInfo && this.state.errorInfo.componentStack}
@@ -79,6 +87,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
+    // Fixed: Accessed children from this.props which is now correctly inherited from Component.
     return this.props.children;
   }
 }

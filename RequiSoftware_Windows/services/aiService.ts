@@ -77,14 +77,10 @@ async function generateDescription(products: ProductInput[]): Promise<string> {
     
     const prompt = `Como asistente de compras, genera una descripción muy breve (máximo 5 palabras) para una solicitud que contiene: ${productList}. Ejemplo: "Suministros de Oficina". NO uses comillas.`;
 
-    // console.log("Prompt enviado a Gemini:", prompt);
-
+    // Updated: Changed model to 'gemini-3-flash-preview' as per guidelines for basic text tasks.
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
-      config: {
-          maxOutputTokens: 50,
-      }
     });
 
     const responseText = response.text;

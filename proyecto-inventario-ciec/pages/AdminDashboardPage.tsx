@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+
+import React, { useState, useEffect } from 'react';
 // @ts-ignore: Ignorar error de tipo para react-router-dom si es necesario por el entorno de esm.sh
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { SolicitudCompra, OrdenCompra, UserProfile, OrdenConsolidada, Empleado, Departamento, Producto, SolicitudCompraDetalle as SolicitudCompraDetalleType, Proveedor, OrdenCompraDetalle as OrdenCompraDetalleType, CategoriaProducto, NotificacionInsert, Database } from '../types';
 import LoadingSpinner from '../components/core/LoadingSpinner';
 import { THRESHOLD_ORDEN_GRANDE } from '../config'; // Importar umbral de valor
 import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } from '../services/notificationService'; // Importar servicio de notificaciones
+import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 
 // Importar componentes individuales que conforman el dashboard
 import RequestTable from '../components/requests/RequestTable';
@@ -15,8 +17,8 @@ import { DepartmentManagement } from '../components/admin/DepartmentManagement';
 import ConsolidatedOrderTable from '../components/orders/ConsolidatedOrderTable';
 
 // Modales
-import { OrderForm } from '@/components/orders/OrderForm'; 
-import { DirectOrderForm } from '@/components/orders/DirectOrderForm'; 
+import { OrderForm } from '@/components/orders/OrderForm';
+import { DirectOrderForm } from '@/components/orders/DirectOrderForm';
 import ConsolidationModal from '../components/orders/ConsolidationModal';
 import OrderDetailsModal from '../components/orders/OrderDetailsModal';
 import RequestDetailsModal from '../components/requests/RequestDetailsModal';
@@ -33,18 +35,18 @@ type RawSolicitudFromQuery = Omit<SolicitudCompra, 'empleado' | 'departamento' |
   empleado: Pick<Empleado, 'id' | 'nombre' | 'apellido'> | null;
   departamento: Pick<Departamento, 'id' | 'nombre' | 'estado'> | null;
   detalles: Array<
-    Pick<SolicitudCompraDetalleType, 'id' | 'solicitud_compra_id' | 'producto_id' | 'cantidad'> & {
+    Pick<SolicitudCompraDetalleType, 'id' | 'solicitud_compra_id' | 'producto_id' | 'cantidad' | 'descripcion_producto_personalizado' | 'categoria_producto_sugerida_id' | 'categoria_sugerida_nombre'> & {
       producto: (Pick<Producto, 'id' | 'descripcion' | 'categoria_id'> & {
-          categoria: Pick<CategoriaProducto, 'id' | 'nombre'> | null; 
-      }) | null; 
+        categoria: Pick<CategoriaProducto, 'id' | 'nombre'> | null;
+      }) | null;
     }
-  > | null; 
+  > | null;
 };
 
 type RawOrdenFromQuery = Omit<OrdenCompra, 'proveedor' | 'detalles' | 'empleado' | 'solicitud_compra'> & {
   proveedor: Pick<Proveedor, 'id' | 'nombre' | 'rif' | 'direccion' | 'tipo_contribuyente' | 'porcentaje_retencion_iva' | 'estado'> | null;
   detalles: Array<
-    Pick<OrdenCompraDetalleType, 'id' | 'producto_id' | 'cantidad' | 'precio_unitario'> & {
+    Pick<OrdenCompraDetalleType, 'id' | 'producto_id' | 'cantidad' | 'precio_unitario' | 'descripcion_producto_personalizado'> & {
       producto: Pick<Producto, 'id' | 'descripcion'> | null;
     }
   > | null;
@@ -53,19 +55,21 @@ type RawOrdenFromQuery = Omit<OrdenCompra, 'proveedor' | 'detalles' | 'empleado'
 };
 
 const commonSelectOrden = `
-    id, solicitud_compra_id, proveedor_id, fecha_orden, estado, precio_unitario, sub_total, iva, ret_iva, neto_a_pagar, unidad, observaciones, empleado_id, changed_by, fecha_modificacion, retencion_porcentaje, fecha_entrega_estimada, fecha_entrega_real, created_at, updated_at,
+    id, codigo_visible, solicitud_compra_id, proveedor_id, fecha_orden, estado, precio_unitario, sub_total, iva, ret_iva, neto_a_pagar, unidad, observaciones, empleado_id, changed_by, fecha_modificacion, retencion_porcentaje, fecha_entrega_estimada, fecha_entrega_real, created_at, updated_at,
     proveedor:proveedor_id(id, nombre, rif, direccion, estado, tipo_contribuyente, porcentaje_retencion_iva),
-    detalles:ordencompra_detalle(id, producto_id, cantidad, precio_unitario, producto:producto_id(id, descripcion)),
+    detalles:ordencompra_detalle(id, producto_id, cantidad, precio_unitario, descripcion_producto_personalizado, producto:producto_id(id, descripcion)),
     empleado:empleado_id(id, nombre, apellido),
     solicitud_compra:solicitudcompra!ordencompra_solicitud_compra_id_fkey(id, descripcion, empleado_id, departamento_id)
-  `;
+  `; // CORRECCIÓN: solicitud_compra_id_fkey
 
+// FIX: Import React to resolve React.ReactElement namespace error.
 export const AdminDashboardPage = (): React.ReactElement => {
   const { userProfile, activeUITab } = useOutletContext<AdminDashboardContext>();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [loading, setLoading] = useState(true); 
-  const [error, setError] = useState<string | null>(null); 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<SolicitudCompra[]>([]);
   const [solicitudesHistorial, setSolicitudesHistorial] = useState<SolicitudCompra[]>([]);
@@ -73,23 +77,32 @@ export const AdminDashboardPage = (): React.ReactElement => {
   const [ordenesConsolidadas, setOrdenesConsolidadas] = useState<OrdenConsolidada[]>([]);
   const [misSolicitudes, setMisSolicitudes] = useState<SolicitudCompra[]>([]);
 
-  const [showOrderForm, setShowOrderForm] = useState(false); 
-  const [showDirectOrderForm, setShowDirectOrderForm] = useState(false); 
-  const [showConsolidationModal, setShowConsolidationModal] = useState(false); 
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [showDirectOrderForm, setShowDirectOrderForm] = useState(false);
+  const [showConsolidationModal, setShowConsolidationModal] = useState(false);
 
-  const [selectedRequestForOrder, setSelectedRequestForOrder] = useState<{initialProducts: any[], solicitudes: number[], proveedor_id: number | null} | null>(null);
+  const [selectedRequestForOrder, setSelectedRequestForOrder] = useState<{ initialProducts: any[], solicitudes: number[], proveedor_id: number | null } | null>(null);
 
-  const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false); 
-  const [selectedOrderDetail, setSelectedOrderDetail] = useState<OrdenCompra | null>(null); 
+  const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
+  const [selectedOrderDetail, setSelectedOrderDetail] = useState<OrdenCompra | null>(null);
 
-  const [showRequestDetailsModal, setShowRequestDetailsModal] = useState(false); 
-  const [selectedRequestDetail, setSelectedRequestDetail] = useState<SolicitudCompra | null>(null); 
+  const [showRequestDetailsModal, setShowRequestDetailsModal] = useState(false);
+  const [selectedRequestDetail, setSelectedRequestDetail] = useState<SolicitudCompra | null>(null);
 
-  const [showConsolidatedOrderDetailsModal, setShowConsolidatedOrderDetailsModal] = useState(false); 
+  const [showConsolidatedOrderDetailsModal, setShowConsolidatedOrderDetailsModal] = useState(false);
   const [selectedConsolidatedOrderDetail, setSelectedConsolidatedOrderDetail] = useState<OrdenConsolidada | null>(null);
 
   const [newlyCreatedOrder, setNewlyCreatedOrder] = useState<OrdenCompra | null>(null);
   const [showPDFConfirmationModal, setShowPDFConfirmationModal] = useState(false);
+
+  // Manejar apertura automática de formulario de orden directa desde estado de navegación
+  useEffect(() => {
+    if (location.state?.openDirectOrder) {
+      setShowDirectOrderForm(true);
+      // Limpiar el estado para que no se reabra al refrescar
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const mapSolicitudData = (req: RawSolicitudFromQuery): SolicitudCompra => ({
     id: req.id,
@@ -100,7 +113,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
     departamento_id: req.departamento_id,
     created_at: req.created_at,
     updated_at: req.updated_at,
-    empleado: req.empleado ? { 
+    empleado: req.empleado ? {
       id: req.empleado.id,
       nombre: req.empleado.nombre,
       apellido: req.empleado.apellido,
@@ -111,37 +124,41 @@ export const AdminDashboardPage = (): React.ReactElement => {
       created_at: '',
       updated_at: '',
     } as Empleado : undefined,
-    departamento: req.departamento ? { 
+    departamento: req.departamento ? {
       ...req.departamento,
       created_at: '',
       updated_at: '',
     } : undefined,
-    detalles: req.detalles ? req.detalles.map(d => ({ 
+    detalles: req.detalles ? req.detalles.map(d => ({
       id: d.id,
       solicitud_compra_id: d.solicitud_compra_id,
       producto_id: d.producto_id,
       cantidad: d.cantidad,
+      descripcion_producto_personalizado: d.descripcion_producto_personalizado,
+      categoria_producto_sugerida_id: d.categoria_producto_sugerida_id,
+      categoria_sugerida_nombre: d.categoria_sugerida_nombre,
       created_at: '', updated_at: '',
-      producto: d.producto ? { 
+      producto: d.producto ? {
         id: d.producto.id,
         descripcion: d.producto.descripcion,
         categoria_id: d.producto.categoria_id,
         created_at: '', updated_at: '',
-        categoria: d.producto.categoria ? { 
-            ...d.producto.categoria,
-            created_at: '', updated_at: '',
+        categoria: d.producto.categoria ? {
+          ...d.producto.categoria,
+          created_at: '', updated_at: '',
         } : undefined,
       } : undefined,
-    })) : [], 
+    })) : [],
   });
 
   const mapOrdenData = (order: RawOrdenFromQuery): OrdenCompra => ({
     id: order.id,
+    codigo_visible: order.codigo_visible,
     solicitud_compra_id: order.solicitud_compra_id,
     proveedor_id: order.proveedor_id,
     fecha_orden: order.fecha_orden,
     estado: order.estado,
-    precio_unitario: order.precio_unitario, 
+    precio_unitario: order.precio_unitario,
     sub_total: order.sub_total,
     iva: order.iva,
     ret_iva: order.ret_iva,
@@ -155,30 +172,31 @@ export const AdminDashboardPage = (): React.ReactElement => {
     fecha_entrega_estimada: order.fecha_entrega_estimada,
     fecha_entrega_real: order.fecha_entrega_real,
     created_at: order.created_at, updated_at: order.updated_at,
-    proveedor: order.proveedor ? { 
+    proveedor: order.proveedor ? {
       ...order.proveedor,
       created_at: '', updated_at: '',
     } : undefined,
-    empleado: order.empleado ? { 
+    empleado: order.empleado ? {
       id: order.empleado.id, nombre: order.empleado.nombre, apellido: order.empleado.apellido,
-      cedula: '', cargo_actual_id: null, 
+      cedula: '', cargo_actual_id: null,
       departamento_id: order.solicitud_compra?.departamento_id || 0, // Best effort
       estado: 'activo',
       created_at: '', updated_at: '',
     } as Empleado : undefined,
     solicitud_compra: order.solicitud_compra || undefined,
-    detalles: order.detalles ? order.detalles.map(d => ({ 
+    detalles: order.detalles ? order.detalles.map(d => ({
       id: d.id,
       producto_id: d.producto_id,
       cantidad: d.cantidad,
       precio_unitario: d.precio_unitario,
+      descripcion_producto_personalizado: d.descripcion_producto_personalizado,
       orden_compra_id: order.id,
       created_at: '', updated_at: '',
-      producto: d.producto ? { 
+      producto: d.producto ? {
         ...d.producto,
         created_at: '', updated_at: '',
       } : undefined,
-    })) : [], 
+    })) : [],
   });
 
   const fetchData = async () => {
@@ -186,18 +204,19 @@ export const AdminDashboardPage = (): React.ReactElement => {
     setError(null);
     try {
       const commonSelectSolicitud = `
-        id, descripcion, fecha_solicitud, estado, empleado_id, departamento_id, created_at, updated_at,
-        detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
+        id, codigo_visible, descripcion, fecha_solicitud, estado, empleado_id, departamento_id, created_at, updated_at,
+        detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, descripcion_producto_personalizado, categoria_producto_sugerida_id, categoria_sugerida_nombre, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
         empleado:empleado_id(id, nombre, apellido),
         departamento:departamento_id(id, nombre, estado)
-      `;
+      `; // CORRECCIÓN: solicitud_compra_id
 
       const { data: pendingRaw, error: pendingError } = await supabase
         .from('solicitudcompra')
         .select(commonSelectSolicitud)
         .eq('estado', 'Pendiente')
-        .order('fecha_solicitud', { ascending: false }) 
-        .returns<RawSolicitudFromQuery[]>(); 
+        .not('descripcion', 'ilike', 'Orden Directa%') // FILTRO AGREGADO
+        .order('fecha_solicitud', { ascending: false })
+        .returns<RawSolicitudFromQuery[]>();
       if (pendingError) throw pendingError;
       setSolicitudesPendientes((pendingRaw || []).map(mapSolicitudData));
 
@@ -205,16 +224,18 @@ export const AdminDashboardPage = (): React.ReactElement => {
         .from('solicitudcompra')
         .select(commonSelectSolicitud)
         .in('estado', ['Aprobada', 'Rechazada'])
+        .not('descripcion', 'ilike', 'Orden Directa%') // FILTRO AGREGADO
         .order('fecha_solicitud', { ascending: false })
         .returns<RawSolicitudFromQuery[]>();
       if (historyError) throw historyError;
       setSolicitudesHistorial((historyRaw || []).map(mapSolicitudData));
-      
+
       if (userProfile?.empleado_id) {
         const { data: myRequestsRaw, error: myRequestsError } = await supabase
           .from('solicitudcompra')
           .select(commonSelectSolicitud)
           .eq('empleado_id', userProfile.empleado_id)
+          .not('descripcion', 'ilike', 'Orden Directa%') // FILTRO AGREGADO
           .order('fecha_solicitud', { ascending: false })
           .returns<RawSolicitudFromQuery[]>();
         if (myRequestsError) throw myRequestsError;
@@ -234,18 +255,19 @@ export const AdminDashboardPage = (): React.ReactElement => {
 
       const { data: consolidated, error: consolidatedError } = await supabase
         .from('ordenes_consolidadas')
-        .select('*, proveedor:proveedor_id(id, nombre)') 
+        .select('*, proveedor:proveedor_id(id, nombre)')
         .order('fecha_creacion', { ascending: false });
       if (consolidatedError) throw consolidatedError;
-       setOrdenesConsolidadas((consolidated || []).map((oc: any) => ({
+      setOrdenesConsolidadas((consolidated || []).map((oc: any) => ({
         ...oc,
         productos: Array.isArray(oc.productos) ? oc.productos : JSON.parse(oc.productos || '[]'),
         solicitudes: Array.isArray(oc.solicitudes) ? oc.solicitudes : JSON.parse(oc.solicitudes || '[]'),
         proveedor: oc.proveedor ? {
-            id: oc.proveedor.id,
-            nombre: oc.proveedor.nombre,
+          id: oc.proveedor.id,
+          nombre: oc.proveedor.nombre,
         } : undefined,
       })));
+
     } catch (err) {
       const typedError = err as { message: string, details?: string, code?: string };
       const errorMessage = `Error: ${typedError.message}${typedError.details ? ` Detalles: ${typedError.details}` : ''}${typedError.code ? ` Código: ${typedError.code}` : ''}`;
@@ -265,15 +287,20 @@ export const AdminDashboardPage = (): React.ReactElement => {
   };
 
   const handleApproveRequest = (request: SolicitudCompra) => {
+    // Validación: No aprobar solicitudes propias
+    if (request.empleado_id === userProfile.empleado_id) {
+      alert("Política de Seguridad: No puedes aprobar tu propia solicitud de compra. Debe ser aprobada por otro administrador.");
+      return;
+    }
+
     const initialProducts = request.detalles?.map(d => ({
-      id: d.producto_id, 
-      producto_id: d.producto_id,
-      descripcion: d.producto?.descripcion || 'Producto sin nombre',
+      id: d.producto_id,
+      descripcion: d.producto?.descripcion || d.descripcion_producto_personalizado || 'Producto sin nombre',
       quantity: d.cantidad,
       precio_unitario: 0,
-      selected: true, 
-      isNewProduct: false, 
-      categoria_id: d.producto?.categoria_id,
+      selected: true,
+      isNewProduct: !d.producto_id,
+      categoria_id: d.producto?.categoria_id || d.categoria_producto_sugerida_id,
       codigo_interno: d.producto?.codigo_interno,
       unidad_medida: d.producto?.unidad_medida,
     })) || [];
@@ -289,27 +316,28 @@ export const AdminDashboardPage = (): React.ReactElement => {
   const handleRejectRequest = async (requestId: number) => {
     if (!window.confirm(`¿Está seguro de rechazar la solicitud #${requestId}? Esta acción no se puede deshacer.`)) return;
     try {
-      const { error } = await supabase
-        .from('solicitudcompra')
+      // FIX: Cast from() to any to resolve 'never' type error in Supabase update
+      const { error } = await (supabase
+        .from('solicitudcompra') as any)
         .update({ estado: 'Rechazada' })
         .eq('id', requestId);
       if (error) throw error;
 
       const requestToNotify = solicitudesPendientes.find(req => req.id === requestId) ||
-                              solicitudesHistorial.find(req => req.id === requestId);
+        solicitudesHistorial.find(req => req.id === requestId);
 
       if (requestToNotify && requestToNotify.empleado_id) {
         const userAuthId = await fetchUserAuthIdByEmpleadoId(requestToNotify.empleado_id);
-        if(userAuthId) {
-            const notifPayload: NotificacionInsert = {
-                user_id: userAuthId,
-                title: 'Solicitud Rechazada',
-                description: `Tu solicitud #${requestId} ("${requestToNotify.descripcion || 'Sin descripción adicional'}") ha sido rechazada.`,
-                type: 'solicitud_rechazada',
-            };
-            await createNotifications([notifPayload]);
+        if (userAuthId) {
+          const notifPayload: NotificacionInsert = {
+            user_id: userAuthId,
+            title: 'Solicitud Rechazada',
+            description: `Tu solicitud #${requestToNotify.codigo_visible || requestId} ("${requestToNotify.descripcion || 'Sin descripción adicional'}") ha sido rechazada.`,
+            type: 'solicitud_rechazada',
+          };
+          await createNotifications([notifPayload]);
         } else {
-             console.warn("No se pudo enviar notificación de rechazo: perfil de usuario no encontrado para empleado ID", requestToNotify.empleado_id);
+          console.warn("No se pudo enviar notificación de rechazo: perfil de usuario no encontrado para empleado ID", requestToNotify.empleado_id);
         }
       } else {
         console.warn("No se pudo enviar notificación de rechazo: datos de empleado faltantes para solicitud ID", requestId);
@@ -335,17 +363,17 @@ export const AdminDashboardPage = (): React.ReactElement => {
 
     try {
       const { data: rawFullOrder, error: fetchError } = await supabase
-          .from('ordencompra')
-          .select(commonSelectOrden) // Uses the detailed select string
-          .eq('id', createdOrderInfo.id)
-          .single<RawOrdenFromQuery>();
+        .from('ordencompra')
+        .select(commonSelectOrden) // Uses the detailed select string
+        .eq('id', createdOrderInfo.id)
+        .single<RawOrdenFromQuery>();
 
       if (fetchError || !rawFullOrder) {
-          console.error("Error fetching full order details after creation in AdminDashboardPage:", fetchError);
-          setError(fetchError?.message || "No se pudo obtener los detalles completos de la orden creada.");
-          fullOrderData = { id: createdOrderInfo.id } as OrdenCompra; // Fallback for PDF modal
+        console.error("Error fetching full order details after creation in AdminDashboardPage:", fetchError);
+        setError(fetchError?.message || "No se pudo obtener los detalles completos de la orden creada.");
+        fullOrderData = { id: createdOrderInfo.id } as OrdenCompra; // Fallback for PDF modal
       } else {
-          fullOrderData = mapOrdenData(rawFullOrder);
+        fullOrderData = mapOrdenData(rawFullOrder);
       }
       setNewlyCreatedOrder(fullOrderData);
 
@@ -357,7 +385,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
         notificationsToCreate.push(...adminUserIds.map(adminId => ({
           user_id: adminId,
           title: 'Nueva Orden de Compra Creada',
-          description: `Se ha creado la orden de compra #${fullOrderData!.id}. Proveedor: ${fullOrderData!.proveedor?.nombre || 'N/D'}.`,
+          description: `Se ha creado la orden de compra #${fullOrderData!.codigo_visible || fullOrderData!.id}. Proveedor: ${fullOrderData!.proveedor?.nombre || 'N/D'}.`,
           type: 'orden_creada',
         })));
 
@@ -366,7 +394,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
           notificationsToCreate.push(...adminUserIds.map(adminId => ({
             user_id: adminId,
             title: 'Alerta de Gasto Elevado en Orden',
-            description: `La orden de compra #${fullOrderData!.id} supera el umbral de gasto (${THRESHOLD_ORDEN_GRANDE.toLocaleString('es-VE')} Bs) con un total de ${fullOrderData!.neto_a_pagar.toLocaleString('es-VE')} Bs.`,
+            description: `La orden de compra #${fullOrderData!.codigo_visible || fullOrderData!.id} supera el umbral de gasto (${THRESHOLD_ORDEN_GRANDE.toLocaleString('es-VE')} Bs) con un total de ${fullOrderData!.neto_a_pagar.toLocaleString('es-VE')} Bs.`,
             type: 'alerta_gasto_orden',
           })));
         }
@@ -374,32 +402,32 @@ export const AdminDashboardPage = (): React.ReactElement => {
 
       // Notificar al usuario si la orden proviene de su(s) solicitud(es)
       if (fullOrderData?.solicitud_compra_id && fullOrderData.solicitud_compra?.empleado_id) {
-          const requesterAuthId = await fetchUserAuthIdByEmpleadoId(fullOrderData.solicitud_compra.empleado_id);
-          if (requesterAuthId) {
-            notificationsToCreate.push({
-              user_id: requesterAuthId,
-              title: 'Solicitud Aprobada y Orden Creada',
-              description: `Tu solicitud #${fullOrderData.solicitud_compra_id} ha sido aprobada y se generó la orden de compra #${fullOrderData.id}.`,
-              type: 'solicitud_aprobada',
-            });
-          }
+        const requesterAuthId = await fetchUserAuthIdByEmpleadoId(fullOrderData.solicitud_compra.empleado_id);
+        if (requesterAuthId) {
+          notificationsToCreate.push({
+            user_id: requesterAuthId,
+            title: 'Solicitud Aprobada y Orden Creada',
+            description: `Tu solicitud #${fullOrderData.solicitud_compra_id} ha sido aprobada y se generó la orden de compra #${fullOrderData.codigo_visible || fullOrderData.id}.`,
+            type: 'solicitud_aprobada',
+          });
+        }
       }
       // Nota: esta parte necesita ajustarse si handleOrderCreated se llama también desde un flujo de consolidación que pasa múltiples solicitud_ids.
       // Por ahora, asume una única solicitud_compra_id vinculada a la orden, o una orden directa.
 
-      if(notificationsToCreate.length > 0) {
+      if (notificationsToCreate.length > 0) {
         await createNotifications(notificationsToCreate);
       }
 
     } catch (e) {
-        const catchedError = e as Error;
-        console.error("Exception fetching full order details or sending notifications:", catchedError);
-        setError(catchedError.message || "Excepción al obtener detalles de la orden o enviar notificaciones.");
-        if (!newlyCreatedOrder) setNewlyCreatedOrder({ id: createdOrderInfo.id } as OrdenCompra); // Fallback para PDF
+      const catchedError = e as Error;
+      console.error("Exception fetching full order details or sending notifications:", catchedError);
+      setError(catchedError.message || "Excepción al obtener detalles de la orden or enviar notificaciones.");
+      if (!newlyCreatedOrder) setNewlyCreatedOrder({ id: createdOrderInfo.id } as OrdenCompra); // Fallback para PDF
     } finally {
-        setLoading(false);
-        setShowPDFConfirmationModal(true);
-        refreshAllData();
+      setLoading(false);
+      setShowPDFConfirmationModal(true);
+      refreshAllData();
     }
   };
 
@@ -411,14 +439,14 @@ export const AdminDashboardPage = (): React.ReactElement => {
   };
 
   const handleConvertToRegularOrder = (consolidatedOrder: OrdenConsolidada) => {
-     const initialProducts = (consolidatedOrder.productos as Array<{producto_id: number, descripcion: string, cantidad: number}>).map(p => ({
-      id: p.producto_id, 
-      producto_id: p.producto_id,
+    const initialProducts = (consolidatedOrder.productos as Array<{ producto_id: number | null, descripcion: string, cantidad: number }>).map(p => ({
+      id: p.producto_id,
       descripcion: p.descripcion,
       quantity: p.cantidad,
       precio_unitario: 0,
       selected: true,
-      isNewProduct: false,
+      // Si no tiene ID de producto, se trata como un nuevo producto
+      isNewProduct: !p.producto_id,
     }));
     setSelectedRequestForOrder({
       initialProducts: initialProducts,
@@ -427,30 +455,42 @@ export const AdminDashboardPage = (): React.ReactElement => {
     });
     setShowOrderForm(true);
   };
-  
+
   const handleCloneRequest = (request: SolicitudCompra) => {
     if (window.confirm(`¿Desea clonar la solicitud #${request.codigo_visible || request.id} para crear una nueva?`)) {
       navigate('/new-request', { state: { requestToClone: request } });
     }
   };
 
+  const handleEditRequest = (request: SolicitudCompra) => {
+    navigate('/new-request', { state: { requestToEdit: request } });
+  };
+
   const renderActiveTabContent = () => {
     switch (activeUITab) {
       case 'solicitudes':
         return (
-          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white shrink-0">Solicitudes Pendientes</h2>
-              <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 w-full">
+          <div className="bg-white dark:bg-slate-900 shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 rounded-3xl p-8 animate-slide-up">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-2xl text-primary-600 dark:text-primary-400">
+                  <ClipboardDocumentListIcon className="w-8 h-8" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-display font-black text-slate-900 dark:text-white uppercase tracking-tight">Solicitudes Pendientes</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Gestiona y aprueba los requerimientos entrantes</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 w-full sm:w-auto">
                 <button
                   onClick={() => setShowConsolidationModal(true)}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md text-sm whitespace-nowrap shadow-sm"
+                  className="px-6 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold rounded-2xl text-sm transition-all shadow-sm"
                 >
-                  Consolidar Solicitudes
+                  Consolidar
                 </button>
                 <button
                   onClick={handleCreateDirectOrder}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md text-sm whitespace-nowrap shadow-sm"
+                  className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-2xl text-sm transition-all shadow-lg shadow-primary-500/25"
                 >
                   Crear Orden Directa
                 </button>
@@ -462,13 +502,14 @@ export const AdminDashboardPage = (): React.ReactElement => {
               onApprove={handleApproveRequest}
               onReject={handleRejectRequest}
               onRowClick={(req) => { setSelectedRequestDetail(req); setShowRequestDetailsModal(true); }}
+              currentEmpleadoId={userProfile.empleado_id || undefined} // Pasar ID para validación visual
             />
           </div>
         );
       case 'historial-solicitudes':
         return (
-          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Historial de Solicitudes</h2>
+          <div className="bg-white dark:bg-slate-900 shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 rounded-3xl p-8 animate-slide-up">
+            <h2 className="text-2xl font-display font-black text-slate-900 dark:text-white mb-8 border-b border-slate-50 dark:border-slate-800 pb-4">Historial de Solicitudes</h2>
             <RequestTable
               requests={solicitudesHistorial}
               showStatus={true}
@@ -478,21 +519,22 @@ export const AdminDashboardPage = (): React.ReactElement => {
         );
       case 'mis-solicitudes':
         return (
-          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Mis Solicitudes Creadas</h2>
+          <div className="bg-white dark:bg-slate-900 shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 rounded-3xl p-8 animate-slide-up">
+            <h2 className="text-2xl font-display font-black text-slate-900 dark:text-white mb-8 border-b border-slate-50 dark:border-slate-800 pb-4">Mis Solicitudes Creadas</h2>
             <RequestTable
               requests={misSolicitudes}
               showStatus={true}
               userActions={true}
               onClone={handleCloneRequest}
+              onEdit={handleEditRequest} // Habilitar edición para administradores en sus propias solicitudes
               onRowClick={(req) => { setSelectedRequestDetail(req); setShowRequestDetailsModal(true); }}
             />
           </div>
         );
       case 'ordenes':
         return (
-          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Historial de Órdenes</h2>
+          <div className="bg-white dark:bg-slate-900 shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 rounded-3xl p-8 animate-slide-up">
+            <h2 className="text-2xl font-display font-black text-slate-900 dark:text-white mb-8 border-b border-slate-50 dark:border-slate-800 pb-4">Historial de Órdenes</h2>
             <OrderTable
               orders={ordenesHistorial}
               onOrderClick={(order) => { setSelectedOrderDetail(order); setShowOrderDetailsModal(true); }}
@@ -502,8 +544,8 @@ export const AdminDashboardPage = (): React.ReactElement => {
         );
       case 'ordenes-consolidadas':
         return (
-          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Órdenes Consolidadas</h2>
+          <div className="bg-white dark:bg-slate-900 shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 rounded-3xl p-8 animate-slide-up">
+            <h2 className="text-2xl font-display font-black text-slate-900 dark:text-white mb-8 border-b border-slate-50 dark:border-slate-800 pb-4">Órdenes Consolidadas</h2>
             <ConsolidatedOrderTable
               orders={ordenesConsolidadas}
               onOrderClick={(order) => { setSelectedConsolidatedOrderDetail(order); setShowConsolidatedOrderDetailsModal(true); }}
@@ -514,13 +556,13 @@ export const AdminDashboardPage = (): React.ReactElement => {
         );
       case 'usuarios':
         return (
-          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
+          <div className="bg-white dark:bg-slate-900 shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 rounded-3xl p-8 animate-slide-up">
             <UserManagement />
           </div>
         );
       case 'departamentos':
         return (
-          <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
+          <div className="bg-white dark:bg-slate-900 shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 rounded-3xl p-8 animate-slide-up">
             <DepartmentManagement />
           </div>
         );
@@ -551,10 +593,10 @@ export const AdminDashboardPage = (): React.ReactElement => {
 
       {showDirectOrderForm && (
         <DirectOrderForm
-            show={showDirectOrderForm}
-            onHide={() => setShowDirectOrderForm(false)}
-            userProfile={userProfile}
-            onSuccess={handleOrderCreated}
+          show={showDirectOrderForm}
+          onHide={() => setShowDirectOrderForm(false)}
+          userProfile={userProfile}
+          onSuccess={handleOrderCreated}
         />
       )}
 
@@ -595,7 +637,7 @@ export const AdminDashboardPage = (): React.ReactElement => {
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Orden Creada Exitosamente</h3>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-              La orden de compra #{newlyCreatedOrder.id} ha sido creada correctamente.
+              La orden de compra #${newlyCreatedOrder.codigo_visible || newlyCreatedOrder.id} ha sido creada correctamente.
             </p>
             {error && <p className="mt-2 text-sm text-red-500 dark:text-red-300">Advertencia: {error}</p>}
             <div className="mt-6 flex justify-end space-x-3">

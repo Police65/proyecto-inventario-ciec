@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
-import { UserProfile, Proveedor, Producto, OrdenCompra, OrdenCompraUnidad, OrdenCompraFormData, CategoriaProducto, NotificacionInsert } from '../../types';
-import { XMarkIcon, CheckIcon, PlusCircleIcon, TrashIcon, ArrowPathIcon, CalendarDaysIcon, TagIcon } from '@heroicons/react/24/outline';
+import { UserProfile, Proveedor, Producto, OrdenCompra, OrdenCompraUnidad, OrdenCompraFormData, CategoriaProducto, NotificacionInsert, CategoriaProveedor } from '../../types';
+import { XMarkIcon, CheckIcon, PlusCircleIcon, TrashIcon, ArrowPathIcon, CalendarDaysIcon, TagIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 import { v4 as uuidv4 } from 'uuid';
 import { useOrderCalculations } from '../../hooks/useOrderCalculations';
@@ -66,6 +66,12 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
   const [submittingCategory, setSubmittingCategory] = useState(false);
   const [categoryError, setCategoryError] = useState<string|null>(null);
 
+  // Category Validation State
+  const [providerCategories, setProviderCategories] = useState<Set<number>>(new Set());
+  const [showCategoryWarning, setShowCategoryWarning] = useState(false);
+  const [mismatchedProducts, setMismatchedProducts] = useState<{productName: string, categoryId: number, categoryName: string}[]>([]);
+  const [addingCategories, setAddingCategories] = useState(false);
+
 
   const [formData, setFormData] = useState<Partial<OrdenCompraFormData>>({
     proveedor_id: undefined, unidad: 'Bs', retencion_porcentaje: 75,
@@ -98,7 +104,7 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       setLoadingInitialData(true);
       const loadInitialData = async () => {
         try {
-          const { data: provData, error: provError } = await supabase.from('proveedor').select('*');
+          const { data: provData, error: provError } = await supabase.from('proveedor').select('*, categorias:proveedor_categoria(categoria_id)');
           if (provError) throw provError;
           setProveedores(provData || []);
 
@@ -132,7 +138,14 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
                 ...prev,
                 retencion_porcentaje: selectedProvider.porcentaje_retencion_iva
             }));
+            if (selectedProvider.categorias) {
+              setProviderCategories(new Set(selectedProvider.categorias.map((c: any) => c.categoria_id)));
+            } else {
+              setProviderCategories(new Set());
+            }
         }
+    } else {
+      setProviderCategories(new Set());
     }
   }, [formData.proveedor_id, proveedores]);
 
@@ -251,8 +264,7 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
   };
 
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const processOrderCreation = async () => {
     setError(null);
     setSubmittingOrder(true);
 
@@ -389,6 +401,79 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       setSubmittingOrder(false);
     }
   };
+
+  const handleAddCategoriesAndProceed = async () => {
+    setAddingCategories(true);
+    try {
+      const categoriesToAdd = mismatchedProducts.map(m => ({
+        proveedor_id: Number(formData.proveedor_id),
+        categoria_id: m.categoryId
+      }));
+      
+      // Use upsert or ignore duplicates
+      const { error } = await supabase.from('proveedor_categoria').upsert(categoriesToAdd, { onConflict: 'proveedor_id,categoria_id', ignoreDuplicates: true });
+      if (error) throw error;
+      
+      setShowCategoryWarning(false);
+      await processOrderCreation();
+    } catch (err) {
+      console.error("Error adding categories:", err);
+      alert("Error al actualizar categorías del proveedor.");
+    } finally {
+      setAddingCategories(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!formData.proveedor_id) return;
+
+    // Check for category mismatches
+    const mismatches: {productName: string, categoryId: number, categoryName: string}[] = [];
+    const mismatchedCategoryIds = new Set<number>();
+
+    for (const item of productos) {
+      let catId: number | null = null;
+      let prodName = '';
+
+      if (item.isNewProduct && item.newProduct_categoria_id) {
+        catId = item.newProduct_categoria_id;
+        prodName = item.newProduct_descripcion;
+      } else if (item.selected_producto_id) {
+        const product = fetchedDbProducts.find(p => p.id === item.selected_producto_id);
+        if (product && product.categoria_id) {
+          catId = product.categoria_id;
+          prodName = product.descripcion;
+        }
+      }
+
+      if (catId && !providerCategories.has(catId)) {
+        mismatchedCategoryIds.add(catId);
+        mismatches.push({
+          productName: prodName,
+          categoryId: catId,
+          categoryName: 'Cargando...'
+        });
+      }
+    }
+
+    if (mismatches.length > 0) {
+      // Fetch category names
+      const { data: catData } = await supabase.from('categoria_producto').select('id, nombre').in('id', Array.from(mismatchedCategoryIds));
+      if (catData) {
+        mismatches.forEach(m => {
+          const cat = catData.find(c => c.id === m.categoryId);
+          if (cat) m.categoryName = cat.nombre;
+        });
+      }
+      setMismatchedProducts(mismatches);
+      setShowCategoryWarning(true);
+      return;
+    }
+
+    await processOrderCreation();
+  };
+
   
   const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
   const smallInputFieldClasses = "block w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
@@ -550,6 +635,40 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
                 <div><label htmlFor="newCategoryNameInputModal" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre Categoría <span className="text-red-500">*</span></label><input type="text" id="newCategoryNameInputModal" value={newCategoryNameInput} onChange={(e) => setNewCategoryNameInput(e.target.value)} required className={`mt-1 w-full px-3 py-2 border ${inputFieldClasses}`} /></div>
                 <div className="mt-4 flex justify-end space-x-2"><button type="button" onClick={() => setShowNewCategoryModal(false)} disabled={submittingCategory} className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">Cancelar</button><button type="submit" disabled={submittingCategory} className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none flex items-center">{submittingCategory && <ArrowPathIcon className="w-4 h-4 animate-spin mr-1.5"/>}Guardar Categoría</button></div>
             </form>
+        </div>
+      )}
+      
+      {/* Category Warning Modal */}
+      {showCategoryWarning && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-70 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4 text-amber-600 dark:text-amber-500">
+              <ExclamationTriangleIcon className="w-8 h-8" />
+              <h4 className="text-lg font-bold">Advertencia de Categoría</h4>
+            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+              Los siguientes productos pertenecen a categorías que este proveedor no tiene registradas:
+            </p>
+            <ul className="list-disc pl-5 mb-4 text-sm text-gray-600 dark:text-gray-400 max-h-40 overflow-y-auto">
+              {mismatchedProducts.map((m, idx) => (
+                <li key={idx}>
+                  <span className="font-semibold">{m.productName}</span> - Categoría: {m.categoryName}
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
+              ¿Desea añadir estas categorías al proveedor y continuar con la orden?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowCategoryWarning(false)} className="px-4 py-2 border rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                Cancelar
+              </button>
+              <button onClick={handleAddCategoriesAndProceed} disabled={addingCategories} className="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 flex items-center">
+                {addingCategories && <ArrowPathIcon className="w-4 h-4 animate-spin mr-2" />}
+                Añadir Categorías y Continuar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

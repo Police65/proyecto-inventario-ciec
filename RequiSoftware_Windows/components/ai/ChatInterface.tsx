@@ -123,8 +123,9 @@ const getIntentFromQuery = async (query: string): Promise<{function: string; arg
     `;
 
     try {
+        // Updated: Changed model to 'gemini-3-flash-preview' for intent routing task.
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: intentPrompt,
             config: {
                 temperature: 0,
@@ -257,12 +258,13 @@ REGLAS CRÍTICAS E INQUEBRANTABLES:
         }
 
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        // Updated: Changed model to 'gemini-3-flash-preview' and handled initialization correctly.
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: contents,
             config: {
                 systemInstruction: systemPrompt,
-                maxOutputTokens: 1500,
+                // Removed maxOutputTokens to follow guidelines about avoiding it if not required.
             }
         });
 

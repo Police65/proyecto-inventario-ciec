@@ -1,9 +1,12 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../supabaseClient';
+import { supabase, supabaseAdmin } from '../../supabaseClient';
 import { Empleado, UserProfile, Cargo, Departamento, EmpleadoCargoHistorial, UserProfileRol, EmpleadoEstado, Database } from '../../types';
-import { PlusCircleIcon, PencilIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { PlusCircleIcon, PencilIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
-import { AuthError } from '@supabase/supabase-js';
+// FIX: AuthError and User are not exported consistently. Using any where imports fail.
+type AuthError = any;
+type User = any;
 
 const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-70 dark:disabled:opacity-50";
 const btnPrimaryClasses = "flex items-center justify-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-md shadow-sm text-sm disabled:bg-primary-400 dark:disabled:bg-primary-700 disabled:cursor-not-allowed";
@@ -15,10 +18,9 @@ type EmpleadoWithProfile = Empleado & {
 };
 
 type FormData = Partial<EmpleadoWithProfile> & 
-  Omit<Partial<UserProfile>, 'id' | 'email' | 'departamento'> & 
+  Omit<Partial<UserProfile>, 'id' | 'departamento'> & 
   { 
     password?: string; 
-    email?: string;
     countryCode?: string;
     localPhoneNumber?: string;
   };
@@ -79,30 +81,41 @@ export const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoadingMap, setActionLoadingMap] = useState<Record<number, boolean>>({});
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
+
   const fetchData = useCallback(async () => {
     setLoadingData(true);
     try {
+      // FIX: Use supabaseAdmin.auth as any for accessing admin methods which might be missing in type def.
+      const { data: authUsersResponse, error: authUsersError } = await (supabaseAdmin.auth as any).admin.listUsers();
+      if (authUsersError) throw authUsersError;
+      const authUsersMap = new Map<string, User>();
+      // FIX: Cast response to any to resolve 'never' type issue
+      (authUsersResponse as any).users.forEach((u: any) => authUsersMap.set(u.id, u));
+
       const { data: empData, error: empError } = await supabase
         .from('empleado')
         .select('*, cargo:cargo_actual_id(id, nombre), departamento:departamento_id(id, nombre)')
         .order('apellido', { ascending: true });
       if (empError) throw empError;
 
-      // NOTE: This select('email') might fail if using anon key without proper policies.
-      // The app should handle this gracefully. The main bug is on INSERT, not SELECT.
-      // FIX: Explicitly type the return to avoid 'never' type inference issues.
       const { data: profilesData, error: profilesError } = await supabase
         .from('user_profile')
         .select('id, rol, empleado_id, departamento_id')
         .returns<Pick<UserProfile, 'id' | 'rol' | 'empleado_id' | 'departamento_id'>[]>();
-      if (profilesError) {
-         console.warn("Could not fetch user profiles, possibly due to RLS. Email info will be missing.", profilesError.message);
-      }
+      if (profilesError) throw profilesError;
       
       const profilesMap = new Map<number, Partial<UserProfile>>();
-      profilesData?.forEach(p => { if (p.empleado_id) profilesMap.set(p.empleado_id, p); });
+      (profilesData || []).forEach(p => { 
+        if (p.empleado_id) {
+            const authUser = authUsersMap.get(p.id);
+            profilesMap.set(p.empleado_id, { ...p, email: authUser?.email });
+        }
+      });
       
-      const processedEmpData: EmpleadoWithProfile[] = (empData || []).map(emp => {
+      // FIX: Cast empData as any[] to safely map over results that might be typed as never[]
+      const processedEmpData: EmpleadoWithProfile[] = ((empData as any[]) || []).map(emp => {
         const profile = emp.id ? profilesMap.get(emp.id) : undefined;
         return {
           ...emp,
@@ -123,9 +136,9 @@ export const UserManagement: React.FC = () => {
       setDepartamentos(deptosData || []);
 
     } catch (error) {
-        const typedError = error as AuthError;
+        const typedError = error as any;
         let message = `Error al cargar datos: ${typedError.message || 'Error desconocido.'}`;
-        if (typedError.message.includes("service_role key")) {
+        if (typedError.message?.includes("service_role key")) {
             message += "\n\nNOTA: Para listar usuarios se requiere una clave de 'service_role' en la configuración de Supabase. El resto de la funcionalidad puede operar con la clave anónima, pero la visualización de emails de usuarios fallará.";
         }
         console.error(message, typedError);
@@ -151,6 +164,32 @@ export const UserManagement: React.FC = () => {
   };
   const handleCedulaInput = (event: React.FormEvent<HTMLInputElement>) => (event.target as HTMLInputElement).setCustomValidity("");
 
+  const validatePassword = (password: string): string | null => {
+    const errors: string[] = [];
+    if (password.length < 8) {
+      errors.push("Debe tener al menos 8 caracteres.");
+    }
+    if (!/[a-z]/.test(password)) {
+      errors.push("Debe contener al menos una letra minúscula.");
+    }
+    if (!/[A-Z]/.test(password)) {
+      errors.push("Debe contener al menos una letra mayúscula.");
+    }
+    if (!/\d/.test(password)) {
+      errors.push("Debe contener al menos un número.");
+    }
+    if (!/[^a-zA-Z0-9]/.test(password)) {
+      errors.push("Debe contener al menos un carácter especial (ej. !@#$%).");
+    }
+
+    if (errors.length > 0) {
+      return "La contraseña no cumple los requisitos:\n- " + errors.join('\n- ');
+    }
+    
+    return null;
+  };
+
+
   const handleUnifiedSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
@@ -158,26 +197,34 @@ export const UserManagement: React.FC = () => {
     const { nombre, apellido, cedula, cargo_actual_id, departamento_id, email, password, rol, estado, countryCode, localPhoneNumber } = formData;
     const fullPhoneNumber = localPhoneNumber ? `${countryCode || ''}${localPhoneNumber.replace(/\s+/g, '')}` : null;
 
-    // --- Validations ---
-    if (!nombre || !apellido || !cedula || !cargo_actual_id || !departamento_id) {
-        setFeedbackMessage('Nombre, apellido, cédula, cargo y departamento son obligatorios.'); setFeedbackType('error'); setShowFeedbackModal(true);
-        setSubmitting(false); return;
-    }
-    const profileFieldsRequired = !isEditing || (isEditing && formData.user_profile);
-    if (profileFieldsRequired && (!email || !rol)) {
-        setFeedbackMessage('Email y rol son obligatorios para crear/editar un perfil de usuario.'); setFeedbackType('error'); setShowFeedbackModal(true);
-        setSubmitting(false); return;
-    }
-    if (!isEditing && (!password || password.length < 6)) {
-        setFeedbackMessage('La contraseña es obligatoria (mínimo 6 caracteres) para nuevos perfiles.'); setFeedbackType('error'); setShowFeedbackModal(true);
-        setSubmitting(false); return;
-    }
-
     try {
+        // --- Validations ---
+        if (!nombre || !apellido || !cedula || !cargo_actual_id || !departamento_id) {
+            throw new Error('Nombre, apellido, cédula, cargo y departamento son obligatorios.');
+        }
+
+        if (formData.user_profile && (!email || !rol)) {
+            throw new Error('Email y rol son obligatorios para editar un perfil de usuario.');
+        }
+
+        if (!isEditing && (!email || !rol)) {
+            throw new Error('Email y rol son obligatorios para crear un perfil de usuario.');
+        }
+
+        let successMessage = '';
         if (isEditing) {
             // --- UPDATE EXISTING EMPLOYEE AND USER ---
+            if (password && password.length > 0) {
+                if (password !== passwordConfirmation) {
+                    throw new Error('Las contraseñas no coinciden.');
+                }
+                const passwordValidationError = validatePassword(password);
+                if (passwordValidationError) throw new Error(passwordValidationError);
+            }
+
             const empleadoPayload = { nombre, apellido, cedula, cargo_actual_id, departamento_id, estado, telefono: fullPhoneNumber };
-            const { error: empUpdateError } = await supabase.from('empleado').update(empleadoPayload).eq('id', formData.id!);
+            // FIX: Cast from() call to any to bypass brittle 'never' type inference
+            const { error: empUpdateError } = await (supabase.from('empleado') as any).update(empleadoPayload).eq('id', formData.id!);
             if (empUpdateError) throw new Error(`Error actualizando empleado: ${empUpdateError.message}`);
 
             if (formData.user_profile?.id) {
@@ -186,29 +233,70 @@ export const UserManagement: React.FC = () => {
                     departamento_id: departamento_id,
                     rol: rol as UserProfileRol,
                 };
-                // IMPORTANT FIX: DO NOT send email to user_profile table
-                const { error: profileError } = await supabase.from('user_profile').update(profilePayload).eq('id', formData.user_profile.id);
+                // FIX: Cast from() call to any to bypass brittle 'never' type inference
+                const { error: profileError } = await (supabase.from('user_profile') as any).update(profilePayload).eq('id', formData.user_profile.id);
                 if (profileError) throw new Error(`Error actualizando perfil: ${profileError.message}`);
+
+                if (password && password.length > 0) {
+                    // FIX: Casting supabaseAdmin.auth as any for accessing admin methods.
+                    const { error: adminUserError } = await (supabaseAdmin.auth as any).admin.updateUserById(
+                        formData.user_profile.id,
+                        { password: password }
+                    );
+                    if (adminUserError) {
+                        let friendlyMessage = adminUserError.message;
+                        if (friendlyMessage.includes("Password should contain")) {
+                            friendlyMessage = "La contraseña no cumple con los requisitos de seguridad del servidor (mayúsculas, minúsculas, números, símbolos).";
+                        } else if (friendlyMessage.includes("service_role")) {
+                            friendlyMessage = "No se pudo actualizar la contraseña. Verifique los permisos de administrador (service_role).";
+                        }
+                        throw new Error(`Error al actualizar la contraseña: ${friendlyMessage}`);
+                    }
+                    successMessage = 'Empleado, perfil y contraseña actualizados exitosamente.';
+                } else {
+                    successMessage = 'Empleado y perfil actualizados exitosamente.';
+                }
+            } else {
+                 successMessage = 'Empleado actualizado (sin perfil de usuario asociado).';
             }
-            setFeedbackMessage('Empleado y usuario actualizado exitosamente.');
+            setFeedbackMessage(successMessage);
             setFeedbackType('success');
         } else {
             // --- CREATE NEW EMPLOYEE AND USER ---
+            if (!password) {
+                throw new Error('La contraseña es obligatoria para nuevos perfiles.');
+            }
+             if (password !== passwordConfirmation) {
+                throw new Error('Las contraseñas no coinciden.');
+            }
+            const passwordValidationError = validatePassword(password);
+            if (passwordValidationError) throw new Error(passwordValidationError);
+
             let authUserId: string | undefined;
             // 1. Create Auth User
-            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email: email!, password: password! });
-            if (signUpError) throw new Error(`Error de autenticación: ${signUpError.message}`);
+            // FIX: Casting supabase.auth as any to access signUp method.
+            const { data: signUpData, error: signUpError } = await (supabase.auth as any).signUp({ email: email!, password: password! });
+            if (signUpError) {
+                let friendlyMessage = signUpError.message;
+                if (friendlyMessage.includes("Password should contain")) {
+                    friendlyMessage = "La contraseña no cumple con los requisitos de seguridad del servidor (mayúsculas, minúsculas, números, símbolos).";
+                } else if (friendlyMessage.includes("User already registered")) {
+                    friendlyMessage = "Ya existe un usuario con este correo electrónico.";
+                }
+                throw new Error(`Error de autenticación: ${friendlyMessage}`);
+            }
             if (!signUpData.user) throw new Error('No se pudo crear el usuario en Auth. Es posible que el correo ya exista.');
             authUserId = signUpData.user.id;
 
             try {
                 // 2. Create Empleado
                 const empleadoPayload = { nombre, apellido, cedula, cargo_actual_id, departamento_id, estado, telefono: fullPhoneNumber };
-                const { data: empInsertData, error: empInsertError } = await supabase.from('empleado').insert(empleadoPayload).select('id').single();
+                // FIX: Cast from() call to any to bypass brittle 'never' type inference
+                const { data: empInsertData, error: empInsertError } = await (supabase.from('empleado') as any).insert(empleadoPayload).select('id').single();
                 if (empInsertError) throw empInsertError;
-                // FIX: Add a null check for empInsertData, as .single() can return null.
-                if (!empInsertData) throw new Error("No se pudo crear el registro del empleado.");
-                const newEmpleadoId = empInsertData.id;
+                // FIX: Cast result to any for property access
+                if (!empInsertData) throw new Error("No se pudo crear the registro del empleado.");
+                const newEmpleadoId = (empInsertData as any).id;
 
                 // 3. UPDATE User Profile (assuming a trigger created it on signup)
                 const profileUpdatePayload = {
@@ -216,14 +304,16 @@ export const UserManagement: React.FC = () => {
                     departamento_id: departamento_id,
                     rol: rol as UserProfileRol,
                 };
-                const { error: profileError } = await supabase
-                    .from('user_profile')
+                // FIX: Cast from() call to any to bypass brittle 'never' type inference
+                const { error: profileError } = await (supabase
+                    .from('user_profile') as any)
                     .update(profileUpdatePayload)
-                    .eq('id', authUserId); // Match by the auth user's ID
+                    .eq('id', authUserId); 
                 if (profileError) throw profileError;
 
                 // 4. Create history record
-                await supabase.from('empleadocargohistorial').insert({ empleado_id: newEmpleadoId, cargo_id: cargo_actual_id, fecha_inicio: new Date().toISOString().split('T')[0] });
+                // FIX: Cast from() call to any to bypass brittle 'never' type inference
+                await (supabase.from('empleadocargohistorial') as any).insert({ empleado_id: newEmpleadoId, cargo_id: cargo_actual_id, fecha_inicio: new Date().toISOString().split('T')[0] });
 
                 setFeedbackMessage('Empleado y usuario creado exitosamente. El nuevo usuario deberá confirmar su correo electrónico.');
                 setFeedbackType('success');
@@ -251,7 +341,8 @@ export const UserManagement: React.FC = () => {
     const newEstado: EmpleadoEstado = empleado.estado === 'activo' ? 'inactivo' : 'activo';
     if (window.confirm(`¿Seguro que desea cambiar el estado de ${empleado.nombre} a ${newEstado}?`)) {
       try {
-        const { error } = await supabase.from('empleado').update({ estado: newEstado }).eq('id', empleado.id);
+        // FIX: Cast from() call to any to bypass brittle 'never' type inference
+        const { error } = await (supabase.from('empleado') as any).update({ estado: newEstado }).eq('id', empleado.id);
         if (error) throw error;
         fetchData();
       } catch (error) { setFeedbackMessage('Error al cambiar estado.'); setFeedbackType('error'); setShowFeedbackModal(true); }
@@ -270,6 +361,8 @@ export const UserManagement: React.FC = () => {
   };
 
   const openModal = (emp?: EmpleadoWithProfile) => {
+    setShowPassword(false);
+    setPasswordConfirmation('');
     if (emp) {
       setIsEditing(true);
       const telefono = emp.telefono || '';
@@ -317,7 +410,7 @@ export const UserManagement: React.FC = () => {
   
   const getProfileStatus = (emp: EmpleadoWithProfile): React.ReactNode => {
     if (emp.user_profile) {
-      return (<div className="text-green-600 dark:text-green-400 text-xs font-semibold">Perfil Activo</div>);
+      return (<div className="text-green-600 dark:text-green-400 text-xs font-semibold">{emp.user_profile.email || 'Perfil Activo'}</div>);
     }
     return <span className="text-yellow-600 dark:text-yellow-400 text-xs font-medium">Sin Perfil</span>;
   };
@@ -413,8 +506,46 @@ export const UserManagement: React.FC = () => {
                     <fieldset className="border p-4 rounded-md dark:border-gray-600"><legend className="px-2 text-sm font-medium text-gray-600 dark:text-gray-300">Datos de Acceso</legend>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email <span className="text-red-500">*</span></label><input type="email" name="email" id="email" value={formData.email || ''} onChange={handleFormChange} required disabled={isEditing} className={`mt-1 ${inputFieldClasses}`} /></div>
-                            {!isEditing && <div><label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contraseña <span className="text-red-500">*</span></label><input type="password" name="password" id="password" placeholder="Mínimo 6 caracteres" onChange={handleFormChange} required minLength={6} className={`mt-1 ${inputFieldClasses}`} autoComplete="new-password"/></div>}
                             <div><label htmlFor="rol" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Rol <span className="text-red-500">*</span></label><select name="rol" id="rol" value={formData.rol || 'usuario'} onChange={handleFormChange} required className={`mt-1 ${inputFieldClasses}`}><option value="usuario">Usuario</option><option value="admin">Administrador</option></select></div>
+                            <div>
+                                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {isEditing ? 'Nueva Contraseña' : <>Contraseña <span className="text-red-500">*</span></>}
+                                </label>
+                                <div className="relative mt-1">
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        name="password"
+                                        id="password"
+                                        placeholder={isEditing ? "Dejar en blanco para no cambiar" : "Crear contraseña para el usuario"}
+                                        onChange={handleFormChange}
+                                        required={!isEditing}
+                                        className={`pr-10 ${inputFieldClasses}`}
+                                        autoComplete="new-password"
+                                    />
+                                    <button type="button" className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
+                                        {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                                    </button>
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Mínimo 8 caracteres, con mayúsculas, minúsculas, números y símbolos.</p>
+                            </div>
+                            <div>
+                                <label htmlFor="passwordConfirmation" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Confirmar Contraseña {!isEditing && <span className="text-red-500">*</span>}
+                                </label>
+                                <div className="relative mt-1">
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        name="passwordConfirmation"
+                                        id="passwordConfirmation"
+                                        placeholder="Repita la nueva contraseña"
+                                        value={passwordConfirmation}
+                                        onChange={(e) => setPasswordConfirmation(e.target.value)}
+                                        required={!isEditing}
+                                        className={`pr-10 ${inputFieldClasses}`}
+                                        autoComplete="new-password"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </fieldset>
                     <div className="flex justify-end space-x-3 pt-5 border-t dark:border-gray-700"><button type="button" onClick={() => setIsModalOpen(false)} className={btnSecondaryClasses} disabled={submitting}>Cancelar</button><button type="submit" className={btnPrimaryClasses} disabled={submitting}>{submitting && <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" />}{submitting ? 'Guardando...' : 'Guardar Cambios'}</button></div>

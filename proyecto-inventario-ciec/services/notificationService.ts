@@ -17,7 +17,8 @@ export const fetchAdminUserIds = async (): Promise<string[]> => {
       console.error('Error fetching admin user IDs:', error.message, error.details, error.code);
       return [];
     }
-    return (data || []).map(profile => profile.id);
+    // FIX: Cast profile entries to any for safe property access.
+    return (data || []).map(profile => (profile as any).id);
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error('Exception in fetchAdminUserIds:', errorMessage, err);
@@ -45,8 +46,9 @@ export const fetchUserAuthIdByEmpleadoId = async (empleadoId: number): Promise<s
       console.error(`Error fetching user auth ID for empleado ID ${empleadoId}:`, error.message, error.details, error.code);
       return null;
     }
-    // FIX: Add optional chaining because .single() can return a null data object.
-    return data?.id || null;
+    // FIX: Add optional chaining and cast if needed to access properties.
+    const result = data as any;
+    return result?.id || null;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error(`Exception in fetchUserAuthIdByEmpleadoId for empleado ID ${empleadoId}:`, errorMessage, err);
@@ -76,7 +78,8 @@ export const createNotifications = async (
   }));
 
   try {
-    const { error } = await supabase.from('notificaciones').insert(enrichedPayloads);
+    // FIX: Cast from() to any to resolve 'never' type error during insert.
+    const { error } = await (supabase.from('notificaciones') as any).insert(enrichedPayloads);
 
     if (error) {
       console.error('Error creating notifications in Supabase:', error.message, error.details, error.code, error);

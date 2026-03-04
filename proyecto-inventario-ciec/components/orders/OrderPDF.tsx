@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { supabase } from '../../supabaseClient';
-import PDFTemplate from './PDFTemplate';
+import PDFTemplate from '../pdf/PDFTemplate';
 import { OrdenCompra as OrdenCompraType, Camaraindustriales, Proveedor, Empleado, OrdenCompraDetalle, Producto as ProductoType } from '../../types';
 import { DocumentArrowDownIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
@@ -18,6 +18,9 @@ interface FullOrdenCompraForPDF extends OrdenCompraType {
   proveedor: Proveedor | undefined;
   productos: (OrdenCompraDetalle & { producto: ProductoType | undefined })[];
   empleado: Empleado | undefined;
+  solicitud_compra?: {
+    empleado?: Empleado;
+  } | null;
 }
 
 interface PDFRenderData {
@@ -72,7 +75,8 @@ const OrderPDF: React.FC<OrderPDFProps> = ({
           codigo_visible,
           proveedor:proveedor_id(*),
           productos:ordencompra_detalle(*, producto:producto_id(*)),
-          empleado:empleado_id(*)
+          empleado:empleado_id(*),
+          solicitud_compra:solicitud_compra_id(empleado:empleado_id(*))
         `)
         .eq('id', order.id)
         .single<FullOrdenCompraForPDF>();

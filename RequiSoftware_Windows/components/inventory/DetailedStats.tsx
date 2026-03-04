@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
@@ -337,7 +338,7 @@ const DetailedStats: React.FC = () => {
     setProductRequestHistoryLoading(true); setProductRequestHistoryError(null); setProductRequestHistoryResult(null);
     try {
         let query = supabase.from('solicitudcompra_detalle')
-            .select('cantidad, solicitud:solicitud_comp_id!inner(id, fecha_solicitud, estado, empleado:empleado_id(nombre, apellido), departamento:departamento_id(nombre))')
+            .select('cantidad, solicitud:solicitud_compra_id!inner(id, fecha_solicitud, estado, empleado:empleado_id(nombre, apellido), departamento:departamento_id(nombre))') // CORRECCIÓN: solicitud_compra_id
             .eq('producto_id', productRequestHistoryQuery.product);
         if (productRequestHistoryQuery.startDate) query = query.gte('solicitud.fecha_solicitud', productRequestHistoryQuery.startDate);
         if (productRequestHistoryQuery.endDate) query = query.lte('solicitud.fecha_solicitud', productRequestHistoryQuery.endDate);

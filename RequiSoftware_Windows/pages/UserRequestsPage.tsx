@@ -44,7 +44,7 @@ export const UserRequestsPage: React.FC = () => {
         detalles:solicitudcompra_detalle(id, solicitud_compra_id, producto_id, cantidad, descripcion_producto_personalizado, categoria_producto_sugerida_id, categoria_sugerida_nombre, producto:producto_id(id, descripcion, categoria_id, categoria:categoria_id(id, nombre))),
         empleado:empleado_id(id, nombre, apellido),
         departamento:departamento_id(id, nombre, estado)
-      `;
+      `; // CORRECCIÓN: solicitud_compra_id
 
       // FIX: Explicitly type the return to avoid 'never' type issues.
       const { data: requestsRaw, error: requestsError } = await supabase

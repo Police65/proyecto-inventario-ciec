@@ -1,29 +1,52 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" /> <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RequiSoftware CIEC - Gestión de Adquisiciones</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class', // or 'media'
+      darkMode: 'class',
       theme: {
         extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+          },
           colors: {
-            primary: {"50":"#eff6ff","100":"#dbeafe","200":"#bfdbfe","300":"#93c5fd","400":"#60a5fa","500":"#3b82f6","600":"#2563eb","700":"#1d4ed8","800":"#1e40af","900":"#1e3a8a","950":"#172554"},
-            gray: {
-              '50': '#f9fafb',
-              '100': '#f3f4f6',
-              '200': '#e5e7eb',
-              '300': '#d1d5db',
-              '400': '#9ca3af',
-              '500': '#6b7280',
-              '600': '#4b5563',
-              '700': '#374151',
-              '800': '#1f2937',
-              '900': '#111827',
-              '950': '#030712'
+            primary: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              200: '#bae0fd',
+              300: '#7cc8fb',
+              400: '#38acf7',
+              500: '#0e91e9',
+              600: '#0274c7',
+              700: '#025c9f',
+              800: '#064f84',
+              900: '#0b426e',
+              950: '#072a49',
+            },
+            slate: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              300: '#cbd5e1',
+              400: '#94a3b8',
+              500: '#64748b',
+              600: '#475569',
+              700: '#334155',
+              800: '#1e293b',
+              900: '#0f172a',
+              950: '#020617',
             }
           }
         }
@@ -42,10 +65,10 @@
   </script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
   <!-- Shepherd.js Tour Library -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/css/shepherd.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/css/shepherd.css" />
 
   <!-- Mapa de importación para módulos ES -->
-<script type="importmap">
+  <script type="importmap">
 {
   "imports": {
     "@/": "./",
@@ -66,100 +89,157 @@
   }
 }
 </script>
-<style>
+  <style>
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
+
     .fade-in-content {
       animation: fadeIn 0.4s ease-out forwards;
     }
 
     @keyframes popIn {
-      0% { transform: scale(0.7); opacity: 0; }
-      80% { transform: scale(1.05); opacity: 1; }
-      100% { transform: scale(1); opacity: 1; }
+      0% {
+        transform: scale(0.7);
+        opacity: 0;
+      }
+
+      80% {
+        transform: scale(1.05);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
     }
+
     .pop-in-animation {
       animation: popIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
     }
 
     /* Shepherd.js Dark Theme Overrides */
     .dark .shepherd-element {
-      background-color: #1f2937; /* gray-800 */
-      border-radius: 0.75rem; /* rounded-lg */
+      background-color: #1f2937;
+      /* gray-800 */
+      border-radius: 0.75rem;
+      /* rounded-lg */
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.08);
-      border: 1px solid #374151; /* gray-700 */
+      border: 1px solid #374151;
+      /* gray-700 */
     }
+
     .dark .shepherd-header {
-      background-color: #374151; /* gray-700 */
-      border-bottom: 1px solid #4b5563; /* gray-600 */
+      background-color: #374151;
+      /* gray-700 */
+      border-bottom: 1px solid #4b5563;
+      /* gray-600 */
       padding: 0.75rem 1rem;
       border-top-left-radius: 0.75rem;
       border-top-right-radius: 0.75rem;
     }
+
     .dark .shepherd-title {
-      color: #1f2937; /* gray-800 */
+      color: #1f2937;
+      /* gray-800 */
       font-weight: 600;
     }
+
     .dark .shepherd-text {
-      color: #d1d5db; /* gray-300 */
+      color: #d1d5db;
+      /* gray-300 */
       padding: 1rem;
     }
+
     .dark .shepherd-cancel-icon {
-      color: #9ca3af; /* gray-400 */
+      color: #9ca3af;
+      /* gray-400 */
     }
+
     .dark .shepherd-cancel-icon:hover {
-      color: #f9fafb; /* gray-50 */
+      color: #f9fafb;
+      /* gray-50 */
     }
+
     .dark .shepherd-footer {
       padding: 0.75rem 1rem;
-      border-top: 1px solid #374151; /* gray-700 */
+      border-top: 1px solid #374151;
+      /* gray-700 */
       background-color: transparent;
     }
+
     /* Button Styles */
     .dark .shepherd-button {
       transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
-      border-radius: 0.375rem; /* rounded-md */
+      border-radius: 0.375rem;
+      /* rounded-md */
       padding: 0.5rem 1rem;
       font-weight: 500;
     }
+
     /* Primary Button (Next/Siguiente/Finalizar) */
     .dark .shepherd-button.shepherd-button-primary {
-      background-color: #2563eb; /* primary-600 */
+      background-color: #2563eb;
+      /* primary-600 */
       color: #ffffff;
     }
+
     .dark .shepherd-button.shepherd-button-primary:hover {
-      background-color: #1d4ed8; /* primary-700 */
+      background-color: #1d4ed8;
+      /* primary-700 */
     }
+
     /* Secondary Button (Back/Anterior) */
     .dark .shepherd-button.shepherd-button-secondary {
-       background-color: #4b5563; /* gray-600 */
-       color: #d1d5db; /* gray-300 */
+      background-color: #4b5563;
+      /* gray-600 */
+      color: #d1d5db;
+      /* gray-300 */
     }
+
     .dark .shepherd-button.shepherd-button-secondary:hover {
-       background-color: #374151; /* gray-700 */
+      background-color: #374151;
+      /* gray-700 */
     }
+
     /* Arrow color for dark mode */
-    .dark .shepherd-element[data-popper-placement^="top"] > .shepherd-arrow::before {
-        border-top-color: #1f2937; /* Match body bg */
+    .dark .shepherd-element[data-popper-placement^="top"]>.shepherd-arrow::before {
+      border-top-color: #1f2937;
+      /* Match body bg */
     }
-    .dark .shepherd-element[data-popper-placement^="bottom"] > .shepherd-arrow::before {
-        border-bottom-color: #374151; /* Match header bg */
+
+    .dark .shepherd-element[data-popper-placement^="bottom"]>.shepherd-arrow::before {
+      border-bottom-color: #374151;
+      /* Match header bg */
     }
-    .dark .shepherd-element[data-popper-placement^="left"] > .shepherd-arrow::before {
-        border-left-color: #1f2937; /* Match body bg */
+
+    .dark .shepherd-element[data-popper-placement^="left"]>.shepherd-arrow::before {
+      border-left-color: #1f2937;
+      /* Match body bg */
     }
-    .dark .shepherd-element[data-popper-placement^="right"] > .shepherd-arrow::before {
-        border-right-color: #1f2937; /* Match body bg */
+
+    .dark .shepherd-element[data-popper-placement^="right"]>.shepherd-arrow::before {
+      border-right-color: #1f2937;
+      /* Match body bg */
     }
-</style>
-<link rel="stylesheet" href="/index.css">
+  </style>
+  <link rel="stylesheet" href="/index.css">
 </head>
+
 <body class="bg-gray-100 dark:bg-gray-900">
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/shepherd.js@11.2.0/dist/js/shepherd.min.js"></script>
 </body>
+
 </html>

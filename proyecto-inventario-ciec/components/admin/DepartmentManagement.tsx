@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Departamento } from '../../types';
@@ -73,10 +72,12 @@ export const DepartmentManagement: React.FC = () => {
 
         try {
             if (isEditing && formData.id) {
-                const { error: updateError } = await supabase.from('departamento').update(departmentPayload).eq('id', formData.id);
+                // FIX: Cast from() to any to resolve 'never' type error during update.
+                const { error: updateError } = await (supabase.from('departamento') as any).update(departmentPayload).eq('id', formData.id);
                 if (updateError) throw updateError;
             } else {
-                const { error: insertError } = await supabase.from('departamento').insert([departmentPayload]);
+                // FIX: Cast from() to any to resolve 'never' type error during insert.
+                const { error: insertError } = await (supabase.from('departamento') as any).insert([departmentPayload]);
                 if (insertError) throw insertError;
             }
             setIsModalOpen(false);
@@ -121,7 +122,8 @@ export const DepartmentManagement: React.FC = () => {
         }
 
         try {
-            const { error: updateError } = await supabase.from('departamento').update({ estado: newStatus }).eq('id', dept.id);
+            // FIX: Cast from() to any to resolve 'never' type error during update.
+            const { error: updateError } = await (supabase.from('departamento') as any).update({ estado: newStatus }).eq('id', dept.id);
             if (updateError) throw updateError;
             fetchData();
         } catch (err) {

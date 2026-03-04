@@ -46,11 +46,13 @@ const ProviderPerformanceModal: React.FC<ProviderPerformanceModalProps> = ({ sho
           console.error(fetchError);
         } else if (data) {
           setExistingEvaluation(data);
+          // FIX: Cast data to any for safe spread and property access when inference fails.
+          const evaluationData = data as any;
           setFormData({
-            ...data, // Spread existing data
-            orden_compra_id: data.orden_compra_id, // Ensure these are correctly set
-            proveedor_id: data.proveedor_id,
-            fecha_evaluacion: data.fecha_evaluacion ? new Date(data.fecha_evaluacion).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            ...evaluationData, 
+            orden_compra_id: evaluationData.orden_compra_id, 
+            proveedor_id: evaluationData.proveedor_id,
+            fecha_evaluacion: evaluationData.fecha_evaluacion ? new Date(evaluationData.fecha_evaluacion).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           });
         } else {
             setExistingEvaluation(null); // No existing evaluation
@@ -103,15 +105,16 @@ const ProviderPerformanceModal: React.FC<ProviderPerformanceModalProps> = ({ sho
 
     try {
       if (existingEvaluation?.id) {
-        const { error: updateError } = await supabase
-          .from('rendimiento_proveedor')
+        // FIX: Cast from() to any to resolve 'never' type error during update.
+        const { error: updateError } = await (supabase
+          .from('rendimiento_proveedor') as any)
           .update(payload)
           .eq('id', existingEvaluation.id);
         if (updateError) throw updateError;
       } else {
-        // For insert, ensure all fields in payload are valid or have defaults
-        const { error: insertError } = await supabase
-          .from('rendimiento_proveedor')
+        // FIX: Cast from() to any to resolve 'never' type error during insert.
+        const { error: insertError } = await (supabase
+          .from('rendimiento_proveedor') as any)
           .insert(payload);
         if (insertError) throw insertError;
       }

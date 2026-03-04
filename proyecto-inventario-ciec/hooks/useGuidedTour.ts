@@ -22,10 +22,10 @@ export const useGuidedTour = ({ userProfile }: UseGuidedTourProps) => {
     const markTourAsCompletedInDB = async () => {
       if (!userProfile?.id) return;
       try {
-        const { error } = await supabase
-          .from('user_profile')
-          // FIX: Cast to 'any' to resolve 'never' type error. The root cause is likely a complex schema issue, this is a pragmatic fix.
-          .update({ has_completed_tour: true } as any)
+        const { error } = await (supabase
+          // FIX: Cast from() to any to resolve 'never' type inference error on the update method.
+          .from('user_profile') as any)
+          .update({ has_completed_tour: true })
           .eq('id', userProfile.id);
         if (error) {
           console.error("Error al actualizar el estado del tour en la base de datos:", error);

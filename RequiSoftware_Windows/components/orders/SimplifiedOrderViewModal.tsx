@@ -40,12 +40,12 @@ const SimplifiedOrderViewModal: React.FC<SimplifiedOrderViewModalProps> = ({ sho
               <p className="font-medium text-gray-500 dark:text-gray-400">Fecha de Orden:</p>
               <p className="text-gray-800 dark:text-gray-200">{new Date(order.fecha_orden).toLocaleDateString()}</p>
             </div>
-             <div>
+            <div>
               <p className="font-medium text-gray-500 dark:text-gray-400">Estado de Orden:</p>
               <p className="text-gray-800 dark:text-gray-200">{order.estado}</p>
             </div>
           </div>
-          
+
           <div>
             <h4 className="text-md font-semibold text-gray-700 dark:text-gray-200 mt-4 mb-2">Productos Incluidos en la Orden</h4>
             {order.detalles && order.detalles.length > 0 ? (
