@@ -277,10 +277,14 @@ export interface ProductoRezagado {
   orden_compra_id: number;
   producto_id: number;
   cantidad: number;
-  motivo: string;
+  motivo?: string | null;
   solicitud_id?: number | null;
   created_at: string;
   updated_at: string;
+  // Joined relations
+  producto?: Pick<Producto, 'id' | 'descripcion' | 'unidad_medida' | 'codigo_interno'> | null;
+  orden_compra?: Pick<OrdenCompra, 'id' | 'codigo_visible'> | null;
+  solicitud?: Pick<SolicitudCompra, 'id' | 'codigo_visible'> | null;
 }
 
 /* Added missing exported interface to resolve error in UserManagement.tsx */

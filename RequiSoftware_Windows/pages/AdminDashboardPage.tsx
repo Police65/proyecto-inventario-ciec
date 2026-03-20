@@ -8,6 +8,7 @@ import LoadingSpinner from '../components/core/LoadingSpinner';
 import { THRESHOLD_ORDEN_GRANDE } from '../config'; // Importar umbral de valor
 import { createNotifications, fetchAdminUserIds, fetchUserAuthIdByEmpleadoId } from '../services/notificationService'; // Importar servicio de notificaciones
 import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
+import RezagadosPanel from '../components/requests/RezagadosPanel';
 
 // Importar componentes individuales que conforman el dashboard
 import RequestTable from '../components/requests/RequestTable';
@@ -503,6 +504,19 @@ export const AdminDashboardPage = (): React.ReactElement => {
               onReject={handleRejectRequest}
               onRowClick={(req) => { setSelectedRequestDetail(req); setShowRequestDetailsModal(true); }}
               currentEmpleadoId={userProfile.empleado_id || undefined} // Pasar ID para validación visual
+            />
+
+            {/* ── Productos Rezagados ─────────────────────────────────── */}
+            <RezagadosPanel
+              userProfile={userProfile}
+              onCreateOrder={(products, solicitudesIds) => {
+                setSelectedRequestForOrder({
+                  initialProducts: products,
+                  solicitudes: solicitudesIds,
+                  proveedor_id: null,
+                });
+                setShowOrderForm(true);
+              }}
             />
           </div>
         );

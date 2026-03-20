@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
-import { UserProfile, Proveedor, Producto, OrdenCompra, OrdenCompraUnidad, OrdenCompraFormData, CategoriaProducto, NotificacionInsert, CategoriaProveedor } from '../../types';
-import { XMarkIcon, CheckIcon, PlusCircleIcon, TrashIcon, ArrowPathIcon, CalendarDaysIcon, TagIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { UserProfile, Proveedor, Producto, OrdenCompra, OrdenCompraUnidad, OrdenCompraFormData, CategoriaProducto, NotificacionInsert } from '../../types';
+import { XMarkIcon, CheckIcon, PlusCircleIcon, TrashIcon, ArrowPathIcon, CalendarDaysIcon, TagIcon, ExclamationTriangleIcon, ClipboardDocumentListIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../core/LoadingSpinner';
 import { v4 as uuidv4 } from 'uuid';
 import { useOrderCalculations } from '../../hooks/useOrderCalculations';
@@ -21,7 +21,6 @@ interface DirectProductLineItem {
   newProduct_categoria_id: number | null;
   newProduct_codigo_interno?: string;
   newProduct_unidad_medida?: string;
-  // Almacenar temporalmente el nuevo nombre de categoría si el usuario está creando una
   newProduct_new_category_name_input?: string; // Entrada para nuevo nombre de categoría
 
   // Campos comunes para el detalle de la orden
@@ -31,7 +30,6 @@ interface DirectProductLineItem {
   // Descripción a mostrar (derivada)
   display_descripcion?: string;
 }
-
 
 interface DirectOrderFormProps {
   show: boolean;
@@ -72,10 +70,8 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
   const [mismatchedProducts, setMismatchedProducts] = useState<{productName: string, categoryId: number, categoryName: string}[]>([]);
   const [addingCategories, setAddingCategories] = useState(false);
 
-
   const [formData, setFormData] = useState<Partial<OrdenCompraFormData>>({
     proveedor_id: undefined, unidad: 'Bs', retencion_porcentaje: 75,
-    sub_total: 0, iva: 0, ret_iva: 0, neto_a_pagar: 0,
     estado: 'Pendiente', observaciones: '', fecha_entrega_estimada: null,
   });
   const [loadingInitialData, setLoadingInitialData] = useState(false);
@@ -124,7 +120,6 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       loadInitialData();
     } else {
       setProductos([initialLineItemState()]);
-      setFormData({ proveedor_id: undefined, unidad: 'Bs', retencion_porcentaje: 75, sub_total: 0, iva: 0, ret_iva: 0, neto_a_pagar: 0, estado: 'Pendiente', observaciones: '', fecha_entrega_estimada: null });
       setError(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,18 +144,6 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     }
   }, [formData.proveedor_id, proveedores]);
 
-
-  useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      sub_total: calculatedTotals.sub_total,
-      iva: calculatedTotals.iva,
-      ret_iva: calculatedTotals.ret_iva,
-      neto_a_pagar: calculatedTotals.neto_a_pagar,
-    }));
-  }, [calculatedTotals]);
-
-
   const handleAddProductLine = () => {
     setProductos(prev => [...prev, initialLineItemState()]);
   };
@@ -180,23 +163,21 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
         if (field === 'selected_producto_id') {
           const selectedDbProd = fetchedDbProducts.find(dbP => dbP.id === Number(value));
           updatedItem.display_descripcion = selectedDbProd?.descripcion || '';
-          updatedItem.newProduct_descripcion = ''; // Limpiar descripción de nuevo producto
+          updatedItem.newProduct_descripcion = ''; 
           updatedItem.isNewProduct = false;
           updatedItem.newProduct_categoria_id = selectedDbProd?.categoria_id || null;
         } else if (field === 'newProduct_descripcion') {
             updatedItem.display_descripcion = value;
-            // Si el usuario comienza a escribir una nueva descripción, asegurar que esté en modo "nuevo producto"
             if (!updatedItem.isNewProduct && !updatedItem.selected_producto_id) {
                 updatedItem.isNewProduct = true;
             }
         } else if (field === 'isNewProduct') {
-            if (value === true) { // Cambiando a modo nuevo producto
+            if (value === true) {
                 updatedItem.selected_producto_id = null;
                 updatedItem.display_descripcion = updatedItem.newProduct_descripcion || '';
-            } else { // Cambiando a modo producto existente
+            } else {
                 updatedItem.newProduct_descripcion = '';
                 updatedItem.newProduct_categoria_id = null;
-                // display_descripcion se establecerá si/cuando se seleccione un producto
                 updatedItem.display_descripcion = '';
             }
         }
@@ -233,7 +214,6 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     setSubmittingCategory(true);
     setCategoryError(null);
     try {
-      // FIX: Cast from() to any to resolve 'never' type error during insert.
       const { data: newCategory, error: insertError } = await (supabase
         .from('categoria_producto') as any)
         .insert({ nombre: newCategoryNameInput.trim() })
@@ -241,9 +221,8 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
         .single();
       if (insertError) throw insertError;
       
-      await fetchProductCategories(); // Refrescar lista de categorías
+      await fetchProductCategories(); 
 
-      // FIX: Cast newCategory to any for property access since it was inserted via any-casted from().
       if (newCategory && currentLineItemIdForNewCategory) {
         setProductos(prevItems => prevItems.map(item =>
           item.id === currentLineItemIdForNewCategory
@@ -263,7 +242,6 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     }
   };
 
-
   const processOrderCreation = async () => {
     setError(null);
     setSubmittingOrder(true);
@@ -275,10 +253,9 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       setError("Debe seleccionar un proveedor."); setSubmittingOrder(false); return;
     }
 
-    if ((formData.neto_a_pagar || 0) <= 0) {
+    if (calculatedTotals.neto_a_pagar <= 0) {
       setError("El total de la orden de compra no puede ser 0 o menor. Verifique las cantidades y precios.");
-      setSubmittingOrder(false);
-      return;
+      setSubmittingOrder(false); return;
     }
     
     if (productos.length === 0 || productos.some(p => 
@@ -291,7 +268,6 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     }
 
     try {
-      // FIX: Cast from() to any to resolve 'never' type error during insert.
       const { data: solicitudData, error: solError } = await (supabase
         .from('solicitudcompra') as any)
         .insert({
@@ -299,30 +275,32 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
           estado: 'Aprobada', empleado_id: userProfile.empleado_id, departamento_id: userProfile.departamento_id,
         }).select('id').single();
       if (solError) throw solError;
-      // FIX: Cast solicitudData to any for property access.
-      if (!solicitudData) throw new Error("No se pudo crear la solicitud base para la orden directa.");
       const solicitudBaseId = (solicitudData as any).id;
 
-      const ordenPayload: Omit<OrdenCompra, 'id'|'fecha_modificacion'|'detalles'|'empleado'|'proveedor'|'solicitud_compra' | 'factura' | 'created_at' | 'updated_at' | 'fecha_orden'> = {
-        solicitud_compra_id: solicitudBaseId, proveedor_id: Number(formData.proveedor_id),
-        estado: formData.estado || 'Pendiente', sub_total: formData.sub_total || 0,
-        iva: formData.iva || 0, ret_iva: formData.ret_iva || 0, neto_a_pagar: formData.neto_a_pagar || 0,
-        unidad: formData.unidad as OrdenCompraUnidad || 'Bs', observaciones: formData.observaciones || null,
+      const ordenPayload: any = {
+        solicitud_compra_id: solicitudBaseId, 
+        proveedor_id: Number(formData.proveedor_id),
+        estado: formData.estado || 'Pendiente', 
+        sub_total: calculatedTotals.sub_total || 0,
+        iva: calculatedTotals.iva || 0, 
+        ret_iva: calculatedTotals.ret_iva || 0, 
+        neto_a_pagar: calculatedTotals.neto_a_pagar || 0,
+        unidad: formData.unidad || 'Bs', 
+        observaciones: formData.observaciones || null,
         empleado_id: userProfile.empleado_id,
         retencion_porcentaje: formData.retencion_porcentaje === null ? 0 : formData.retencion_porcentaje,
-        precio_unitario: 0, changed_by: userProfile.empleado_id,
-        fecha_entrega_estimada: formData.fecha_entrega_estimada || null, fecha_entrega_real: null
+        precio_unitario: 0, 
+        changed_by: userProfile.empleado_id,
+        fecha_entrega_estimada: formData.fecha_entrega_estimada || null, 
+        fecha_orden: new Date().toISOString()
       };
-      // FIX: Cast from() to any to resolve 'never' type error during insert.
-      const { data: ordenData, error: ordenError } = await (supabase.from('ordencompra') as any).insert(ordenPayload).select('id, neto_a_pagar').single();
+
+      const { data: ordenData, error: ordenError } = await (supabase.from('ordencompra') as any).insert(ordenPayload).select('id, neto_a_pagar, codigo_visible').single();
       if (ordenError) throw ordenError;
-      // FIX: Cast ordenData to any for property access.
-      if (!ordenData) throw new Error("No se pudo crear la orden de compra.");
       const ordenId = (ordenData as any).id;
 
       const detallesOrdenPayload = await Promise.all(productos.map(async p => {
         let productoRealId = p.selected_producto_id;
-        // let productoDescripcionFinal = p.display_descripcion; // No usado ya que 'descripcion_producto_personalizado' se eliminó
 
         if (p.isNewProduct) {
           const newProdData: Partial<Producto> = {
@@ -331,28 +309,23 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
             codigo_interno: p.newProduct_codigo_interno || null,
             unidad_medida: p.newProduct_unidad_medida || null,
           };
-          // FIX: Cast from() to any to resolve 'never' type error during insert.
-          const { data: newProd, error: newProdError } = await (supabase.from('producto') as any).insert(newProdData).select('id, descripcion').single();
+          const { data: newProd, error: newProdError } = await (supabase.from('producto') as any).insert(newProdData).select('id').single();
           if (newProdError) throw new Error(`Error creando producto '${p.newProduct_descripcion}': ${newProdError.message}`);
-          // FIX: Cast newProd to any for property access.
-          if (!newProd) throw new Error(`No se pudo crear el producto '${p.newProduct_descripcion}'.`);
           productoRealId = (newProd as any).id;
-          // productoDescripcionFinal = (newProd as any).descripcion; // No usado para el payload
         }
-        if (!productoRealId) throw new Error("Producto inválido en la línea de orden.");
 
         return {
-          orden_compra_id: ordenId, producto_id: productoRealId,
-          cantidad: Number(p.quantity), precio_unitario: Number(p.precio_unitario),
-          // descripcion_producto_personalizado: p.isNewProduct ? productoDescripcionFinal : null, // REMOVED
+          orden_compra_id: ordenId, 
+          producto_id: productoRealId,
+          cantidad: Number(p.quantity), 
+          precio_unitario: Number(p.precio_unitario),
+          descripcion_producto_personalizado: p.isNewProduct ? p.display_descripcion : null
         };
       }));
 
-      // FIX: Cast from() to any to resolve 'never' type error during insert.
       const { error: detallesError } = await (supabase.from('ordencompra_detalle') as any).insert(detallesOrdenPayload);
       if (detallesError) throw detallesError;
 
-      // FIX: Cast from() to any to resolve 'never' type error during insert.
       await (supabase.from('orden_solicitud') as any).insert({ ordencompra_id: ordenId, solicitud_id: solicitudBaseId });
 
       // --- Notificaciones ---
@@ -360,23 +333,20 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       const adminUserIds = await fetchAdminUserIds();
       const selectedProvider = proveedores.find(p => p.id === Number(formData.proveedor_id));
 
-
       if (adminUserIds.length > 0) {
         notificationsToCreate.push(...adminUserIds.map(adminId => ({
           user_id: adminId,
-          title: 'Nueva Orden de Compra Directa Creada',
-          description: `Se ha creado la orden directa #${ordenId}. Proveedor: ${selectedProvider?.nombre || 'N/D'}. Total: ${(ordenData as any).neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
-          type: 'orden_creada', // Usando 'orden_creada' genérico
-          // related_id: ordenId, // Eliminado
+          title: 'Nueva Orden de Compra Directa',
+          description: `Se ha creado la orden #${ordenData.codigo_visible || ordenId}. Proveedor: ${selectedProvider?.nombre || 'N/D'}. Total: ${ordenData.neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
+          type: 'orden_creada',
         })));
 
-        if ((ordenData as any).neto_a_pagar > THRESHOLD_ORDEN_GRANDE) {
+        if (ordenData.neto_a_pagar > THRESHOLD_ORDEN_GRANDE) {
           notificationsToCreate.push(...adminUserIds.map(adminId => ({
             user_id: adminId,
             title: 'Alerta de Gasto Elevado en Orden Directa',
-            description: `La orden directa #${ordenId} supera el umbral (${THRESHOLD_ORDEN_GRANDE.toLocaleString('es-VE')} Bs) con un total de ${(ordenData as any).neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
+            description: `La orden #${ordenId} supera el umbral con un total de ${ordenData.neto_a_pagar.toLocaleString('es-VE')} ${formData.unidad || 'Bs'}.`,
             type: 'alerta_gasto_orden',
-            // related_id: ordenId, // Eliminado
           })));
         }
       }
@@ -388,15 +358,9 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
       onSuccess({ id: ordenId });
       onHide();
 
-    } catch (err) {
-      const supabaseError = err as { code?: string; message: string };
-      const defaultMessage = "Error desconocido al crear la orden directa.";
-      if (supabaseError.code === '23505') {
-           setError(`Error al crear la orden directa: Ya existe un registro con un valor único similar. (${supabaseError.message || defaultMessage})`);
-      } else {
-          setError(`Error al crear la orden directa: ${supabaseError.message || defaultMessage}`);
-      }
-      console.error("Error creating direct order:", err);
+    } catch (err: any) {
+      setError(`Error al crear la orden directa: ${err.message || "Error desconocido"}`);
+      console.error(err);
     } finally {
       setSubmittingOrder(false);
     }
@@ -409,15 +373,11 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
         proveedor_id: Number(formData.proveedor_id),
         categoria_id: m.categoryId
       }));
-      
-      // Use upsert or ignore duplicates
-      const { error } = await supabase.from('proveedor_categoria').upsert(categoriesToAdd, { onConflict: 'proveedor_id,categoria_id', ignoreDuplicates: true });
-      if (error) throw error;
-      
+      await supabase.from('proveedor_categoria').upsert(categoriesToAdd, { onConflict: 'proveedor_id,categoria_id', ignoreDuplicates: true });
       setShowCategoryWarning(false);
       await processOrderCreation();
     } catch (err) {
-      console.error("Error adding categories:", err);
+      console.error(err);
       alert("Error al actualizar categorías del proveedor.");
     } finally {
       setAddingCategories(false);
@@ -428,7 +388,6 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     e.preventDefault();
     if (!formData.proveedor_id) return;
 
-    // Check for category mismatches
     const mismatches: {productName: string, categoryId: number, categoryName: string}[] = [];
     const mismatchedCategoryIds = new Set<number>();
 
@@ -449,16 +408,11 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
 
       if (catId && !providerCategories.has(catId)) {
         mismatchedCategoryIds.add(catId);
-        mismatches.push({
-          productName: prodName,
-          categoryId: catId,
-          categoryName: 'Cargando...'
-        });
+        mismatches.push({ productName: prodName, categoryId: catId, categoryName: 'Cargando...' });
       }
     }
 
     if (mismatches.length > 0) {
-      // Fetch category names
       const { data: catData } = await supabase.from('categoria_producto').select('id, nombre').in('id', Array.from(mismatchedCategoryIds));
       if (catData) {
         mismatches.forEach(m => {
@@ -474,198 +428,242 @@ export const DirectOrderForm: React.FC<DirectOrderFormProps> = ({ show, onHide, 
     await processOrderCreation();
   };
 
-  
-  const inputFieldClasses = "block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
-  const smallInputFieldClasses = "block w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white";
-
+  const inputClasses = "block w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all";
+  const smallInputClasses = "block w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all";
 
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center p-4 sm:p-5 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Crear Orden de Compra Directa</h3>
-          <button onClick={onHide} disabled={submittingOrder} className="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md">
-            <XMarkIcon className="w-6 h-6" />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-pop-in">
+        
+        {/* Header */}
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-2xl text-primary-600 dark:text-primary-400">
+               <ClipboardDocumentListIcon className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-display font-black text-slate-900 dark:text-white uppercase tracking-tight">Crear Orden Directa</h3>
+              <p className="text-sm text-slate-500 font-medium">Genere una nueva orden de compra sin requerimiento previo</p>
+            </div>
+          </div>
+          <button onClick={onHide} disabled={submittingOrder} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-white/10">
+            <XMarkIcon className="w-8 h-8" />
           </button>
         </div>
 
-        {(loadingInitialData && productos.length === 1 && !productos[0].selected_producto_id && !productos[0].newProduct_descripcion) ? <div className="p-10 flex-grow flex items-center justify-center"><LoadingSpinner message="Cargando formulario..." /></div> : (
-          <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-4 sm:p-5 space-y-5">
-            {error && <div className="p-3 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 rounded-md text-sm">{error}</div>}
+        {loadingInitialData ? (
+          <div className="flex-grow flex items-center justify-center p-20">
+            <LoadingSpinner message="Inicializando formulario..." />
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-8 space-y-8">
+            {error && (
+              <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 text-red-700 dark:text-red-400 rounded-2xl flex gap-3 items-center">
+                <ExclamationTriangleIcon className="w-6 h-6 shrink-0" />
+                <span className="text-sm font-bold">{error}</span>
+              </div>
+            )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div>
-                <label htmlFor="direct_proveedor_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span className="text-red-500">*</span></label>
-                <select id="direct_proveedor_id" name="proveedor_id" value={formData.proveedor_id || ''} onChange={handleFormInputChange} required
-                    className={inputFieldClasses}
-                    onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione un proveedor.')}
-                    onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}
-                >
-                    <option value="">Seleccionar proveedor...</option>
-                    {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            {/* General Settings */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500 mb-2 ml-1">Proveedor <span className="text-red-500">*</span></label>
+                <select name="proveedor_id" value={formData.proveedor_id || ''} onChange={handleFormInputChange} required className={inputClasses}>
+                  <option value="">Seleccionar proveedor...</option>
+                  {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
-                </div>
-                <div>
-                <label htmlFor="direct_unidad" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unidad Monetaria</label>
-                <select id="direct_unidad" name="unidad" value={formData.unidad || 'Bs'} onChange={handleFormInputChange}
-                    className={inputFieldClasses}>
-                    <option value="Bs">Bolívares (Bs)</option>
-                    <option value="USD">Dólares (USD)</option>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500 mb-2 ml-1">Unidad Monetaria</label>
+                <select name="unidad" value={formData.unidad || 'Bs'} onChange={handleFormInputChange} className={inputClasses}>
+                  <option value="Bs">Bolívares (Bs)</option>
+                  <option value="USD">Dólares (USD)</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500 mb-2 ml-1">Entrega Estimada</label>
+                <div className="relative">
+                  <input type="date" name="fecha_entrega_estimada" value={formData.fecha_entrega_estimada || ''} onChange={handleFormInputChange} className={`${inputClasses} pr-12`} />
+                  <CalendarDaysIcon className="absolute right-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-slate-400 pointer-events-none" />
                 </div>
-                <div>
-                    <label htmlFor="direct_fecha_entrega_estimada" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Entrega Estimada</label>
-                    <div className="relative">
-                        <input type="date" id="direct_fecha_entrega_estimada" name="fecha_entrega_estimada" value={formData.fecha_entrega_estimada || ''} onChange={handleFormInputChange}
-                            className={`${inputFieldClasses} pr-8`} />
-                        <CalendarDaysIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
-                    </div>
-                </div>
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <h4 className="text-md font-semibold text-gray-700 dark:text-gray-200">Productos a Ordenar <span className="text-red-500">*</span></h4>
-              {productos.map((item) => (
-                <div key={item.id} className="p-3 border dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900/40 shadow-sm">
-                  <div className="grid grid-cols-12 gap-x-4 gap-y-3 items-end">
-                    
-                    <div className="col-span-12">
-                       <button type="button" onClick={() => handleProductLineChange(item.id, 'isNewProduct', !item.isNewProduct)}
-                        className={`w-full text-left px-2 py-1 text-xs rounded-md ${item.isNewProduct ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}>
-                        {item.isNewProduct ? 'Modo: Creando Nuevo Producto' : 'Modo: Seleccionando Producto Existente'}
-                     </button>
-                    </div>
-
-                    {item.isNewProduct ? (
-                      <>
-                        <div className="col-span-12 md:col-span-7">
-                           <label htmlFor={`newDesc-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Descripción Nuevo Producto <span className="text-red-500">*</span></label>
-                           <input type="text" id={`newDesc-${item.id}`} value={item.newProduct_descripcion} onChange={(e) => handleProductLineChange(item.id, 'newProduct_descripcion', e.target.value)} required
-                               className={`mt-0.5 ${smallInputFieldClasses}`} placeholder="Nombre del nuevo producto"
-                               onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese la descripción del nuevo producto.')}
-                               onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                           />
-                        </div>
-                        <div className="col-span-12 md:col-span-5">
-                            <label htmlFor={`newCat-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Categoría <span className="text-red-500">*</span></label>
-                            <div className="flex items-center space-x-1"><select id={`newCat-${item.id}`} value={item.newProduct_categoria_id || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_categoria_id', e.target.value ? Number(e.target.value) : null)} required
-                                        className={`mt-0.5 ${smallInputFieldClasses}`}
-                                        onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione una categoría para el nuevo producto.')}
-                                        onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}
-                                >
-                                    <option value="">-- Seleccionar --</option>
-                                    {productCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.nombre}</option>)}
-                                </select>
-                                <button type="button" onClick={() => handleOpenNewCategoryModal(item.id)} title="Añadir Nueva Categoría"
-                                        className="p-1.5 mt-0.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 rounded-md hover:bg-green-100 dark:hover:bg-green-700/50">
-                                    <TagIcon className="w-4 h-4"/>
-                                </button>
-                            </div>
-                        </div>
-                         <div className="col-span-12 md:col-span-7">
-                            <label htmlFor={`newCod-${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cód. Interno (Opc.)</label>
-                            <input type="text" id={`newCod-${item.id}`} value={item.newProduct_codigo_interno || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_codigo_interno', e.target.value)}
-                                   className={`mt-0.5 ${smallInputFieldClasses}`} />
-                        </div>
-                      </>
-                    ) : (
-                      <div className="col-span-12 md:col-span-7">
-                        <label htmlFor={`d_prod_sel_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Producto Existente <span className="text-red-500">*</span></label>
-                        <select id={`d_prod_sel_${item.id}`} value={item.selected_producto_id || ''} onChange={(e) => handleProductLineChange(item.id, 'selected_producto_id', e.target.value ? Number(e.target.value) : null)} required={!item.isNewProduct}
-                                className={`mt-0.5 ${smallInputFieldClasses}`}
-                                onInvalid={(e) => (e.target as HTMLSelectElement).setCustomValidity('Por favor, seleccione un producto existente.')}
-                                onInput={(e) => (e.target as HTMLSelectElement).setCustomValidity('')}
-                        >
-                          <option value="">-- Seleccionar Producto --</option>
-                          {fetchedDbProducts.map(p => <option key={p.id} value={p.id}>{p.descripcion}</option>)}
-                        </select>
-                      </div>
-                    )}
-
-                    <div className="col-span-6 md:col-span-2">
-                        <label htmlFor={`d_qty_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Cantidad <span className="text-red-500">*</span></label>
-                        <input type="number" id={`d_qty_${item.id}`} value={item.quantity} min="1" onChange={(e) => handleProductLineChange(item.id, 'quantity', Number(e.target.value))}
-                               className={`mt-0.5 ${smallInputFieldClasses}`} required
-                               onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese una cantidad.')}
-                               onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                        />
-                    </div>
-                    <div className="col-span-6 md:col-span-2">
-                        <label htmlFor={`d_price_${item.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400">Precio Unit. <span className="text-red-500">*</span></label>
-                        <input type="number" id={`d_price_${item.id}`} value={item.precio_unitario} step="0.01" min="0" onChange={(e) => handleProductLineChange(item.id, 'precio_unitario', Number(e.target.value))}
-                               className={`mt-0.5 ${smallInputFieldClasses}`} required
-                               onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Por favor, ingrese un precio unitario.')}
-                               onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                        />
-                    </div>
-                    <div className="col-span-12 md:col-span-1 flex justify-end">
-                      <button type="button" onClick={() => handleRemoveProductLine(item.id)}
-                              className="p-1.5 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded-md hover:bg-red-100 dark:hover:bg-red-900 self-center" title="Eliminar producto" disabled={submittingOrder}>
+            {/* Products Section */}
+            <div className="space-y-4">
+              <h4 className="text-lg font-display font-bold text-slate-800 dark:text-slate-200 px-1">Productos a Ordenar</h4>
+              
+              <div className="grid gap-4">
+                {productos.map((item) => (
+                  <div key={item.id} className="group relative p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-sm hover:border-primary-300 dark:hover:border-primary-700 transition-all duration-300">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <button type="button" onClick={() => handleProductLineChange(item.id, 'isNewProduct', !item.isNewProduct)}
+                          className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${item.isNewProduct ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/30' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                          {item.isNewProduct ? 'Nuevo Producto' : 'Producto Existente'}
+                        </button>
+                        
+                        <button type="button" onClick={() => handleRemoveProductLine(item.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100" disabled={submittingOrder}>
                           <TrashIcon className="w-5 h-5" />
-                      </button>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-12 gap-x-6 gap-y-4 items-end">
+                        {item.isNewProduct ? (
+                          <>
+                            <div className="col-span-12 md:col-span-7">
+                              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 ml-1">Descripción <span className="text-red-500">*</span></label>
+                              <input type="text" value={item.newProduct_descripcion} onChange={(e) => handleProductLineChange(item.id, 'newProduct_descripcion', e.target.value)} required
+                                className={smallInputClasses} placeholder="Nombre del producto" />
+                            </div>
+                            <div className="col-span-12 md:col-span-5">
+                              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 ml-1">Categoría <span className="text-red-500">*</span></label>
+                              <div className="flex items-center gap-2">
+                                <select value={item.newProduct_categoria_id || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_categoria_id', Number(e.target.value))} required
+                                  className={smallInputClasses}>
+                                  <option value="">Seleccionar...</option>
+                                  {productCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.nombre}</option>)}
+                                </select>
+                                <button type="button" onClick={() => handleOpenNewCategoryModal(item.id)} className="p-2.5 bg-green-50 dark:bg-green-900/20 text-green-600 rounded-xl hover:bg-green-100 transition-colors">
+                                  <PlusCircleIcon className="w-5 h-5"/>
+                                </button>
+                              </div>
+                            </div>
+                            <div className="col-span-12 md:col-span-7">
+                                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 ml-1">Código Interno / Unidad Medida (Opc.)</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input type="text" value={item.newProduct_codigo_interno || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_codigo_interno', e.target.value)} className={smallInputClasses} placeholder="Código" />
+                                    <input type="text" value={item.newProduct_unidad_medida || ''} onChange={(e) => handleProductLineChange(item.id, 'newProduct_unidad_medida', e.target.value)} className={smallInputClasses} placeholder="Unidad (Pza, Kg...)" />
+                                </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="col-span-12 md:col-span-7">
+                            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 ml-1">Buscar en Catálogo <span className="text-red-500">*</span></label>
+                            <select value={item.selected_producto_id || ''} onChange={(e) => handleProductLineChange(item.id, 'selected_producto_id', Number(e.target.value))} required={!item.isNewProduct}
+                              className={smallInputClasses}>
+                              <option value="">-- Buscar Producto --</option>
+                              {fetchedDbProducts.map(p => <option key={p.id} value={p.id}>{p.descripcion}</option>)}
+                            </select>
+                          </div>
+                        )}
+
+                        <div className="col-span-6 md:col-span-2">
+                          <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 ml-1">Cantidad <span className="text-red-500">*</span></label>
+                          <input type="number" value={item.quantity} min="1" onChange={(e) => handleProductLineChange(item.id, 'quantity', Number(e.target.value))}
+                            className={smallInputClasses} required />
+                        </div>
+                        <div className="col-span-6 md:col-span-3">
+                          <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 ml-1">Precio Unitario ({formData.unidad}) <span className="text-red-500">*</span></label>
+                          <input type="number" value={item.precio_unitario} step="0.01" min="0" onChange={(e) => handleProductLineChange(item.id, 'precio_unitario', Number(e.target.value))}
+                            className={smallInputClasses} required placeholder="0.00" />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              <button type="button" onClick={handleAddProductLine} disabled={submittingOrder}
-                className="mt-2 flex items-center px-3 py-1.5 border border-dashed border-gray-400 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none disabled:opacity-50">
-                <PlusCircleIcon className="w-5 h-5 mr-2" />Añadir Otro Producto
+                ))}
+              </div>
+
+              <button type="button" onClick={handleAddProductLine} disabled={submittingOrder} 
+                className="w-full py-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl text-sm font-bold text-slate-400 hover:border-primary-500 hover:text-primary-600 hover:bg-primary-50/30 dark:hover:bg-primary-900/10 transition-all flex items-center justify-center gap-2 group">
+                <PlusCircleIcon className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                Añadir Otro Producto
               </button>
             </div>
 
-            <div className="p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg space-y-2 border dark:border-gray-600">
-                <h4 className="text-md font-semibold text-gray-800 dark:text-gray-100 mb-2">Resumen de Pago</h4>
-                <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300"><span>Subtotal:</span><span>{formData.sub_total?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div>
-                <div className="flex justify-between text-sm text-gray-700 dark:text-gray-300"><span>IVA (16%):</span><span>{formData.iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div>
-                <div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300"><label htmlFor="direct_retencion_porcentaje" className="whitespace-nowrap mr-2">Retención IVA (%):</label><input type="number" id="direct_retencion_porcentaje" name="retencion_porcentaje" value={formData.retencion_porcentaje === null ? '' : formData.retencion_porcentaje} min="0" max="100" onChange={handleFormInputChange} className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500" /><span className="ml-auto">{formData.ret_iva?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div>
-                <div className="flex justify-between text-md font-bold text-gray-900 dark:text-white pt-2 border-t dark:border-gray-600"><span>Neto a Pagar:</span><span>{formData.neto_a_pagar?.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} {formData.unidad}</span></div>
+            {/* Payment Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start pt-6">
+              <div className="space-y-4">
+                <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500 mb-2 ml-1">Observaciones Finales</label>
+                <textarea name="observaciones" value={formData.observaciones || ''} onChange={handleFormInputChange} rows={6} 
+                  className={`${inputClasses} resize-none`} placeholder="Condiciones, plazos, lugar de entrega..."/>
+              </div>
+
+              <div className="p-8 bg-slate-50 dark:bg-slate-950/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 space-y-4 shadow-inner">
+                <h4 className="text-lg font-display font-black text-slate-900 dark:text-white mb-4 border-b dark:border-slate-800 pb-4 uppercase tracking-tighter">Resumen de Liquidación</h4>
+                
+                <div className="flex justify-between text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  <span>Monto Imponible (Subtotal):</span>
+                  <span className="text-slate-900 dark:text-white">{calculatedTotals.sub_total.toLocaleString('es-VE', { minimumFractionDigits: 2 })} {formData.unidad}</span>
+                </div>
+                
+                <div className="flex justify-between text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  <span>IVA Aplicable (16%):</span>
+                  <span className="text-slate-900 dark:text-white">{calculatedTotals.iva.toLocaleString('es-VE', { minimumFractionDigits: 2 })} {formData.unidad}</span>
+                </div>
+
+                <div className="flex justify-between items-center py-2 border-y border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase">Porcentaje Retención:</span>
+                    <input type="number" name="retencion_porcentaje" value={formData.retencion_porcentaje === null ? '' : formData.retencion_porcentaje} min="0" max="100" onChange={handleFormInputChange} 
+                      className="w-14 p-1 text-center border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold dark:bg-slate-800" />
+                    <span className="text-xs font-bold text-slate-400">%</span>
+                  </div>
+                  <span className="text-sm font-bold text-red-500">-{calculatedTotals.ret_iva.toLocaleString('es-VE', { minimumFractionDigits: 2 })} {formData.unidad}</span>
+                </div>
+
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-lg font-display font-black text-primary-700 dark:text-primary-400 uppercase">Monto Neto a Pagar:</span>
+                  <span className="text-3xl font-display font-black text-primary-600 dark:text-primary-400">{calculatedTotals.neto_a_pagar.toLocaleString('es-VE', { minimumFractionDigits: 2 })} {formData.unidad}</span>
+                </div>
+              </div>
             </div>
-            <div><label htmlFor="direct_observaciones" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observaciones</label><textarea id="direct_observaciones" name="observaciones" value={formData.observaciones || ''} onChange={handleFormInputChange} rows={3} className={inputFieldClasses} placeholder="Condiciones de pago, tiempo de entrega, etc."/></div>
-            <div className="pt-5 flex justify-end space-x-3 sticky bottom-0 bg-white dark:bg-gray-800 py-3 z-10 border-t dark:border-gray-700"><button type="button" onClick={onHide} disabled={submittingOrder} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">Cancelar</button><button type="submit" disabled={submittingOrder || loadingInitialData} className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none disabled:opacity-50">{submittingOrder ? <ArrowPathIcon className="w-5 h-5 animate-spin mr-2" /> : <CheckIcon className="w-5 h-5 mr-1.5 -ml-1" />}{submittingOrder ? "Creando..." : "Crear Orden Directa"}</button></div>
+
+            {/* Actions */}
+            <div className="pt-8 flex justify-end gap-4 border-t border-slate-100 dark:border-slate-800">
+              <button type="button" onClick={onHide} disabled={submittingOrder} 
+                className="px-8 py-4 text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-colors">
+                Regresar
+              </button>
+              <button type="submit" disabled={submittingOrder} 
+                className="px-10 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl font-black text-sm transition-all shadow-xl shadow-primary-500/25 disabled:opacity-50 flex items-center gap-3">
+                {submittingOrder ? <ArrowPathIcon className="w-6 h-6 animate-spin" /> : <CheckIcon className="w-6 h-6" />}
+                {submittingOrder ? "Procesando Orden..." : "Generar Orden Compra"}
+              </button>
+            </div>
           </form>
         )}
       </div>
+
+      {/* New Category Modal */}
       {showNewCategoryModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <form onSubmit={handleSaveNewCategory} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm">
-                <h4 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-100">Añadir Nueva Categoría de Producto</h4>
-                {categoryError && <p className="text-xs text-red-500 mb-2">{categoryError}</p>}
-                <div><label htmlFor="newCategoryNameInputModal" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre Categoría <span className="text-red-500">*</span></label><input type="text" id="newCategoryNameInputModal" value={newCategoryNameInput} onChange={(e) => setNewCategoryNameInput(e.target.value)} required className={`mt-1 w-full px-3 py-2 border ${inputFieldClasses}`} /></div>
-                <div className="mt-4 flex justify-end space-x-2"><button type="button" onClick={() => setShowNewCategoryModal(false)} disabled={submittingCategory} className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none">Cancelar</button><button type="submit" disabled={submittingCategory} className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 border border-transparent rounded-md shadow-sm focus:outline-none flex items-center">{submittingCategory && <ArrowPathIcon className="w-4 h-4 animate-spin mr-1.5"/>}Guardar Categoría</button></div>
-            </form>
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-fade-in">
+          <form onSubmit={handleSaveNewCategory} className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 animate-pop-in">
+            <div className="mb-6">
+              <h4 className="text-xl font-display font-black text-slate-900 dark:text-white uppercase tracking-tight">Añadir Categoría</h4>
+              <p className="text-xs text-slate-500 mt-1 font-medium">Nueva clasificación para el catálogo</p>
+            </div>
+            {categoryError && <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs font-bold rounded-xl border border-red-100">{categoryError}</div>}
+            <input type="text" value={newCategoryNameInput} onChange={(e) => setNewCategoryNameInput(e.target.value)} required placeholder="Nombre de la categoría..." className={inputClasses} autoFocus />
+            <div className="mt-8 flex gap-3">
+              <button type="button" onClick={() => setShowNewCategoryModal(false)} className="flex-1 py-3 text-sm font-bold text-slate-500">Regresar</button>
+              <button type="submit" disabled={submittingCategory} className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black text-sm shadow-lg shadow-green-500/20">
+                {submittingCategory ? 'Guardando...' : 'Crear Categoría'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
-      
+
       {/* Category Warning Modal */}
       {showCategoryWarning && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-70 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
-            <div className="flex items-center gap-3 mb-4 text-amber-600 dark:text-amber-500">
-              <ExclamationTriangleIcon className="w-8 h-8" />
-              <h4 className="text-lg font-bold">Advertencia de Categoría</h4>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-lg p-8 border border-amber-200 dark:border-amber-900/50 animate-pop-in">
+            <div className="flex items-center gap-4 text-amber-600 mb-6">
+              <div className="p-4 bg-amber-100 dark:bg-amber-900/30 rounded-2xl">
+                <TagIcon className="w-8 h-8" />
+              </div>
+              <h4 className="text-2xl font-display font-black text-slate-900 dark:text-white uppercase tracking-tight">Categorías faltantes</h4>
             </div>
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-              Los siguientes productos pertenecen a categorías que este proveedor no tiene registradas:
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 font-medium leading-relaxed">
+              Algunos productos tienen categorías que el proveedor no maneja. ¿Desea vincular estas categorías automáticamente al perfil del proveedor?
             </p>
-            <ul className="list-disc pl-5 mb-4 text-sm text-gray-600 dark:text-gray-400 max-h-40 overflow-y-auto">
-              {mismatchedProducts.map((m, idx) => (
-                <li key={idx}>
-                  <span className="font-semibold">{m.productName}</span> - Categoría: {m.categoryName}
-                </li>
-              ))}
-            </ul>
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
-              ¿Desea añadir estas categorías al proveedor y continuar con la orden?
-            </p>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setShowCategoryWarning(false)} className="px-4 py-2 border rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-                Cancelar
-              </button>
-              <button onClick={handleAddCategoriesAndProceed} disabled={addingCategories} className="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 flex items-center">
-                {addingCategories && <ArrowPathIcon className="w-4 h-4 animate-spin mr-2" />}
-                Añadir Categorías y Continuar
+            <div className="flex gap-4">
+              <button onClick={() => setShowCategoryWarning(false)} className="flex-1 py-4 text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-2xl transition-all">Cancelar</button>
+              <button onClick={handleAddCategoriesAndProceed} className="flex-1 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl font-black text-sm shadow-lg shadow-primary-500/20 transition-all">
+                Vincular y Continuar
               </button>
             </div>
           </div>

@@ -112,14 +112,21 @@ const RequestTable: React.FC<RequestTableProps> = ({
         <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
           {requests.map(request => {
             const isOwnRequest = currentEmpleadoId === request.empleado_id;
+            const isRezagado = request.descripcion && request.descripcion.includes('[REZAGADO]');
+            const rowClasses = isRezagado
+              ? `bg-red-50 dark:bg-red-900/10 border-l-4 border-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`
+              : `hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`;
 
             return (
               <tr
                 key={request.id}
-                className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                className={rowClasses}
                 onClick={() => typeof onRowClick === 'function' && onRowClick(request)}
               >
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">#{request.codigo_visible || request.id}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">
+                  #{request.codigo_visible || request.id}
+                  {isRezagado && <span className="ml-2 px-2 py-0.5 text-[10px] font-black tracking-widest uppercase bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 rounded-full inline-block mt-1 sm:mt-0">Rezago</span>}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300 truncate max-w-xs">{getDisplayDescription(request)}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{request.departamento?.nombre || 'N/D'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
@@ -166,8 +173,8 @@ const RequestTable: React.FC<RequestTableProps> = ({
                             }
                           }}
                           className={`p-1.5 rounded-md transition-colors ${isOwnRequest
-                              ? 'text-gray-400 cursor-not-allowed opacity-50'
-                              : 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700'
+                            ? 'text-gray-400 cursor-not-allowed opacity-50'
+                            : 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-100 dark:hover:bg-green-700'
                             }`}
                           title={isOwnRequest ? "No puedes aprobar tu propia solicitud" : "Aprobar"}
                           disabled={isOwnRequest}
